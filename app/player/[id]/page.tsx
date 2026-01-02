@@ -135,6 +135,30 @@ export default function PlayerPage({ params }: { params: { id: string } }) {
         </div>
     );
 
+
+    const QuestTab = () => (
+        <div className="space-y-4">
+            <h3 className="mb-2 flex items-center gap-2 text-sm font-bold uppercase text-fantasy-muted">
+                <ScrollText size={16} /> Active Quests
+            </h3>
+            {quests.length === 0 ? (
+                <p className="text-sm italic text-fantasy-muted">No active quests.</p>
+            ) : (
+                <div className="space-y-2">
+                    {quests.map(quest => (
+                        <div key={quest.id} className={`rounded bg-fantasy-bg p-3 border border-fantasy-muted/10 ${quest.status === 'completed' ? 'border-green-500/30' : ''}`}>
+                            <div className="flex items-center justify-between mb-1">
+                                <span className={`font-bold ${quest.status === 'completed' ? 'text-green-400 line-through' : 'text-fantasy-gold'}`}>{quest.title}</span>
+                                {quest.status === 'completed' && <span className="text-xs bg-green-900/30 text-green-400 px-2 rounded">Complete</span>}
+                            </div>
+                            <p className="text-xs text-fantasy-muted">{quest.description}</p>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+
     return (
         <div className="flex h-screen flex-col overflow-hidden bg-fantasy-dark">
             <WorldCounter />
@@ -162,76 +186,26 @@ export default function PlayerPage({ params }: { params: { id: string } }) {
                     </div>
                 </div>
 
-  const QuestTab = () => (
-                <div className="space-y-4">
-                    <h3 className="mb-2 flex items-center gap-2 text-sm font-bold uppercase text-fantasy-muted">
-                        <ScrollText size={16} /> Active Quests
-                    </h3>
-                    {quests.length === 0 ? (
-                        <p className="text-sm italic text-fantasy-muted">No active quests.</p>
-                    ) : (
-                        <div className="space-y-2">
-                            {quests.map(quest => (
-                                <div key={quest.id} className={`rounded bg-fantasy-bg p-3 border border-fantasy-muted/10 ${quest.status === 'completed' ? 'border-green-500/30' : ''}`}>
-                                    <div className="flex items-center justify-between mb-1">
-                                        <span className={`font-bold ${quest.status === 'completed' ? 'text-green-400 line-through' : 'text-fantasy-gold'}`}>{quest.title}</span>
-                                        {quest.status === 'completed' && <span className="text-xs bg-green-900/30 text-green-400 px-2 rounded">Complete</span>}
-                                    </div>
-                                    <p className="text-xs text-fantasy-muted">{quest.description}</p>
-                                </div>
-                            ))}
+                {/* Right Sidebar: Character Sheet */}
+                <div className="flex w-full flex-col border-l border-fantasy-muted/20 bg-fantasy-bg/50 backdrop-blur lg:w-[400px]">
+                    <div className="hidden border-b border-fantasy-muted/20 p-4 lg:flex items-center gap-3 bg-fantasy-bg">
+                        <span className="h-10 w-10 rounded-full bg-fantasy-gold flex items-center justify-center text-fantasy-dark font-bold text-lg">{player.id}</span>
+                        <div>
+                            <h1 className="text-xl font-bold leading-tight">{player.name}</h1>
+                            <p className="text-xs text-fantasy-muted">{player.race} {player.class} • Lvl {player.level}</p>
                         </div>
-                    )}
+                    </div>
+
+                    <Tabs
+                        tabs={[
+                            { label: "Stats", content: <StatsTab /> },
+                            { label: "Inv", content: <InventoryTab /> },
+                            { label: "Party", content: <PartyTab /> },
+                            { label: "Quests", content: <QuestTab /> },
+                        ]}
+                    />
                 </div>
-                );
-
-                return (
-                <div className="flex h-screen flex-col overflow-hidden bg-fantasy-dark">
-                    <WorldCounter />
-
-                    <main className="flex flex-1 flex-col lg:flex-row overflow-hidden">
-                        {/* Mobile: Map on top (collapsible? sticky?), Desktop: Map on left */}
-                        <div className="flex-1 overflow-auto bg-black p-4 lg:w-2/3">
-                            <div className="sticky top-0 z-10 mb-4 bg-fantasy-dark/80 p-2 backdrop-blur lg:hidden text-center text-xs text-fantasy-accent">
-                                Scroll down for Map
-                            </div>
-
-                            <div className="mb-6 lg:mb-0">
-                                <div className="mb-2 flex items-center gap-2 lg:hidden">
-                                    <span className="h-8 w-8 rounded-full bg-fantasy-gold flex items-center justify-center text-fantasy-dark font-bold">{player.id}</span>
-                                    <h1 className="text-xl font-bold">{player.name}</h1>
-                                </div>
-
-                                {/* Character Sheet Area for Mobile/Desktop */}
-                                <div className="h-auto lg:h-full flex flex-col gap-4">
-                                    {/* On desktop, we want map on left, sheet on right? User asked for layout. 
-                   Let's put map in center/left and sheet on right sidebar.
-               */}
-                                    <MapComponent />
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Right Sidebar: Character Sheet */}
-                        <div className="flex w-full flex-col border-l border-fantasy-muted/20 bg-fantasy-bg/50 backdrop-blur lg:w-[400px]">
-                            <div className="hidden border-b border-fantasy-muted/20 p-4 lg:flex items-center gap-3 bg-fantasy-bg">
-                                <span className="h-10 w-10 rounded-full bg-fantasy-gold flex items-center justify-center text-fantasy-dark font-bold text-lg">{player.id}</span>
-                                <div>
-                                    <h1 className="text-xl font-bold leading-tight">{player.name}</h1>
-                                    <p className="text-xs text-fantasy-muted">{player.race} {player.class} • Lvl {player.level}</p>
-                                </div>
-                            </div>
-
-                            <Tabs
-                                tabs={[
-                                    { label: "Stats", content: <StatsTab /> },
-                                    { label: "Inv", content: <InventoryTab /> },
-                                    { label: "Party", content: <PartyTab /> },
-                                    { label: "Quests", content: <QuestTab /> },
-                                ]}
-                            />
-                        </div>
-                    </main>
-                </div>
-                );
+            </main>
+        </div>
+    );
 }
