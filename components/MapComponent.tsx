@@ -20,11 +20,9 @@ export default function MapComponent() {
         In a production app with known domains, Next.js <Image> would be better.
       */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-                src={map.url}
-                alt="Campaign Map"
-                className="h-full w-full object-contain"
+            className="h-full w-full object-cover scale-[1.02] origin-top"
             />
+            {/* Optional: Vignette overlay to hide edges if needed, but scale/cover usually enough for bottom watermark */}
         </div>
     );
 }

@@ -20,6 +20,7 @@ export interface Player {
     equipment: string[];
     spells: string[];
     password?: string; // Optional for now, simple string match
+    position?: { x: number; y: number; };
 }
 
 export interface Quest {
