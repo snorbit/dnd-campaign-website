@@ -11,14 +11,7 @@ const defaultMap: MapData = { url: "" };
 
 const CampaignContext = createContext<CampaignState | undefined>(undefined);
 
-// Debounce helper for database updates to avoid hammering the DB
-const useDebouncedUpdate = (callback: any, delay: number) => {
-    const [timer, setTimer] = useState<NodeJS.Timeout | null>(null);
-    return (...args: any[]) => {
-        if (timer) clearTimeout(timer);
-        setTimer(setTimeout(() => callback(...args), delay));
-    };
-};
+
 
 export const CampaignProvider = ({ children, initialPlayers }: { children: ReactNode, initialPlayers?: Player[] }) => {
     // Initialize state with defaults or props
@@ -61,7 +54,7 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
                     table: 'campaign',
                     filter: 'id=eq.1'
                 },
-                (payload) => {
+                (payload: any) => {
                     const newData = payload.new;
                     if (newData.players) setPlayers(newData.players);
                     if (newData.world) setWorld(newData.world);
@@ -86,7 +79,7 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
     };
 
     const updatePlayer = (id: string, updates: Partial<Player>) => {
-        setPlayers(prev => {
+        setPlayers((prev: Player[]) => {
             const newPlayers = prev.map(p => p.id === id ? { ...p, ...updates } : p);
             pushUpdate('players', newPlayers);
             return newPlayers;
@@ -94,7 +87,7 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
     };
 
     const updateWorld = (updates: Partial<WorldState>) => {
-        setWorld(prev => {
+        setWorld((prev: WorldState) => {
             const newWorld = { ...prev, ...updates };
             pushUpdate('world', newWorld);
             return newWorld;
@@ -107,7 +100,7 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
     };
 
     const addEncounter = (monster: Monster) => {
-        setEncounters(prev => {
+        setEncounters((prev: Monster[]) => {
             const newEncounters = [...prev, monster];
             pushUpdate('encounters', newEncounters);
             return newEncounters;
@@ -115,7 +108,7 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
     };
 
     const removeEncounter = (id: string) => {
-        setEncounters(prev => {
+        setEncounters((prev: Monster[]) => {
             const newEncounters = prev.filter(m => m.id !== id);
             pushUpdate('encounters', newEncounters);
             return newEncounters;
@@ -123,7 +116,7 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
     };
 
     const updateEncounter = (id: string, updates: Partial<Monster>) => {
-        setEncounters(prev => {
+        setEncounters((prev: Monster[]) => {
             const newEncounters = prev.map(m => m.id === id ? { ...m, ...updates } : m);
             pushUpdate('encounters', newEncounters);
             return newEncounters;
@@ -131,7 +124,7 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
     };
 
     const addQuest = (quest: Quest) => {
-        setQuests(prev => {
+        setQuests((prev: Quest[]) => {
             const newQuests = [...prev, quest];
             pushUpdate('quests', newQuests);
             return newQuests;
@@ -139,7 +132,7 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
     };
 
     const updateQuest = (id: string, updates: Partial<Quest>) => {
-        setQuests(prev => {
+        setQuests((prev: Quest[]) => {
             const newQuests = prev.map(q => q.id === id ? { ...q, ...updates } : q);
             pushUpdate('quests', newQuests);
             return newQuests;
