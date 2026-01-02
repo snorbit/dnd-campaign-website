@@ -1,0 +1,59 @@
+[
+    {
+        "id": "1",
+        "name": "Valeros",
+        "class": "Fighter",
+        "race": "Human",
+        "level": 3,
+        "hp": {
+            "current": 28,
+            "max": 28,
+            "temp": 0
+        },
+        "stats": {
+            "str": 16,
+            "dex": 13,
+            "con": 15,
+            "int": 10,
+            "wis": 12,
+            "cha": 8
+        },
+        "equipment": [
+            "Longsword",
+            "Shield",
+            "Chainmail"
+        ],
+        "spells": [],
+        "password": "123"
+    },
+    {
+        "id": "2",
+        "name": "Kyra",
+        "class": "Cleric",
+        "race": "Human",
+        "level": 3,
+        "hp": {
+            "current": 24,
+            "max": 24,
+            "temp": 0
+        },
+        "stats": {
+            "str": 14,
+            "dex": 10,
+            "con": 14,
+            "int": 10,
+            "wis": 16,
+            "cha": 12
+        },
+        "equipment": [
+            "Mace",
+            "Symbol",
+            "Healing Kit"
+        ],
+        "spells": [
+            "Cure Wounds",
+            "Bless"
+        ],
+        "password": "123"
+    }
+]

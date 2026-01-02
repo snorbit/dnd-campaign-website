@@ -1,0 +1,165 @@
+"use client";
+
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { CampaignState, Player, WorldState, MapData, Monster, Quest } from '@/types';
+
+import { supabase } from '@/lib/supabase';
+
+// Default / Fallback Data
+const defaultWorld: WorldState = { day: 1, time: "08:00 AM", session: 1 };
+const defaultMap: MapData = { url: "" };
+
+const CampaignContext = createContext<CampaignState | undefined>(undefined);
+
+// Debounce helper for database updates to avoid hammering the DB
+const useDebouncedUpdate = (callback: any, delay: number) => {
+    const [timer, setTimer] = useState<NodeJS.Timeout | null>(null);
+    return (...args: any[]) => {
+        if (timer) clearTimeout(timer);
+        setTimer(setTimeout(() => callback(...args), delay));
+    };
+};
+
+export const CampaignProvider = ({ children, initialPlayers }: { children: ReactNode, initialPlayers?: Player[] }) => {
+    // Initialize state with defaults or props
+    const [players, setPlayers] = useState<Player[]>(initialPlayers || []);
+    const [world, setWorld] = useState<WorldState>(defaultWorld);
+    const [map, setMap] = useState<MapData>(defaultMap);
+    const [encounters, setEncounters] = useState<Monster[]>([]);
+    const [quests, setQuests] = useState<Quest[]>([]);
+    const [dbId, setDbId] = useState<number>(1); // Default to row 1
+
+    // 1. Initial Fetch
+    useEffect(() => {
+        const fetchData = async () => {
+            const { data, error } = await supabase
+                .from('campaign')
+                .select('*')
+                .eq('id', 1)
+                .single();
+
+            if (data) {
+                if (data.players) setPlayers(data.players);
+                if (data.world) setWorld(data.world);
+                if (data.map) setMap(data.map);
+                if (data.encounters) setEncounters(data.encounters);
+                if (data.quests) setQuests(data.quests);
+            }
+        };
+        fetchData();
+    }, []);
+
+    // 2. Real-Time Subscription
+    useEffect(() => {
+        const channel = supabase
+            .channel('campaign_updates')
+            .on(
+                'postgres_changes',
+                {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'campaign',
+                    filter: 'id=eq.1'
+                },
+                (payload) => {
+                    const newData = payload.new;
+                    if (newData.players) setPlayers(newData.players);
+                    if (newData.world) setWorld(newData.world);
+                    if (newData.map) setMap(newData.map);
+                    if (newData.encounters) setEncounters(newData.encounters);
+                    if (newData.quests) setQuests(newData.quests);
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, []);
+
+    // 3. Database Updates (Optimistic UI + DB Push)
+    // We update local state immediately (UI feels fast), then push to DB.
+
+    // Helper to push changes
+    const pushUpdate = async (column: string, data: any) => {
+        await supabase.from('campaign').update({ [column]: data }).eq('id', 1);
+    };
+
+    const updatePlayer = (id: string, updates: Partial<Player>) => {
+        setPlayers(prev => {
+            const newPlayers = prev.map(p => p.id === id ? { ...p, ...updates } : p);
+            pushUpdate('players', newPlayers);
+            return newPlayers;
+        });
+    };
+
+    const updateWorld = (updates: Partial<WorldState>) => {
+        setWorld(prev => {
+            const newWorld = { ...prev, ...updates };
+            pushUpdate('world', newWorld);
+            return newWorld;
+        });
+    };
+
+    const updateMap = (url: string) => {
+        setMap({ url });
+        pushUpdate('map', { url });
+    };
+
+    const addEncounter = (monster: Monster) => {
+        setEncounters(prev => {
+            const newEncounters = [...prev, monster];
+            pushUpdate('encounters', newEncounters);
+            return newEncounters;
+        });
+    };
+
+    const removeEncounter = (id: string) => {
+        setEncounters(prev => {
+            const newEncounters = prev.filter(m => m.id !== id);
+            pushUpdate('encounters', newEncounters);
+            return newEncounters;
+        });
+    };
+
+    const updateEncounter = (id: string, updates: Partial<Monster>) => {
+        setEncounters(prev => {
+            const newEncounters = prev.map(m => m.id === id ? { ...m, ...updates } : m);
+            pushUpdate('encounters', newEncounters);
+            return newEncounters;
+        });
+    };
+
+    const addQuest = (quest: Quest) => {
+        setQuests(prev => {
+            const newQuests = [...prev, quest];
+            pushUpdate('quests', newQuests);
+            return newQuests;
+        });
+    };
+
+    const updateQuest = (id: string, updates: Partial<Quest>) => {
+        setQuests(prev => {
+            const newQuests = prev.map(q => q.id === id ? { ...q, ...updates } : q);
+            pushUpdate('quests', newQuests);
+            return newQuests;
+        });
+    };
+
+    return (
+        <CampaignContext.Provider value={{
+            players, world, map, encounters, quests,
+            updatePlayer, updateWorld, updateMap,
+            addEncounter, removeEncounter, updateEncounter,
+            addQuest, updateQuest
+        }}>
+            {children}
+        </CampaignContext.Provider>
+    );
+};
+
+export const useCampaign = () => {
+    const context = useContext(CampaignContext);
+    if (!context) throw new Error('useCampaign must be used within a CampaignProvider');
+    return context;
+};
