@@ -25,6 +25,7 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
     // 1. Initial Fetch & Auto-Seed
     useEffect(() => {
         const fetchData = async () => {
+            console.log("CampaignContext: Fetching data from Supabase...");
             const { data, error } = await supabase
                 .from('campaign')
                 .select('*')
@@ -32,13 +33,17 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
                 .single();
 
             if (data) {
+                console.log("CampaignContext: Supabase data received:", data);
                 // Only overwrite if DB has valid data, otherwise keep initialPlayers (server-side JSON)
                 if (data.players && data.players.length > 0) {
+                    console.log("CampaignContext: Using Supabase players");
                     setPlayers(data.players);
                 } else if (initialPlayers && initialPlayers.length > 0) {
                     // DB is empty/stale, but we have local JSON. Auto-push local to DB.
-                    console.log("Auto-seeding database from local JSON...");
+                    console.log("CampaignContext: Auto-seeding database from local JSON...");
                     await supabase.from('campaign').update({ players: initialPlayers }).eq('id', 1);
+                } else {
+                    console.log("CampaignContext: No players found in DB or Local JSON");
                 }
 
                 if (data.world) setWorld(data.world);
@@ -46,7 +51,11 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
                 if (data.encounters) setEncounters(data.encounters);
                 if (data.quests) setQuests(data.quests);
             } else if (initialPlayers && initialPlayers.length > 0) {
-                // No DB row found at all? Create it? (Assuming row 1 exists, but if not, logic implies we should just use local)
+                console.warn("CampaignContext: Supabase empty/failed, using local fallback");
+                // No DB row found? Use local
+                setPlayers(initialPlayers);
+            } else {
+                console.error("CampaignContext: Critical Failure - No data source available.");
             }
         };
         fetchData();

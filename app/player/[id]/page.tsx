@@ -34,6 +34,13 @@ export default function PlayerPage({ params }: { params: { id: string } }) {
         return (
             <div className="flex min-h-screen flex-col items-center justify-center text-fantasy-muted font-serif p-4 text-center">
                 <div className="mb-4 text-2xl animate-pulse">Summoning hero data...</div>
+                {/* Re-added Debug Info for diagnosis */}
+                <div className="rounded bg-red-900/20 p-4 text-xs font-mono text-left border border-red-500/30 max-w-md w-full">
+                    <p className="text-red-400 font-bold mb-2">DEBUG REPORT (v2):</p>
+                    <p>Requested ID: <span className="text-white">{params.id}</span></p>
+                    <p>Players Loaded: <span className="text-white">{players.length}</span></p>
+                    <p>Context Ready: <span className="text-white">{players.length > 0 ? "Yes" : "No"}</span></p>
+                </div>
             </div>
         );
     }
