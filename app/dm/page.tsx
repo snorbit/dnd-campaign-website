@@ -136,17 +136,25 @@ export default function DMPage() {
 
             if (aiProvider === 'local') {
                 // Compatible with Automatic1111 API
-                const res = await fetch(`${customUrl}/sdapi/v1/txt2img`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        prompt: `(top down battlemap:1.4), ${cleanPrompt}`,
-                        steps: 20, width: 1024, height: 1024
-                    })
-                });
-                const data = await res.json();
-                if (!data.images) throw new Error("No images returned from Local SD");
-                return `data:image/png;base64,${data.images[0]}`;
+                try {
+                    const res = await fetch(`${customUrl}/sdapi/v1/txt2img`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            prompt: `(top down battlemap:1.4), ${cleanPrompt}`,
+                            steps: 20, width: 1024, height: 1024
+                        })
+                    });
+                    if (!res.ok) throw new Error(`Status: ${res.statusText}`);
+                    const data = await res.json();
+                    if (!data.images) throw new Error("No images returned from Local SD");
+                    return `data:image/png;base64,${data.images[0]}`;
+                } catch (err: any) {
+                    if (err.message.includes("Failed to fetch")) {
+                        throw new Error("Connection Failed! Vercel (HTTPS) cannot talk to your PC (HTTP). Please run the website locally using 'npm run dev'.");
+                    }
+                    throw err;
+                }
             }
 
             throw new Error("No valid AI Provider selected.");

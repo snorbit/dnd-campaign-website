@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter, Cinzel } from 'next/font/google';
 import './globals.css';
 import { CampaignProvider } from '@/context/CampaignContext';
@@ -12,7 +12,12 @@ const cinzel = Cinzel({ subsets: ['latin'], variable: '--font-cinzel' });
 export const metadata: Metadata = {
     title: 'D&D Campaign Architect',
     description: 'Real-time D&D Campaign Dashboard',
-    viewport: 'width=device-width, initial-scale=1, maximum-scale=1',
+};
+
+export const viewport: Viewport = {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
 };
 
 async function getPlayers() {
