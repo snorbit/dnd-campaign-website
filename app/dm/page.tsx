@@ -151,7 +151,12 @@ export default function DMPage() {
                     return `data:image/png;base64,${data.images[0]}`;
                 } catch (err: any) {
                     if (err.message.includes("Failed to fetch")) {
-                        throw new Error("Connection Failed! Vercel (HTTPS) cannot talk to your PC (HTTP). Please run the website locally using 'npm run dev'.");
+                        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+                        if (isLocal) {
+                            throw new Error(`Connection Failed! Is Local SD running at ${customUrl}? Check your terminal.`);
+                        } else {
+                            throw new Error("Connection Failed! Vercel (HTTPS) cannot talk to your PC (HTTP). Please run the website locally using 'npm run dev'.");
+                        }
                     }
                     throw err;
                 }
@@ -194,7 +199,7 @@ export default function DMPage() {
 
         } catch (e: any) {
             console.error("Generation failed:", e);
-            alert(`Error (${aiProvider}): ${e.message || e}`);
+            alert(`Error: ${e.message || e}`);
         } finally {
             setIsGenerating(false);
         }
@@ -503,7 +508,7 @@ export default function DMPage() {
                         </div>
 
                         {/* Queue Controls */}
-                        {map.queue.length > 0 && (
+                        {map.queue?.length > 0 && (
                             <div className="flex items-center justify-between bg-black/40 p-2 rounded border border-fantasy-gold/20">
                                 <button
                                     onClick={() => updateMap(map.queue[Math.max(0, map.currentIndex - 1)].url)}

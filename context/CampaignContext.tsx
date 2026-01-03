@@ -111,7 +111,11 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
                     const newData = payload.new;
                     if (newData.players) setPlayers(newData.players);
                     if (newData.world) setWorld(newData.world);
-                    if (newData.map) setMap(newData.map);
+                    if (newData.map) setMap({
+                        url: newData.map.url || "",
+                        queue: newData.map.queue || [],
+                        currentIndex: newData.map.currentIndex || 0
+                    });
                     if (newData.encounters) setEncounters(newData.encounters);
                     if (newData.quests) setQuests(newData.quests);
                 }

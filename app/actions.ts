@@ -4,8 +4,8 @@ import fs from 'fs';
 import path from 'path';
 import { parseScript, ScriptLocation } from '@/utils/scriptParser';
 
-// Use absolute path for reliability in this specific environment
-const SESSIONS_DIR = "c:\\Users\\Jed\\OneDrive\\Documents\\GitHub\\dnd-campaign-website\\data\\DnD campign\\sessions";
+// Use dynamic path for cross-platform compatibility
+const SESSIONS_DIR = path.join(process.cwd(), 'data', 'DnD campign', 'sessions');
 
 export async function listSessions(): Promise<string[]> {
     try {
