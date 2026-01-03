@@ -331,7 +331,16 @@ export default function PlayerPage({ params }: { params: { id: string } }) {
                         </div>
 
                         <div>
-                            <h1 className="text-2xl font-serif font-bold text-white leading-none mb-1 drop-shadow-md">{player.name}</h1>
+                            <div className="flex items-center gap-2">
+                                <h1 className="text-2xl font-serif font-bold text-white leading-none mb-1 drop-shadow-md">{player.name}</h1>
+                                <button
+                                    onClick={() => window.location.reload()}
+                                    title="Force Sync"
+                                    className="p-1 rounded-full bg-white/5 hover:bg-white/20 text-fantasy-muted hover:text-white transition-colors"
+                                >
+                                    <Shield size={12} />
+                                </button>
+                            </div>
                             <p className="text-xs text-fantasy-gold uppercase tracking-widest font-bold opacity-80">{player.race} {player.class}</p>
                         </div>
                     </div>

@@ -4,12 +4,18 @@ import fs from 'fs';
 import path from 'path';
 import { parseScript, ScriptLocation } from '@/utils/scriptParser';
 
-const SESSIONS_DIR = path.join(process.cwd(), 'data', 'DnD campign', 'sessions');
+// Use absolute path for reliability in this specific environment
+const SESSIONS_DIR = "c:\\Users\\Jed\\OneDrive\\Documents\\GitHub\\dnd-campaign-website\\data\\DnD campign\\sessions";
 
 export async function listSessions(): Promise<string[]> {
     try {
         if (!fs.existsSync(SESSIONS_DIR)) {
             console.warn("Sessions directory not found:", SESSIONS_DIR);
+            // Fallback to process.cwd() just in case
+            const altDir = path.join(process.cwd(), 'data', 'DnD campign', 'sessions');
+            if (fs.existsSync(altDir)) {
+                return fs.readdirSync(altDir).filter(file => file.endsWith('.md'));
+            }
             return [];
         }
         return fs.readdirSync(SESSIONS_DIR).filter(file => file.endsWith('.md'));

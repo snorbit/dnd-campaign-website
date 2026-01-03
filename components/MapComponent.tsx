@@ -28,9 +28,17 @@ export default function MapComponent() {
         // Move the selected token to this spot
         updatePlayerPosition(selectedTokenId, x, y);
 
-        // Optional: Deselect after move? Or keep selected for rapid movement?
-        // Let's keep selected for now, makes dragging easier mentally.
-        // setSelectedTokenId(null);
+        // Edge Transition Logic
+        if (x > 95) {
+            // Small delay to let the move animation start/register
+            setTimeout(() => {
+                if (window.confirm("Travel to the next area?")) {
+                    nextMap();
+                    // Reset to left side (Entrance)
+                    updatePlayerPosition(selectedTokenId, 5, 50);
+                }
+            }, 100);
+        }
     };
 
     const handleTokenClick = (e: React.MouseEvent, playerId: string) => {
