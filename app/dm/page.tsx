@@ -4,11 +4,11 @@ import React, { useState } from "react";
 import { useCampaign } from "@/context/CampaignContext";
 import WorldCounter from "@/components/WorldCounter";
 import MapComponent from "@/components/MapComponent";
-import { Copy, Plus, Minus, Send, Sparkles, Skull, X, Leaf, ScrollText } from "lucide-react";
+import { Copy, Plus, Minus, Send, Sparkles, Skull, X, Leaf, ScrollText, Trash2 } from "lucide-react";
 import { lookupMonster } from "@/utils/bestiary";
 
 export default function DMPage() {
-    const { world, map, players, encounters, quests, updateWorld, updateMap, setMapQueue, nextMap, updatePlayer, addEncounter, removeEncounter, updateEncounter, addQuest, updateQuest, seedDatabase } = useCampaign();
+    const { world, map, players, encounters, quests, updateWorld, updateMap, setMapQueue, nextMap, updatePlayer, addEncounter, removeEncounter, updateEncounter, addQuest, updateQuest, seedDatabase, resetMap, clearQuests } = useCampaign();
     const [mapInput, setMapInput] = useState("");
     const [sessionNote, setSessionNote] = useState("");
     const [isGenerating, setIsGenerating] = useState(false);
@@ -394,12 +394,21 @@ export default function DMPage() {
                                 <Send size={16} />
                             </button>
                         </form>
-                        <button
-                            onClick={() => updateMap(map.url)}
-                            className="w-full rounded border border-fantasy-gold/30 bg-fantasy-gold/10 py-1 text-xs text-fantasy-gold hover:bg-fantasy-gold hover:text-black transition-colors"
-                        >
-                            📡 Broadcast Current Map to Players
-                        </button>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => updateMap(map.url)}
+                                className="flex-1 rounded border border-fantasy-gold/30 bg-fantasy-gold/10 py-1 text-xs text-fantasy-gold hover:bg-fantasy-gold hover:text-black transition-colors"
+                            >
+                                📡 Broadcast Map
+                            </button>
+                            <button
+                                onClick={() => { if (confirm("Clear map and queue?")) resetMap(); }}
+                                className="rounded border border-red-500/30 bg-red-500/10 px-3 py-1 text-xs text-red-500 hover:bg-red-500 hover:text-white transition-colors"
+                                title="Reset Map"
+                            >
+                                <X size={16} />
+                            </button>
+                        </div>
                     </section>
 
                     {/* Player Quick Edit */}
@@ -443,9 +452,14 @@ export default function DMPage() {
 
                     {/* Quest Giver */}
                     <section className="rounded-lg border border-fantasy-muted/20 bg-fantasy-bg p-6 shadow-xl">
-                        <h2 className="mb-4 text-xl font-bold text-fantasy-gold flex items-center gap-2">
-                            <ScrollText size={20} /> Quest Giver
-                        </h2>
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="mb-0 text-xl font-bold text-fantasy-gold flex items-center gap-2">
+                                <ScrollText size={20} /> Quest Giver
+                            </h2>
+                            <button onClick={() => { if (confirm("Delete all quests?")) clearQuests(); }} className="text-xs text-fantasy-muted hover:text-red-500 flex items-center gap-1 border border-transparent hover:border-red-500/20 px-2 py-1 rounded">
+                                <Trash2 size={12} /> Clear
+                            </button>
+                        </div>
                         <div className="mb-4 flex gap-2">
                             <input
                                 type="text"

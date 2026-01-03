@@ -260,7 +260,16 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
             addEncounter, removeEncounter, updateEncounter,
             addQuest, updateQuest, updatePlayerPosition,
             seedDatabase,
-            connectionStatus, lastError
+            connectionStatus, lastError,
+            resetMap: () => {
+                const resetState = { url: "", queue: [], currentIndex: 0 };
+                setMap(resetState);
+                pushUpdate('map', resetState);
+            },
+            clearQuests: () => {
+                setQuests([]);
+                pushUpdate('quests', []);
+            }
         }}>
             {children}
         </CampaignContext.Provider>
