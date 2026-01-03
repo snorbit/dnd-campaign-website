@@ -12,6 +12,7 @@ const cinzel = Cinzel({ subsets: ['latin'], variable: '--font-cinzel' });
 export const metadata: Metadata = {
     title: 'D&D Campaign Architect',
     description: 'Real-time D&D Campaign Dashboard',
+    viewport: 'width=device-width, initial-scale=1, maximum-scale=1',
 };
 
 async function getPlayers() {

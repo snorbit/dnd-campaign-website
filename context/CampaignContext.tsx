@@ -22,7 +22,7 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
     const [quests, setQuests] = useState<Quest[]>([]);
     const [dbId, setDbId] = useState<number>(1); // Default to row 1
 
-    // 1. Initial Fetch
+    // 1. Initial Fetch & Auto-Seed
     useEffect(() => {
         const fetchData = async () => {
             const { data, error } = await supabase
@@ -32,15 +32,25 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
                 .single();
 
             if (data) {
-                if (data.players) setPlayers(data.players);
+                // Only overwrite if DB has valid data, otherwise keep initialPlayers (server-side JSON)
+                if (data.players && data.players.length > 0) {
+                    setPlayers(data.players);
+                } else if (initialPlayers && initialPlayers.length > 0) {
+                    // DB is empty/stale, but we have local JSON. Auto-push local to DB.
+                    console.log("Auto-seeding database from local JSON...");
+                    await supabase.from('campaign').update({ players: initialPlayers }).eq('id', 1);
+                }
+
                 if (data.world) setWorld(data.world);
                 if (data.map) setMap(data.map);
                 if (data.encounters) setEncounters(data.encounters);
                 if (data.quests) setQuests(data.quests);
+            } else if (initialPlayers && initialPlayers.length > 0) {
+                // No DB row found at all? Create it? (Assuming row 1 exists, but if not, logic implies we should just use local)
             }
         };
         fetchData();
-    }, []);
+    }, [initialPlayers]);
 
     // 2. Real-Time Subscription
     useEffect(() => {
