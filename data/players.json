@@ -1,65 +1,220 @@
 [
     {
         "id": "1",
-        "name": "Valeros",
+        "name": "Troy",
+        "race": "Dwarf (Hill)",
         "class": "Fighter",
-        "race": "Human",
-        "level": 3,
+        "level": 1,
         "hp": {
-            "current": 28,
-            "max": 28,
+            "current": 15,
+            "max": 15,
             "temp": 0
         },
         "stats": {
-            "str": 16,
-            "dex": 13,
-            "con": 15,
-            "int": 10,
-            "wis": 12,
-            "cha": 8
+            "str": 20,
+            "dex": 15,
+            "con": 20,
+            "int": 9,
+            "wis": 6,
+            "cha": 4
         },
         "equipment": [
-            "Longsword",
-            "Shield",
-            "Chainmail"
+            "Sword",
+            "Helmet",
+            "Chest Plate (Chain Mail)",
+            "Lawn Chairs x5"
         ],
         "spells": [],
         "password": "123",
         "position": {
-            "x": 50,
+            "x": 15,
             "y": 50
         }
     },
     {
         "id": "2",
-        "name": "Kyra",
-        "class": "Cleric",
-        "race": "Human",
-        "level": 3,
+        "name": "Zachery Tokisaki",
+        "race": "Undead",
+        "class": "Paladin",
+        "level": 1,
         "hp": {
-            "current": 24,
-            "max": 24,
+            "current": 13,
+            "max": 13,
             "temp": 0
         },
         "stats": {
-            "str": 14,
-            "dex": 10,
-            "con": 14,
-            "int": 10,
-            "wis": 16,
+            "str": 20,
+            "dex": 14,
+            "con": 16,
+            "int": 12,
+            "wis": 12,
+            "cha": 20
+        },
+        "equipment": [
+            "Steel Greatsword (+5)",
+            "Dread Plate",
+            "Leather Armour",
+            "Kurumi Amulet",
+            "2 Healing Potion"
+        ],
+        "spells": [
+            "Divine Sense",
+            "Lay on Hands",
+            "Sacred Weapon"
+        ],
+        "password": "123",
+        "position": {
+            "x": 30,
+            "y": 50
+        }
+    },
+    {
+        "id": "3",
+        "name": "Guts",
+        "race": "Human (Brute)",
+        "class": "Fighter",
+        "level": 1,
+        "hp": {
+            "current": 20,
+            "max": 20,
+            "temp": 0
+        },
+        "stats": {
+            "str": 22,
+            "dex": 14,
+            "con": 20,
+            "int": 8,
+            "wis": 10,
             "cha": 12
         },
         "equipment": [
-            "Mace",
-            "Symbol",
-            "Healing Kit"
+            "Great Sword",
+            "Leather Armor",
+            "110 Gold"
+        ],
+        "spells": [],
+        "password": "123",
+        "position": {
+            "x": 45,
+            "y": 50
+        }
+    },
+    {
+        "id": "4",
+        "name": "Calilac Magithorne",
+        "race": "Wood Elf",
+        "class": "Druid",
+        "level": 1,
+        "hp": {
+            "current": 8,
+            "max": 8,
+            "temp": 0
+        },
+        "stats": {
+            "str": 8,
+            "dex": 20,
+            "con": 10,
+            "int": 16,
+            "wis": 20,
+            "cha": 8
+        },
+        "equipment": [
+            "Quarterstaff",
+            "Druid Armor",
+            "2 Healing Potions"
         ],
         "spells": [
-            "Cure Wounds",
+            "Thorn Whip",
+            "Guidance",
+            "Animal Friendship",
+            "Charm Person",
+            "Healing Word",
+            "Ice Knife",
+            "Speak with Animals"
         ],
         "password": "123",
         "position": {
             "x": 60,
+            "y": 50
+        }
+    },
+    {
+        "id": "5",
+        "name": "Wimbie",
+        "race": "Rock Gnome",
+        "class": "Cursificer",
+        "level": 1,
+        "hp": {
+            "current": 10,
+            "max": 10,
+            "temp": 0
+        },
+        "stats": {
+            "str": 6,
+            "dex": 19,
+            "con": 8,
+            "int": 22,
+            "wis": 16,
+            "cha": 12
+        },
+        "equipment": [
+            "Dagger",
+            "The Micro-Transaction Blade (P.T.W.)",
+            "Hat"
+        ],
+        "spells": [
+            "Firebolt",
+            "Guidance",
+            "Cure Wounds",
+            "Detect Magic",
+            "Grease",
+            "Longstrider",
+            "Feather Fall"
+        ],
+        "password": "123",
+        "position": {
+            "x": 75,
+            "y": 50
+        }
+    },
+    {
+        "id": "6",
+        "name": "Sam",
+        "race": "High Elf",
+        "class": "Wizard",
+        "level": 1,
+        "hp": {
+            "current": 10,
+            "max": 10,
+            "temp": 0
+        },
+        "stats": {
+            "str": 9,
+            "dex": 8,
+            "con": 10,
+            "int": 21,
+            "wis": 18,
+            "cha": 8
+        },
+        "equipment": [
+            "Longsword",
+            "Shortsword",
+            "Longbow",
+            "Shortbow"
+        ],
+        "spells": [
+            "Fireball",
+            "Mage Hand",
+            "Ray of Frost",
+            "Disguise Self",
+            "Feather Fall",
+            "Fog Cloud",
+            "Ice Knife",
+            "Magic Missile"
+        ],
+        "password": "123",
+        "position": {
+            "x": 90,
             "y": 50
         }
     }
