@@ -1,4 +1,3 @@
-```
 "use client";
 
 import { useCampaign } from "@/context/CampaignContext";
@@ -27,11 +26,11 @@ export default function MapComponent() {
         // Actually, let's look for a generic "me" or just move Player 1 (Valeros) for testing.
         // User asked for "Easy to use".
         // Better Idea: Move the player that matches the currently logged in user (from Context maybe? Or just hardcode ID 1 for now).
-        updatePlayerPosition("1", x, y); 
+        updatePlayerPosition("1", x, y);
     };
 
     return (
-        <div 
+        <div
             className="relative h-[60vh] w-full overflow-hidden rounded-lg border border-fantasy-muted/20 bg-black shadow-2xl cursor-crosshair"
             onClick={handleMapClick}
         >
@@ -41,16 +40,16 @@ export default function MapComponent() {
                 alt="Campaign Map"
                 className="h-full w-full object-cover scale-[1.02] origin-top select-none pointer-events-none"
             />
-            
+
             {/* Tokens Layer */}
             {players.map(player => (
                 player.position && (
-                    <div 
+                    <div
                         key={player.id}
                         className="absolute h-8 w-8 -ml-4 -mt-4 rounded-full border-2 border-white shadow-lg flex items-center justify-center text-[10px] font-bold text-white transition-all duration-300"
-                        style={{ 
-                            left: `${ player.position.x }% `, 
-                            top: `${ player.position.y }% `,
+                        style={{
+                            left: `${player.position.x}%`,
+                            top: `${player.position.y}%`,
                             backgroundColor: player.id === '1' ? '#ef4444' : '#3b82f6' // Red for P1, Blue for others
                         }}
                     >
@@ -65,4 +64,3 @@ export default function MapComponent() {
 function userInitials(name: string) {
     return name.slice(0, 2).toUpperCase();
 }
-```

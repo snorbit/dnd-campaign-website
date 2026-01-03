@@ -1,12 +1,13 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Inter, Cinzel } from 'next/font/google';
 import './globals.css';
 import { CampaignProvider } from '@/context/CampaignContext';
 import fs from 'fs';
 import path from 'path';
 import DiceRoller from '@/components/DiceRoller';
 
-const inter = Inter({ subsets: ['latin'] });
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
+const cinzel = Cinzel({ subsets: ['latin'], variable: '--font-cinzel' });
 
 export const metadata: Metadata = {
     title: 'D&D Campaign Architect',
@@ -35,7 +36,7 @@ export default async function RootLayout({
 
     return (
         <html lang="en">
-            <body className={`${inter.className} bg-fantasy-dark text-fantasy-text`}>
+            <body className={`${inter.variable} ${cinzel.variable} font-sans bg-fantasy-dark text-fantasy-text`}>
                 <CampaignProvider initialPlayers={players}>
                     {children}
                     <DiceRoller />

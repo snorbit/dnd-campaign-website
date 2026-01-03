@@ -1,0 +1,255 @@
+{
+  "main": {
+    "id": "fa06e27edf23faf4",
+    "type": "split",
+    "children": [
+      {
+        "id": "167f8371e4e68ddf",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "4fbe5deae95d699e",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "Quests/Snorbitzz_Quest_Rewards.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "Snorbitzz_Quest_Rewards"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "ffe855a32092c440",
+    "type": "split",
+    "children": [
+      {
+        "id": "a41d27a63091e6a4",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "536485c12c168647",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Files"
+            }
+          },
+          {
+            "id": "d61b5b412b463c48",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Search"
+            }
+          },
+          {
+            "id": "02465b3d2575e85e",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "Bookmarks"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "b0a9dc2bc8c329e7",
+    "type": "split",
+    "children": [
+      {
+        "id": "c5e51cec0c025a2e",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "6dd5a11ca0944a7c",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "items/Items_and_Artifacts.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Backlinks for Items_and_Artifacts"
+            }
+          },
+          {
+            "id": "73185b69b63ccda5",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "2025-12-03.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Outgoing links from 2025-12-03"
+            }
+          },
+          {
+            "id": "c028d936615a176b",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Tags"
+            }
+          },
+          {
+            "id": "9e91275ef46feb8a",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "All properties"
+            }
+          },
+          {
+            "id": "9ee0dfb634cb31c6",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "Quests/Snorbitzz_Quest_Rewards.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Outline of Snorbitzz_Quest_Rewards"
+            }
+          }
+        ],
+        "currentTab": 4
+      },
+      {
+        "id": "c1cab8514e9ba84c",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "c73604c2eff12d76",
+            "type": "leaf",
+            "state": {
+              "type": "fantasy-statblocks-creature-pane",
+              "state": {},
+              "icon": "skull",
+              "title": "Combatant"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Open quick switcher": false,
+      "canvas:Create new canvas": false,
+      "graph:Open graph view": false,
+      "daily-notes:Open today's daily note": false,
+      "templates:Insert template": false,
+      "command-palette:Open command palette": false,
+      "bases:Create new base": false,
+      "obsidian-import-json:JSON/CSV Importer": false,
+      "obsidian-5e-statblocks:Open Creature pane": false
+    }
+  },
+  "active": "536485c12c168647",
+  "lastOpenFiles": [
+    "assets/token_the_stranger.png",
+    "assets/token_red_eye.png",
+    "assets/token_bram_thunderstone.png",
+    "assets/token_lila_the_baker.png",
+    "assets/token_willa_hawthorn.png",
+    "assets/token_mother_mathilda.png",
+    "assets/token_elara.png",
+    "assets/token_garrick_ironhand.png",
+    "assets/token_mayor_eldrin.png",
+    "sessions",
+    "sessions/Session_1_Download_Links_Quick.md",
+    "Session_1_ZIP_Upload_Guide.md",
+    "Session_1_Build_Full_ZIP.ps1",
+    "Session_1_Maps_Full_ZIP_Instructions.md",
+    "Session_1_Assets_Token_Guide.md",
+    "Session_1_Fog_Overlay_Guide.md",
+    "Session_1_Maps_Download_Script.ps1",
+    "Session_1_Maps_Slides_Setup.md",
+    "sessions/Session_1_Full_Read_Off_Script.md",
+    "sessions/Session_1_Monolithic_Script.md",
+    "session maps/Session_1_Map_Sequence.md",
+    "session maps/Session_1_Maps.md",
+    "assets/map_echo_vault_battle.png",
+    "assets/map_quiet_orchard_battle.png",
+    "session maps/Gazetteer_Maps_Index.md",
+    "session maps/Session_1_Maps_Index.md",
+    "session maps",
+    "Quests/Snorbitzz_Super_Tier_Quests.md",
+    "players.md",
+    "sessions/Session_1_Master_Playbook.md",
+    "sessions/Session_1_Act_1_The_Aftermath.md",
+    "sessions/Sessions_Act_Breakdown.md",
+    "sessions/Session_1_Village_Start.md",
+    "sessions/Session_1_Act_3_The_Audit.md",
+    "sessions/Session_1_Act_2_The_Hunt.md",
+    "sessions/Session_1_Vol_3_Red_Eye_Dossier.md",
+    "sessions/Session_1_Vol_2_Whispering_Woods_Guide.md",
+    "sessions/Session_1_Vol_1_Oakhaven_Gazetteer.md",
+    "sessions/Session_5_The_Frozen_Silence.md",
+    "sessions/Session_4_The_High_Pass.md",
+    "dnd campgine",
+    "assets",
+    "Untitled.canvas",
+    "magic",
+    "companion/companion.json",
+    "Encounters",
+    "Untitled 1.base",
+    "Untitled 1.canvas"
+  ]
+}

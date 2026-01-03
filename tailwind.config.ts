@@ -8,14 +8,20 @@ const config: Config = {
     ],
     theme: {
         extend: {
+            fontFamily: {
+                sans: ['var(--font-inter)'],
+                serif: ['var(--font-cinzel)'],
+            },
             colors: {
                 fantasy: {
-                    dark: "#0f0e17",
-                    bg: "#2b2c34",
-                    accent: "#ff8906",
-                    text: "#fffffe",
-                    muted: "#a7a9be",
-                    gold: "#f25f4c",
+                    dark: "#0a0a0f", // Deep Void
+                    bg: "#1a1a24",   // Lighter Void
+                    accent: "#ffd700", // Gold
+                    text: "#eaeaea",
+                    muted: "#6b7280",
+                    gold: "#d4af37", // Metallic Gold
+                    red: "#ef4444",
+                    blue: "#3b82f6",
                 }
             },
         },
