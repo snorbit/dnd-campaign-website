@@ -24,7 +24,11 @@
             "Chainmail"
         ],
         "spells": [],
-        "password": "123"
+        "password": "123",
+        "position": {
+            "x": 50,
+            "y": 50
+        }
     },
     {
         "id": "2",
@@ -52,8 +56,11 @@
         ],
         "spells": [
             "Cure Wounds",
-            "Bless"
         ],
-        "password": "123"
+        "password": "123",
+        "position": {
+            "x": 60,
+            "y": 50
+        }
     }
 ]

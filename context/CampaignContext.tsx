@@ -86,6 +86,14 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
         });
     };
 
+    const updatePlayerPosition = (id: string, x: number, y: number) => {
+        setPlayers((prev: Player[]) => {
+            const newPlayers = prev.map(p => p.id === id ? { ...p, position: { x, y } } : p);
+            pushUpdate('players', newPlayers);
+            return newPlayers;
+        });
+    };
+
     const updateWorld = (updates: Partial<WorldState>) => {
         setWorld((prev: WorldState) => {
             const newWorld = { ...prev, ...updates };
@@ -144,7 +152,7 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
             players, world, map, encounters, quests,
             updatePlayer, updateWorld, updateMap,
             addEncounter, removeEncounter, updateEncounter,
-            addQuest, updateQuest
+            addQuest, updateQuest, updatePlayerPosition
         }}>
             {children}
         </CampaignContext.Provider>

@@ -60,6 +60,7 @@ export interface CampaignState {
     encounters: Monster[];
     quests: Quest[];
     updatePlayer: (id: string, updates: Partial<Player>) => void;
+    updatePlayerPosition: (id: string, x: number, y: number) => void;
     updateWorld: (updates: Partial<WorldState>) => void;
     updateMap: (url: string) => void;
     addEncounter: (monster: Monster) => void;
