@@ -57,10 +57,33 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
                     });
                 }
             } else {
-                console.warn("CampaignContext: Supabase empty/failed, using local fallback");
-                // Already set in initial state, but ensuring it here
-                if (players.length === 0) {
-                    setPlayers(localPlayers as unknown as Player[]);
+                console.warn("CampaignContext: Supabase empty/failed, attempting auto-initialization...");
+
+                // Try to initialize the DB with row 1
+                const { error: insertError } = await supabase.from('campaign').insert([{
+                    id: 1,
+                    players: (initialPlayers && initialPlayers.length > 0) ? initialPlayers : localPlayers,
+                    world: defaultWorld,
+                    map: defaultMap,
+                    encounters: [],
+                    quests: []
+                }]);
+
+                if (insertError) {
+                    console.error("CampaignContext: Auto-init failed:", insertError);
+                    // Fallback to local only as last resort
+                    if (players.length === 0) {
+                        setPlayers(localPlayers as unknown as Player[]);
+                    }
+                } else {
+                    console.log("CampaignContext: Database initialized with default row 1. Refreshing...");
+                    // Re-fetch to confirm and set state
+                    const { data: newData } = await supabase.from('campaign').select('*').eq('id', 1).single();
+                    if (newData) {
+                        if (newData.players) setPlayers(newData.players);
+                        if (newData.world) setWorld(newData.world);
+                        if (newData.map) setMap(newData.map);
+                    }
                 }
             }
         };

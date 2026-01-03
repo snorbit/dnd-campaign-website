@@ -5,61 +5,50 @@ export interface ScriptLocation {
 }
 
 export function parseScript(content: string): ScriptLocation[] {
+    // 1. Normalize line endings
+    const normalized = content.replace(/\r\n/g, '\n');
+
+    // 2. Split by "## " headers (Lookahead ensuring we keep the delimiter if we wanted, but split is easier)
+    // We split by the regex pattern for a header start
+    const sections = normalized.split(/(?=^## )/gm);
+
     const locations: ScriptLocation[] = [];
-    const lines = content.split('\n');
 
-    let currentTitle = "";
-    let captureNextBlock = false;
-    let currentDescription = "";
+    sections.forEach(section => {
+        const trimmed = section.trim();
+        if (!trimmed) return;
 
-    // Simple parser: Looks for "## [Title]" and "**Read Aloud (Surroundings)**"
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim();
+        // Check if this is actually a header section
+        if (trimmed.startsWith("## ")) {
+            const firstLineEnd = trimmed.indexOf('\n');
+            if (firstLineEnd === -1) return; // Weird single line case
 
-        if (line.startsWith("## ")) {
-            currentTitle = line.replace("## ", "").trim();
-        }
+            const title = trimmed.slice(3, firstLineEnd).trim(); // Remove "## "
+            const body = trimmed.slice(firstLineEnd).trim();
 
-        if (line.includes("**Read Aloud (Surroundings)**")) {
-            captureNextBlock = true;
-            currentDescription = "";
-            continue;
-        }
+            // Extract "Read Aloud" block if present, or use whole body if short
+            let description = "";
 
-        if (captureNextBlock) {
-            // End of block detection (empty line or next header or next bold block)
-            if (line === "" && currentDescription.length > 0) {
-                // End of description
-                if (currentTitle && currentDescription) {
-                    locations.push({
-                        title: currentTitle,
-                        description: currentDescription.replace(/"/g, '').trim(), // Remove quotes
-                        keywords: extractKeywords(currentDescription)
-                    });
-                }
-                captureNextBlock = false;
-            } else if (line.startsWith("**") || line.startsWith("##")) {
-                // Safety break
-                if (currentTitle && currentDescription) {
-                    locations.push({
-                        title: currentTitle,
-                        description: currentDescription.replace(/"/g, '').trim(),
-                        keywords: extractKeywords(currentDescription)
-                    });
-                }
-                captureNextBlock = false;
+            const readAloudMatch = body.match(/\*\*Read Aloud.*?\*\*\n([\s\S]*?)(?=\n\s*(?:##|\*\*|$))/i);
+            if (readAloudMatch && readAloudMatch[1]) {
+                description = readAloudMatch[1].trim();
             } else {
-                currentDescription += line + " ";
+                // Fallback: If no explicit read aloud, take the first paragraph or the whole thing if distinct
+                description = body.split('\n\n')[0].trim();
+            }
+
+            // Cleanup quotes and artifacts
+            description = description.replace(/^["']|["']$/g, '');
+
+            if (title && description) {
+                locations.push({
+                    title,
+                    description,
+                    keywords: [title, "fantasy", "battlemap"]
+                });
             }
         }
-    }
+    });
 
     return locations;
-}
-
-function extractKeywords(text: string): string[] {
-    // Simple mock keyword extractor - real one would use NLP or list
-    // For now, just return raw description chunks or simplified tokens
-    // We'll rely on Pollinations AI to handle the full sentence nicely.
-    return [text.slice(0, 50)];
 }

@@ -99,12 +99,15 @@ export default function DMPage() {
 
                 if (locations.length > 0) {
                     const queue = locations.map(loc => {
-                        const cleanDesc = loc.description.slice(0, 300).replace(/[^\w\s]/gi, '');
-                        const mapPrompt = encodeURIComponent(`d&d battlemap, top down, fantasy, 8k resolution, ${cleanDesc}`);
+                        const cleanDesc = loc.description.slice(0, 400).replace(/[^\w\s,.]/gi, '');
+                        // NEW: Enhanced Prompting + Model Selection (Unity/Flux style)
+                        const mapPrompt = encodeURIComponent(`d&d battlemap, top down, ${cleanDesc}, unreal engine 5 render, rich texture, 8k, highly detailed, distinct environment`);
+                        // adding ?model=flux or similar if supported, or just relying on standard with better keywords
+                        // Pollinations accepts 'model' param. Let's try 'flux' which is popular/good now.
                         return {
                             title: loc.title,
                             description: loc.description,
-                            url: `https://image.pollinations.ai/prompt/${mapPrompt}?nolog=true`
+                            url: `https://image.pollinations.ai/prompt/${mapPrompt}?nolog=true&model=flux&width=1920&height=1080&seed=${Math.floor(Math.random() * 1000)}`
                         };
                     });
 
@@ -119,8 +122,8 @@ export default function DMPage() {
         }
 
         // MODE B: Single Map Generation (Fallback)
-        const mapPrompt = encodeURIComponent(`d&d battlemap, top down, fantasy, 8k resolution, ${sessionNote.slice(0, 200)}`);
-        const aiMapUrl = `https://image.pollinations.ai/prompt/${mapPrompt}?nolog=true`;
+        const mapPrompt = encodeURIComponent(`d&d battlemap, top down, ${sessionNote.slice(0, 300)}, unreal engine 5 render, rich texture, 8k, highly detailed`);
+        const aiMapUrl = `https://image.pollinations.ai/prompt/${mapPrompt}?nolog=true&model=flux&width=1920&height=1080&seed=${Math.floor(Math.random() * 1000)}`;
         updateMap(aiMapUrl);
 
         setIsGenerating(false);
@@ -389,18 +392,56 @@ export default function DMPage() {
                 <div className="lg:col-span-2">
                     <div className="sticky top-6 space-y-4">
                         <div className="flex items-center justify-between">
-                            <h2 className="text-xl font-bold text-fantasy-muted">Live Map & Table</h2>
-                            <button
-                                onClick={async () => {
-                                    if (confirm("Overwrite Cloud Database with Local Player File?")) {
-                                        seedDatabase();
-                                    }
-                                }}
-                                className="text-xs bg-red-900/30 text-red-400 px-2 py-1 rounded border border-red-900/50 hover:bg-red-900/50"
-                            >
-                                Force Sync Data
-                            </button>
+                            <h2 className="text-xl font-bold text-fantasy-muted text-nowrap mr-4">Live Map & Table</h2>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={async () => {
+                                        if (confirm("Overwrite Cloud Database with Local Player File?")) {
+                                            seedDatabase();
+                                        }
+                                    }}
+                                    className="text-xs bg-red-900/30 text-red-400 px-2 py-1 rounded border border-red-900/50 hover:bg-red-900/50"
+                                >
+                                    Force Sync
+                                </button>
+                                <div className="flex items-center gap-1 text-[10px] text-zinc-500 bg-black/40 px-2 rounded border border-white/5">
+                                    <div className={`w-2 h-2 rounded-full ${players.length > 0 ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]' : 'bg-red-500'}`} />
+                                    {players.length > 0 ? 'Connected' : 'Offline'}
+                                </div>
+                            </div>
                         </div>
+
+                        {/* Queue Controls */}
+                        {map.queue.length > 0 && (
+                            <div className="flex items-center justify-between bg-black/40 p-2 rounded border border-fantasy-gold/20">
+                                <button
+                                    onClick={() => updateMap(map.queue[Math.max(0, map.currentIndex - 1)].url)}
+                                    // Note: We need a prevMap function in context ideally, but manually setting URL for now works if we don't track index strictly backwards or if we add that later. 
+                                    // Actually, let's just show current index.
+                                    disabled={map.currentIndex === 0}
+                                    className="text-fantasy-gold disabled:opacity-30 hover:bg-white/10 p-1 rounded"
+                                >
+                                    <Minus size={16} />
+                                </button>
+                                <div className="text-center">
+                                    <div className="text-xs text-fantasy-muted uppercase tracking-widest">Current Scene</div>
+                                    <div className="text-sm font-bold text-white">
+                                        {map.currentIndex + 1} / {map.queue.length}
+                                    </div>
+                                    <div className="text-[10px] text-fantasy-muted truncate max-w-[200px]">
+                                        {map.queue[map.currentIndex]?.title || "Unknown"}
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={nextMap}
+                                    disabled={map.currentIndex >= map.queue.length - 1}
+                                    className="text-fantasy-gold disabled:opacity-30 hover:bg-white/10 p-1 rounded"
+                                >
+                                    <Plus size={16} />
+                                </button>
+                            </div>
+                        )}
+
                         <MapComponent />
                     </div>
                 </div>
