@@ -17,6 +17,11 @@ export default function DMPage() {
     const [availableSessions, setAvailableSessions] = useState<string[]>([]);
     const [selectedSession, setSelectedSession] = useState<string>("");
 
+    // AI Configuration State
+    const [aiProvider, setAiProvider] = useState<'pollinations' | 'openai' | 'local'>('pollinations');
+    const [apiKey, setApiKey] = useState("");
+    const [customUrl, setCustomUrl] = useState("http://127.0.0.1:7860");
+
     // Load available sessions on mount
     React.useEffect(() => {
         const fetchSessions = async () => {
@@ -75,14 +80,12 @@ export default function DMPage() {
         if (!sessionNote) return;
         setIsGenerating(true);
 
-        // 1. Parse for Monsters (Always run this first)
+        // 1. Parse for Monsters
         const words = sessionNote.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "").split(/\s+/);
         const foundMonsters = new Set<string>();
 
         words.forEach(word => {
             const monster = lookupMonster(word, "enc");
-            // If it returned a real match (not the generic unknown fallback for everything)
-            // We check if the 'type' is NOT "Unknown" to treat it as an auto-match
             if (monster.type !== "Unknown") {
                 if (!foundMonsters.has(monster.name)) {
                     addEncounter(monster);
@@ -91,42 +94,80 @@ export default function DMPage() {
             }
         });
 
+        // Helper: Generate Image based on Provider
+        const generateImage = async (prompt: string): Promise<string> => {
+            const cleanPrompt = prompt.slice(0, 1000).replace(/[^\w\s,.]/gi, '');
+
+            if (aiProvider === 'openai') {
+                if (!apiKey) throw new Error("Missing OpenAI API Key");
+                const res = await fetch("https://api.openai.com/v1/images/generations", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+                    body: JSON.stringify({ model: "dall-e-3", prompt: `D&D battlemap, top down, ${cleanPrompt}`, n: 1, size: "1024x1024" })
+                });
+                const data = await res.json();
+                if (data.error) throw new Error(data.error.message);
+                return data.data[0].url;
+            }
+
+            if (aiProvider === 'local') {
+                // Compatible with Automatic1111 API
+                const res = await fetch(`${customUrl}/sdapi/v1/txt2img`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        prompt: `(top down battlemap:1.4), ${cleanPrompt}`,
+                        steps: 20, width: 1024, height: 1024
+                    })
+                });
+                const data = await res.json();
+                if (!data.images) throw new Error("No images returned from Local SD");
+                return `data:image/png;base64,${data.images[0]}`;
+            }
+
+            // Fallback: Pollinations (Turbo mode for speed/unlimited feel)
+            const mapPrompt = encodeURIComponent(`d&d battlemap, top down, ${cleanPrompt}, unreal engine 5 render, 8k, distinct`);
+            return `https://image.pollinations.ai/prompt/${mapPrompt}?nolog=true&model=turbo&width=1920&height=1080&seed=${Math.floor(Math.random() * 10000)}`;
+        };
+
         try {
-            // MODE A: Full Script Parsing (detected by headers or read aloud markers)
+            // MODE A: Full Script Parsing
             if (sessionNote.includes("## ") || sessionNote.includes("**Read Aloud")) {
                 const { parseScript } = await import("@/utils/scriptParser");
                 const locations = parseScript(sessionNote);
 
                 if (locations.length > 0) {
-                    const queue = locations.map(loc => {
-                        const cleanDesc = loc.description.slice(0, 400).replace(/[^\w\s,.]/gi, '');
-                        // NEW: Enhanced Prompting + Model Selection (Unity/Flux style)
-                        const mapPrompt = encodeURIComponent(`d&d battlemap, top down, ${cleanDesc}, unreal engine 5 render, rich texture, 8k, highly detailed, distinct environment`);
-                        // adding ?model=flux or similar if supported, or just relying on standard with better keywords
-                        // Pollinations accepts 'model' param. Let's try 'flux' which is popular/good now.
-                        return {
-                            title: loc.title,
-                            description: loc.description,
-                            url: `https://image.pollinations.ai/prompt/${mapPrompt}?nolog=true&model=flux&width=1920&height=1080&seed=${Math.floor(Math.random() * 1000)}`
-                        };
-                    });
+                    const queue = [];
+                    for (const loc of locations) {
+                        try {
+                            const url = await generateImage(loc.description);
+                            queue.push({ title: loc.title, description: loc.description, url });
+                        } catch (err) {
+                            console.error(`Failed to generate map for ${loc.title}:`, err);
+                            // Fallback to placeholder or skip
+                        }
+                    }
 
-                    setMapQueue(queue);
-                    alert(`Parsed ${queue.length} scenes & ${foundMonsters.size} encounters from text!`);
-                    setIsGenerating(false);
-                    return; // Stop here after successful queue generation
+                    if (queue.length > 0) {
+                        setMapQueue(queue);
+                        alert(`Generated ${queue.length} maps using ${aiProvider.toUpperCase()}!`);
+                        setSessionNote("");
+                        setIsGenerating(false);
+                        return;
+                    }
                 }
             }
-        } catch (e) {
-            console.error("Script parse error", e);
+
+            // MODE B: Single Map
+            const url = await generateImage(sessionNote);
+            if (url) updateMap(url);
+
+        } catch (e: any) {
+            console.error("Generation failed:", e);
+            alert(`Error (${aiProvider}): ${e.message || e}`);
+        } finally {
+            setIsGenerating(false);
         }
-
-        // MODE B: Single Map Generation (Fallback)
-        const mapPrompt = encodeURIComponent(`d&d battlemap, top down, ${sessionNote.slice(0, 300)}, unreal engine 5 render, rich texture, 8k, highly detailed`);
-        const aiMapUrl = `https://image.pollinations.ai/prompt/${mapPrompt}?nolog=true&model=flux&width=1920&height=1080&seed=${Math.floor(Math.random() * 1000)}`;
-        updateMap(aiMapUrl);
-
-        setIsGenerating(false);
     };
 
     const handleAddManualEncounter = () => {
@@ -154,6 +195,23 @@ export default function DMPage() {
                         <h2 className="mb-2 text-xl font-bold text-fantasy-gold flex items-center gap-2">
                             <Sparkles size={20} /> Smart Session
                         </h2>
+
+                        {/* AI Settings */}
+                        <div className="mb-4 p-3 bg-black/20 rounded border border-white/5">
+                            <label className="text-[10px] text-fantasy-muted uppercase tracking-wider mb-2 block font-bold">Generation Engine:</label>
+                            <div className="flex gap-2 mb-2">
+                                <button onClick={() => setAiProvider('pollinations')} className={`flex-1 text-[10px] py-1 rounded border border-white/5 ${aiProvider === 'pollinations' ? 'bg-fantasy-gold text-black font-bold' : 'bg-black/40 text-fantasy-muted hover:bg-white/5'}`}>Free (Turbo)</button>
+                                <button onClick={() => setAiProvider('openai')} className={`flex-1 text-[10px] py-1 rounded border border-white/5 ${aiProvider === 'openai' ? 'bg-fantasy-gold text-black font-bold' : 'bg-black/40 text-fantasy-muted hover:bg-white/5'}`}>OpenAI (HQ)</button>
+                                <button onClick={() => setAiProvider('local')} className={`flex-1 text-[10px] py-1 rounded border border-white/5 ${aiProvider === 'local' ? 'bg-fantasy-gold text-black font-bold' : 'bg-black/40 text-fantasy-muted hover:bg-white/5'}`}>Local SD</button>
+                            </div>
+
+                            {aiProvider === 'openai' && (
+                                <input type="password" placeholder="Paste OpenAI API Key (sk-...)" value={apiKey} onChange={e => setApiKey(e.target.value)} className="w-full bg-black/40 text-xs p-2 rounded border border-white/10 text-white focus:border-fantasy-gold outline-none" />
+                            )}
+                            {aiProvider === 'local' && (
+                                <input type="text" placeholder="API URL (e.g. http://127.0.0.1:7860)" value={customUrl} onChange={e => setCustomUrl(e.target.value)} className="w-full bg-black/40 text-xs p-2 rounded border border-white/10 text-white focus:border-fantasy-gold outline-none" />
+                            )}
+                        </div>
 
                         {/* Manual Input */}
                         <div className="mb-4">
