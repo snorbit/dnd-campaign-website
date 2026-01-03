@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { CampaignState, Player, WorldState, MapData, Monster, Quest } from '@/types';
-
+import localPlayers from '@/data/players.json'; // Direct import as fallback
 import { supabase } from '@/lib/supabase';
 
 // Default / Fallback Data
@@ -14,8 +14,10 @@ const CampaignContext = createContext<CampaignState | undefined>(undefined);
 
 
 export const CampaignProvider = ({ children, initialPlayers }: { children: ReactNode, initialPlayers?: Player[] }) => {
-    // Initialize state with defaults or props
-    const [players, setPlayers] = useState<Player[]>(initialPlayers || []);
+    // Initialize state with defaults or props, falling back to local import
+    const [players, setPlayers] = useState<Player[]>(
+        (initialPlayers && initialPlayers.length > 0) ? initialPlayers : (localPlayers as unknown as Player[])
+    );
     const [world, setWorld] = useState<WorldState>(defaultWorld);
     const [map, setMap] = useState<MapData>(defaultMap);
     const [encounters, setEncounters] = useState<Monster[]>([]);
@@ -34,28 +36,26 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
 
             if (data) {
                 console.log("CampaignContext: Supabase data received:", data);
-                // Only overwrite if DB has valid data, otherwise keep initialPlayers (server-side JSON)
+                // Only overwrite if DB has valid data
                 if (data.players && data.players.length > 0) {
                     console.log("CampaignContext: Using Supabase players");
                     setPlayers(data.players);
-                } else if (initialPlayers && initialPlayers.length > 0) {
+                } else {
                     // DB is empty/stale, but we have local JSON. Auto-push local to DB.
                     console.log("CampaignContext: Auto-seeding database from local JSON...");
-                    await supabase.from('campaign').update({ players: initialPlayers }).eq('id', 1);
-                } else {
-                    console.log("CampaignContext: No players found in DB or Local JSON");
+                    await supabase.from('campaign').update({ players: localPlayers }).eq('id', 1);
                 }
 
                 if (data.world) setWorld(data.world);
                 if (data.map) setMap(data.map);
                 if (data.encounters) setEncounters(data.encounters);
                 if (data.quests) setQuests(data.quests);
-            } else if (initialPlayers && initialPlayers.length > 0) {
-                console.warn("CampaignContext: Supabase empty/failed, using local fallback");
-                // No DB row found? Use local
-                setPlayers(initialPlayers);
             } else {
-                console.error("CampaignContext: Critical Failure - No data source available.");
+                console.warn("CampaignContext: Supabase empty/failed, using local fallback");
+                // Already set in initial state, but ensuring it here
+                if (players.length === 0) {
+                    setPlayers(localPlayers as unknown as Player[]);
+                }
             }
         };
         fetchData();

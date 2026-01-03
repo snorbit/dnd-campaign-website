@@ -21,6 +21,7 @@ export interface Player {
     spells: string[];
     password?: string; // Optional for now, simple string match
     position?: { x: number; y: number; };
+    token?: string; // Base64 image URL
 }
 
 export interface Quest {

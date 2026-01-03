@@ -1,6 +1,7 @@
 "use client";
 
 import { useCampaign } from "@/context/CampaignContext";
+import React, { useState } from "react";
 
 export default function MapComponent() {
     const { map, players, updatePlayerPosition } = useCampaign();
@@ -13,25 +14,37 @@ export default function MapComponent() {
         );
     }
 
+    const [selectedTokenId, setSelectedTokenId] = useState<string | null>(null);
+
     const handleMapClick = (e: React.MouseEvent<HTMLDivElement>) => {
-        // Simple VTT Logic:
-        // 1. Get click percentages relative to the container
+        // If no token is selected, do nothing on empty map click
+        if (!selectedTokenId) return;
+
+        // VTT Move Logic:
         const rect = e.currentTarget.getBoundingClientRect();
         const x = ((e.clientX - rect.left) / rect.width) * 100;
         const y = ((e.clientY - rect.top) / rect.height) * 100;
 
-        // 2. Identify who is clicking (For now, we just move Player 1 as a demo, or current user if auth was strict)
-        // In a real app, we'd check `currentUser.id`. 
-        // Let's prompt or just move the first player for simplicity of this demo?
-        // Actually, let's look for a generic "me" or just move Player 1 (Valeros) for testing.
-        // User asked for "Easy to use".
-        // Better Idea: Move the player that matches the currently logged in user (from Context maybe? Or just hardcode ID 1 for now).
-        updatePlayerPosition("1", x, y);
+        // Move the selected token to this spot
+        updatePlayerPosition(selectedTokenId, x, y);
+
+        // Optional: Deselect after move? Or keep selected for rapid movement?
+        // Let's keep selected for now, makes dragging easier mentally.
+        // setSelectedTokenId(null);
+    };
+
+    const handleTokenClick = (e: React.MouseEvent, playerId: string) => {
+        e.stopPropagation(); // Prevent map click triggering
+        if (selectedTokenId === playerId) {
+            setSelectedTokenId(null); // Deselect if clicking same
+        } else {
+            setSelectedTokenId(playerId); // Select new
+        }
     };
 
     return (
         <div
-            className="relative h-[60vh] w-full overflow-hidden rounded-lg border border-fantasy-muted/20 bg-black shadow-2xl cursor-crosshair"
+            className={`relative h-[60vh] w-full overflow-hidden rounded-lg border border-fantasy-muted/20 bg-black shadow-2xl ${selectedTokenId ? 'cursor-crosshair' : 'cursor-default'}`}
             onClick={handleMapClick}
         >
             {/* Map Image */}
@@ -46,14 +59,21 @@ export default function MapComponent() {
                 player.position && (
                     <div
                         key={player.id}
-                        className="absolute h-8 w-8 -ml-4 -mt-4 rounded-full border-2 border-white shadow-lg flex items-center justify-center text-[10px] font-bold text-white transition-all duration-300"
+                        onClick={(e) => handleTokenClick(e, player.id)}
+                        className={`absolute h-8 w-8 -ml-4 -mt-4 rounded-full border-2 shadow-lg flex items-center justify-center text-[10px] font-bold text-white transition-all duration-300 cursor-pointer hover:scale-110
+                            ${selectedTokenId === player.id ? 'border-fantasy-gold ring-2 ring-fantasy-gold ring-offset-2 ring-offset-black scale-110 z-10' : 'border-white'}
+                        `}
                         style={{
                             left: `${player.position.x}%`,
                             top: `${player.position.y}%`,
-                            backgroundColor: player.id === '1' ? '#ef4444' : '#3b82f6' // Red for P1, Blue for others
+                            backgroundColor: player.token ? 'transparent' : (player.id === '1' ? '#ef4444' : '#3b82f6')
                         }}
                     >
-                        {userInitials(player.name)}
+                        {player.token ? (
+                            <img src={player.token} alt={player.name} className="h-full w-full rounded-full object-cover pointer-events-none" />
+                        ) : (
+                            userInitials(player.name)
+                        )}
                     </div>
                 )
             ))}

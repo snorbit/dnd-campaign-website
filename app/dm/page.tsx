@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { useCampaign } from "@/context/CampaignContext";
 import WorldCounter from "@/components/WorldCounter";
 import MapComponent from "@/components/MapComponent";
@@ -206,6 +206,24 @@ export default function DMPage() {
                                 <div key={player.id} className="flex items-center justify-between rounded bg-black/20 p-2">
                                     <span className="text-sm font-medium">{player.name}</span>
                                     <div className="flex items-center gap-2">
+                                        <label className="cursor-pointer text-xs text-fantasy-muted hover:text-fantasy-gold flex items-center gap-1">
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                className="hidden"
+                                                onChange={(e) => {
+                                                    const file = e.target.files?.[0];
+                                                    if (file) {
+                                                        const reader = new FileReader();
+                                                        reader.onloadend = () => {
+                                                            updatePlayer(player.id, { token: reader.result as string });
+                                                        };
+                                                        reader.readAsDataURL(file);
+                                                    }
+                                                }}
+                                            />
+                                            {player.token ? "Change Token" : "Upload Token"}
+                                        </label>
                                         <span className="text-xs text-fantasy-muted">HP:</span>
                                         <input
                                             type="number"
