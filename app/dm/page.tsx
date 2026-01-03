@@ -39,12 +39,14 @@ export default function DMPage() {
         if (mapInput) updateMap(mapInput);
     };
 
-    const handleLoadScript = async () => {
-        if (!selectedSession) return;
+    const handleLoadScript = async (filenameOverride?: string) => {
+        const targetSession = filenameOverride || selectedSession;
+        if (!targetSession) return;
+
         setIsGenerating(true);
         try {
             const { loadSessionScript } = await import("@/app/actions");
-            const locations = await loadSessionScript(selectedSession);
+            const locations = await loadSessionScript(targetSession);
 
             if (locations.length > 0) {
                 const queue = locations.map(loc => {
@@ -58,7 +60,7 @@ export default function DMPage() {
                 });
 
                 setMapQueue(queue);
-                alert(`Loaded ${queue.length} scenes from ${selectedSession}!`);
+                alert(`Loaded ${queue.length} scenes from ${targetSession}!`);
             } else {
                 alert("No scenes found in script.");
             }
@@ -149,7 +151,7 @@ export default function DMPage() {
                                     )}
                                 </select>
                                 <button
-                                    onClick={handleLoadScript}
+                                    onClick={() => handleLoadScript()}
                                     disabled={isGenerating || !selectedSession}
                                     className="bg-fantasy-muted/20 hover:bg-fantasy-accent/20 text-xs px-3 py-2 rounded border border-fantasy-muted/30 whitespace-nowrap"
                                 >
@@ -158,14 +160,10 @@ export default function DMPage() {
                             </div>
                             {/* Fallback: Explicit Load Button if dropdown fails */}
                             <button
-                                onClick={() => {
-                                    setSelectedSession("Session_1_Full_Read_Off_Script.md");
-                                    // Wait a tick for state to update then call load
-                                    setTimeout(handleLoadScript, 100);
-                                }}
+                                onClick={() => handleLoadScript("Session_1_Full_Read_Off_Script.md")}
                                 className="mt-2 w-full text-[10px] text-fantasy-muted hover:text-white underline"
                             >
-                                Force Load "Session 1"
+                                Force Generate All Maps for "Session 1"
                             </button>
                         </div>
 

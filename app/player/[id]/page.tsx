@@ -344,6 +344,11 @@ export default function PlayerPage({ params }: { params: { id: string } }) {
                             <p className="text-xs text-fantasy-gold uppercase tracking-widest font-bold opacity-80">{player.race} {player.class}</p>
                         </div>
                     </div>
+                    {/* Debug Sync Status */}
+                    <div className="px-6 py-2 bg-black/60 text-[10px] text-fantasy-muted font-mono border-b border-white/5 flex justify-between">
+                        <span>Map Key: {useCampaign().map.url ? useCampaign().map.url.slice(-10) : 'None'}</span>
+                        <span>Sync: {new Date().toLocaleTimeString()}</span>
+                    </div>
 
                     {/* Tabs Area */}
                     <div className="flex-1 overflow-hidden p-4">
