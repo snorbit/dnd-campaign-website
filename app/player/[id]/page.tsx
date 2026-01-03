@@ -4,15 +4,19 @@ import { useCampaign } from "@/context/CampaignContext";
 import WorldCounter from "@/components/WorldCounter";
 import MapComponent from "@/components/MapComponent";
 import Tabs from "@/components/Tabs";
-import { Shield, Backpack, Users, Skull, Scroll, ScrollText, Heart, Zap } from "lucide-react";
+import { Shield, Backpack, Users, Skull, Scroll, ScrollText, Heart, Zap, Plus, Trash2, Save, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 export default function PlayerPage({ params }: { params: { id: string } }) {
     const router = useRouter();
-    const { players, world, encounters, quests } = useCampaign();
+    const { players, encounters, quests, updatePlayer } = useCampaign();
     const player = players.find(p => p.id === params.id);
     const otherPlayers = players.filter(p => p.id !== params.id);
+
+    // Form inputs state
+    const [itemInput, setItemInput] = useState("");
+    const [spellInput, setSpellInput] = useState("");
 
     // Auth Check
     useEffect(() => {
@@ -28,36 +32,85 @@ export default function PlayerPage({ params }: { params: { id: string } }) {
 
     if (!player) {
         return (
-            <div className="flex min-h-screen items-center justify-center text-fantasy-muted font-serif animate-pulse">
-                Summoning hero data...
+            <div className="flex min-h-screen flex-col items-center justify-center text-fantasy-muted font-serif p-4 text-center">
+                <div className="mb-4 text-2xl animate-pulse">Summoning hero data...</div>
             </div>
         );
     }
+
+    // --- Handlers ---
+
+    const updateHP = (val: number, type: 'current' | 'temp') => {
+        if (!player) return;
+        const newHp = { ...player.hp, [type]: val };
+        updatePlayer(player.id, { hp: newHp });
+    };
+
+    const addItem = () => {
+        if (!itemInput.trim() || !player) return;
+        const newEquip = [...player.equipment, itemInput.trim()];
+        updatePlayer(player.id, { equipment: newEquip });
+        setItemInput("");
+    };
+
+    const removeItem = (index: number) => {
+        if (!player) return;
+        const newEquip = player.equipment.filter((_, i) => i !== index);
+        updatePlayer(player.id, { equipment: newEquip });
+    };
+
+    const addSpell = () => {
+        if (!spellInput.trim() || !player) return;
+        const newSpells = [...player.spells, spellInput.trim()];
+        updatePlayer(player.id, { spells: newSpells });
+        setSpellInput("");
+    };
+
+    const removeSpell = (index: number) => {
+        if (!player) return;
+        const newSpells = player.spells.filter((_, i) => i !== index);
+        updatePlayer(player.id, { spells: newSpells });
+    };
+
+
+    // --- Tabs ---
 
     const StatsTab = () => (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {/* HP Section */}
             <div className="grid grid-cols-2 gap-4">
+                {/* Current HP */}
                 <div className="glass p-4 rounded-xl text-center relative overflow-hidden group">
-                    <div className="absolute inset-0 bg-red-500/10 group-hover:bg-red-500/20 transition-colors" />
+                    <div className="absolute inset-0 bg-red-500/10 group-hover:bg-red-500/20 transition-colors pointer-events-none" />
                     <div className="relative z-10">
-                        <div className="mb-1 text-xs uppercase tracking-widest text-fantasy-muted flex items-center justify-center gap-2">
+                        <div className="mb-2 text-xs uppercase tracking-widest text-fantasy-muted flex items-center justify-center gap-2">
                             <Heart size={12} className="text-red-500" /> HP
                         </div>
-                        <div className="text-4xl font-serif font-bold text-white drop-shadow-lg">
-                            {player.hp.current} <span className="text-lg text-fantasy-muted/60">/ {player.hp.max}</span>
+                        <div className="flex items-center justify-center gap-1">
+                            <input
+                                type="number"
+                                className="bg-transparent border-b border-white/20 text-4xl font-serif font-bold text-white text-center w-20 focus:outline-none focus:border-fantasy-gold"
+                                value={player.hp.current}
+                                onChange={(e) => updateHP(parseInt(e.target.value) || 0, 'current')}
+                            />
+                            <span className="text-lg text-fantasy-muted/60 pt-2">/ {player.hp.max}</span>
                         </div>
                     </div>
                 </div>
+
+                {/* Temp HP */}
                 <div className="glass p-4 rounded-xl text-center relative overflow-hidden group">
-                    <div className="absolute inset-0 bg-blue-500/10 group-hover:bg-blue-500/20 transition-colors" />
+                    <div className="absolute inset-0 bg-blue-500/10 group-hover:bg-blue-500/20 transition-colors pointer-events-none" />
                     <div className="relative z-10">
-                        <div className="mb-1 text-xs uppercase tracking-widest text-fantasy-muted flex items-center justify-center gap-2">
+                        <div className="mb-2 text-xs uppercase tracking-widest text-fantasy-muted flex items-center justify-center gap-2">
                             <Shield size={12} className="text-blue-400" /> Temp HP
                         </div>
-                        <div className="text-4xl font-serif font-bold text-blue-400 drop-shadow-lg">
-                            {player.hp.temp}
-                        </div>
+                        <input
+                            type="number"
+                            className="bg-transparent border-b border-white/20 text-4xl font-serif font-bold text-blue-400 text-center w-full focus:outline-none focus:border-blue-400"
+                            value={player.hp.temp}
+                            onChange={(e) => updateHP(parseInt(e.target.value) || 0, 'temp')}
+                        />
                     </div>
                 </div>
             </div>
@@ -88,11 +141,38 @@ export default function PlayerPage({ params }: { params: { id: string } }) {
                 <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase text-fantasy-gold tracking-widest">
                     <Backpack size={16} /> Equipment
                 </h3>
-                <ul className="space-y-2">
+
+                {/* Input Area */}
+                <div className="flex gap-2 mb-4">
+                    <input
+                        type="text"
+                        placeholder="New item..."
+                        className="flex-1 bg-black/40 border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-fantasy-gold"
+                        value={itemInput}
+                        onChange={(e) => setItemInput(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && addItem()}
+                    />
+                    <button
+                        onClick={addItem}
+                        className="bg-fantasy-gold/20 hover:bg-fantasy-gold/40 text-fantasy-gold p-2 rounded transition-colors"
+                    >
+                        <Plus size={16} />
+                    </button>
+                </div>
+
+                <ul className="space-y-2 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
                     {player.equipment.map((item, i) => (
-                        <li key={i} className="flex items-center gap-3 rounded bg-black/20 p-2 text-sm border border-white/5 hover:bg-white/5 transition-colors">
-                            <div className="h-2 w-2 rounded-full bg-fantasy-gold shadow-[0_0_10px_rgba(212,175,55,0.5)]"></div>
-                            <span className="text-fantasy-text/90">{item}</span>
+                        <li key={i} className="flex items-center justify-between gap-3 rounded bg-black/20 p-2 text-sm border border-white/5 hover:bg-white/5 transition-colors group">
+                            <div className="flex items-center gap-3">
+                                <div className="h-2 w-2 rounded-full bg-fantasy-gold shadow-[0_0_10px_rgba(212,175,55,0.5)]"></div>
+                                <span className="text-fantasy-text/90">{item}</span>
+                            </div>
+                            <button
+                                onClick={() => removeItem(i)}
+                                className="opacity-0 group-hover:opacity-100 text-red-500 hover:bg-red-900/40 p-1.5 rounded transition-all"
+                            >
+                                <Trash2 size={14} />
+                            </button>
                         </li>
                     ))}
                 </ul>
@@ -102,14 +182,38 @@ export default function PlayerPage({ params }: { params: { id: string } }) {
                 <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase text-blue-400 tracking-widest">
                     <Zap size={16} /> Spells
                 </h3>
+
+                {/* Input Area */}
+                <div className="flex gap-2 mb-4">
+                    <input
+                        type="text"
+                        placeholder="New spell..."
+                        className="flex-1 bg-black/40 border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-400"
+                        value={spellInput}
+                        onChange={(e) => setSpellInput(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && addSpell()}
+                    />
+                    <button
+                        onClick={addSpell}
+                        className="bg-blue-500/20 hover:bg-blue-500/40 text-blue-400 p-2 rounded transition-colors"
+                    >
+                        <Plus size={16} />
+                    </button>
+                </div>
+
                 {player.spells.length === 0 ? (
                     <p className="text-sm italic text-fantasy-muted text-center py-4">No arcane knowledge...</p>
                 ) : (
-                    <div className="grid grid-cols-1 gap-2">
+                    <div className="grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
                         {player.spells.map((spell, i) => (
                             <div key={i} className="rounded bg-blue-900/10 p-2 px-3 text-sm border border-blue-500/20 text-blue-200 hover:bg-blue-900/20 transition-colors flex items-center justify-between group">
                                 <span>{spell}</span>
-                                <Scroll size={12} className="opacity-0 group-hover:opacity-50 transition-opacity" />
+                                <button
+                                    onClick={() => removeSpell(i)}
+                                    className="opacity-0 group-hover:opacity-100 text-red-400 hover:bg-red-900/40 p-1 rounded transition-all"
+                                >
+                                    <Trash2 size={12} />
+                                </button>
                             </div>
                         ))}
                     </div>
