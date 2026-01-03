@@ -135,7 +135,7 @@ export default function DMPage() {
 
                         {/* Manual Input */}
                         <div className="mb-4">
-                            <p className="text-xs text-fantasy-muted mb-2">Select Campaign Script</p>
+                            <p className="text-xs text-fantasy-muted mb-2">Load from File</p>
                             <div className="flex gap-2">
                                 <select
                                     value={selectedSession}
@@ -147,19 +147,35 @@ export default function DMPage() {
                                             <option key={file} value={file}>{file.replace('.md', '').replace(/_/g, ' ')}</option>
                                         ))
                                     ) : (
-                                        <option value="">No scripts found - Defaulting to Session 1</option>
+                                        <option value="">No scripts found</option>
                                     )}
                                 </select>
                             </div>
+                            <button
+                                onClick={() => handleLoadScript("Session_1_Full_Read_Off_Script.md")}
+                                disabled={isGenerating}
+                                className="mt-2 w-full text-[10px] text-fantasy-muted hover:text-white underline text-left"
+                            >
+                                (Debug) Force Load Session 1 File
+                            </button>
                         </div>
 
-                        <button
-                            onClick={() => handleLoadScript("Session_1_Full_Read_Off_Script.md")}
-                            disabled={isGenerating}
-                            className="w-full flex items-center justify-center gap-2 rounded bg-gradient-to-r from-fantasy-gold to-fantasy-accent px-4 py-2 font-bold text-fantasy-dark hover:brightness-110 disabled:opacity-50"
-                        >
-                            {isGenerating ? "Weaving Reality..." : "Generate All Maps from Script"} <Sparkles size={16} />
-                        </button>
+                        <div className="my-4 border-t border-white/10 pt-4">
+                            <p className="text-xs text-fantasy-muted mb-2">...OR Paste Script / Notes</p>
+                            <textarea
+                                value={sessionNote}
+                                onChange={(e) => setSessionNote(e.target.value)}
+                                placeholder="Paste your full '## Session' markdown script here to generate a queue, OR just type a scene description for a single map..."
+                                className="w-full h-32 rounded border border-fantasy-muted/20 bg-black/40 p-3 text-xs focus:border-fantasy-gold focus:outline-none resize-none mb-3 font-mono"
+                            />
+                            <button
+                                onClick={handleSmartGenerate}
+                                disabled={isGenerating || !sessionNote}
+                                className="w-full flex items-center justify-center gap-2 rounded bg-gradient-to-r from-fantasy-gold to-fantasy-accent px-4 py-2 font-bold text-fantasy-dark hover:brightness-110 disabled:opacity-50"
+                            >
+                                {isGenerating ? "Processing..." : "Generate from Text"} <Sparkles size={16} />
+                            </button>
+                        </div>
                     </section>
 
                     {/* Active Encounters */}
