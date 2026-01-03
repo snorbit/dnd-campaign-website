@@ -156,6 +156,17 @@ export default function DMPage() {
                                     Load Maps
                                 </button>
                             </div>
+                            {/* Fallback: Explicit Load Button if dropdown fails */}
+                            <button
+                                onClick={() => {
+                                    setSelectedSession("Session_1_Full_Read_Off_Script.md");
+                                    // Wait a tick for state to update then call load
+                                    setTimeout(handleLoadScript, 100);
+                                }}
+                                className="mt-2 w-full text-[10px] text-fantasy-muted hover:text-white underline"
+                            >
+                                Force Load "Session 1"
+                            </button>
                         </div>
 
                         <textarea
@@ -259,7 +270,7 @@ export default function DMPage() {
                     {/* Map Manual Control */}
                     <section className="rounded-lg border border-fantasy-muted/20 bg-fantasy-bg p-6 shadow-xl">
                         <h2 className="mb-4 text-sm font-bold text-fantasy-muted uppercase">Manual Map Override</h2>
-                        <form onSubmit={handleMapSubmit} className="flex gap-2">
+                        <form onSubmit={handleMapSubmit} className="flex gap-2 mb-2">
                             <input
                                 type="text"
                                 placeholder="Paste Image URL..."
@@ -271,6 +282,12 @@ export default function DMPage() {
                                 <Send size={16} />
                             </button>
                         </form>
+                        <button
+                            onClick={() => updateMap(map.url)}
+                            className="w-full rounded border border-fantasy-gold/30 bg-fantasy-gold/10 py-1 text-xs text-fantasy-gold hover:bg-fantasy-gold hover:text-black transition-colors"
+                        >
+                            📡 Broadcast Current Map to Players
+                        </button>
                     </section>
 
                     {/* Player Quick Edit */}
