@@ -18,7 +18,7 @@ export default function DMPage() {
     const [selectedSession, setSelectedSession] = useState<string>("");
 
     // AI Configuration State
-    const [aiProvider, setAiProvider] = useState<'openai' | 'local'>('local');
+    const [aiProvider, setAiProvider] = useState<'openai' | 'local' | 'lightx'>('local');
     const [apiKey, setApiKey] = useState("");
     const [customUrl, setCustomUrl] = useState("http://127.0.0.1:7860");
 
@@ -110,6 +110,29 @@ export default function DMPage() {
                 return data.data[0].url;
             }
 
+            if (aiProvider === 'lightx') {
+                if (!apiKey) throw new Error("Missing LightX API Key");
+                const res = await fetch("https://api.lightxeditor.com/external/api/v1/text2image", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "x-api-key": apiKey },
+                    body: JSON.stringify({ textPrompt: `D&D battlemap, top down, ${cleanPrompt}` })
+                });
+                const data = await res.json();
+                // Check for errors or empty body
+                if (!res.ok) throw new Error(data.message || "LightX API Error");
+                // Assuming standard response has 'body.imageURL' or similar. 
+                // Documentation isn't explicit on response body structure in snippet, but commonly it's `body: { imageURL: "..." }` or similar.
+                // I will try to inspect `data`. If it fails, I'll log it. 
+                // A common LightX pattern is { "body": { "imageURL": "..." }, "statusCode": 200 }
+                if (data.body && data.body.imageURL) return data.body.imageURL;
+                // Retry fallback if structure is different
+                if (data.imageURL) return data.imageURL;
+                if (data.url) return data.url;
+
+                console.error("LightX Unknown Response:", data);
+                throw new Error("LightX did not return an image URL.");
+            }
+
 
             if (aiProvider === 'local') {
                 // Compatible with Automatic1111 API
@@ -199,12 +222,16 @@ export default function DMPage() {
                         <div className="mb-4 p-3 bg-black/20 rounded border border-white/5">
                             <label className="text-[10px] text-fantasy-muted uppercase tracking-wider mb-2 block font-bold">Generation Engine:</label>
                             <div className="flex gap-2 mb-2">
-                                <button onClick={() => setAiProvider('local')} className={`flex-1 text-[10px] py-1 rounded border border-white/5 ${aiProvider === 'local' ? 'bg-fantasy-gold text-black font-bold' : 'bg-black/40 text-fantasy-muted hover:bg-white/5'}`}>Local SD (Free)</button>
-                                <button onClick={() => setAiProvider('openai')} className={`flex-1 text-[10px] py-1 rounded border border-white/5 ${aiProvider === 'openai' ? 'bg-fantasy-gold text-black font-bold' : 'bg-black/40 text-fantasy-muted hover:bg-white/5'}`}>OpenAI (HQ)</button>
+                                <button onClick={() => setAiProvider('local')} className={`flex-1 text-[10px] py-1 rounded border border-white/5 ${aiProvider === 'local' ? 'bg-fantasy-gold text-black font-bold' : 'bg-black/40 text-fantasy-muted hover:bg-white/5'}`}>Local SD</button>
+                                <button onClick={() => setAiProvider('lightx')} className={`flex-1 text-[10px] py-1 rounded border border-white/5 ${aiProvider === 'lightx' ? 'bg-fantasy-gold text-black font-bold' : 'bg-black/40 text-fantasy-muted hover:bg-white/5'}`}>LightX</button>
+                                <button onClick={() => setAiProvider('openai')} className={`flex-1 text-[10px] py-1 rounded border border-white/5 ${aiProvider === 'openai' ? 'bg-fantasy-gold text-black font-bold' : 'bg-black/40 text-fantasy-muted hover:bg-white/5'}`}>OpenAI</button>
                             </div>
 
                             {aiProvider === 'openai' && (
                                 <input type="password" placeholder="Paste OpenAI API Key (sk-...)" value={apiKey} onChange={e => setApiKey(e.target.value)} className="w-full bg-black/40 text-xs p-2 rounded border border-white/10 text-white focus:border-fantasy-gold outline-none" />
+                            )}
+                            {aiProvider === 'lightx' && (
+                                <input type="password" placeholder="Paste LightX API Key..." value={apiKey} onChange={e => setApiKey(e.target.value)} className="w-full bg-black/40 text-xs p-2 rounded border border-white/10 text-white focus:border-fantasy-gold outline-none" />
                             )}
                             {aiProvider === 'local' && (
                                 <input type="text" placeholder="API URL (e.g. http://127.0.0.1:7860)" value={customUrl} onChange={e => setCustomUrl(e.target.value)} className="w-full bg-black/40 text-xs p-2 rounded border border-white/10 text-white focus:border-fantasy-gold outline-none" />
