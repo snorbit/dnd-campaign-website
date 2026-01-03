@@ -147,12 +147,20 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
         });
     };
 
+    const seedDatabase = async () => {
+        if (!initialPlayers) return;
+        setPlayers(initialPlayers);
+        await pushUpdate('players', initialPlayers);
+        // Also potentially reset others if needed, but primary issue is players
+    };
+
     return (
         <CampaignContext.Provider value={{
             players, world, map, encounters, quests,
             updatePlayer, updateWorld, updateMap,
             addEncounter, removeEncounter, updateEncounter,
-            addQuest, updateQuest, updatePlayerPosition
+            addQuest, updateQuest, updatePlayerPosition,
+            seedDatabase
         }}>
             {children}
         </CampaignContext.Provider>

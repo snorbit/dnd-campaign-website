@@ -8,7 +8,7 @@ import { Copy, Plus, Minus, Send, Sparkles, Skull, X, Leaf, ScrollText } from "l
 import { lookupMonster } from "@/utils/bestiary";
 
 export default function DMPage() {
-    const { world, players, encounters, quests, updateWorld, updateMap, updatePlayer, addEncounter, removeEncounter, updateEncounter, addQuest, updateQuest } = useCampaign();
+    const { world, players, encounters, quests, updateWorld, updateMap, updatePlayer, addEncounter, removeEncounter, updateEncounter, addQuest, updateQuest, seedDatabase } = useCampaign();
     const [mapInput, setMapInput] = useState("");
     const [sessionNote, setSessionNote] = useState("");
     const [isGenerating, setIsGenerating] = useState(false);
@@ -264,8 +264,20 @@ export default function DMPage() {
                     </section>                      </div>
                 {/* Right Column: Preview */}
                 <div className="lg:col-span-2">
-                    <div className="sticky top-6">
-                        <h2 className="mb-4 text-xl font-bold text-fantasy-muted">Live Map & Table</h2>
+                    <div className="sticky top-6 space-y-4">
+                        <div className="flex items-center justify-between">
+                            <h2 className="text-xl font-bold text-fantasy-muted">Live Map & Table</h2>
+                            <button
+                                onClick={async () => {
+                                    if (confirm("Overwrite Cloud Database with Local Player File?")) {
+                                        seedDatabase();
+                                    }
+                                }}
+                                className="text-xs bg-red-900/30 text-red-400 px-2 py-1 rounded border border-red-900/50 hover:bg-red-900/50"
+                            >
+                                Force Sync Data
+                            </button>
+                        </div>
                         <MapComponent />
                     </div>
                 </div>

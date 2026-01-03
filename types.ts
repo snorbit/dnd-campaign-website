@@ -68,4 +68,5 @@ export interface CampaignState {
     updateEncounter: (id: string, updates: Partial<Monster>) => void;
     addQuest: (quest: Quest) => void;
     updateQuest: (id: string, updates: Partial<Quest>) => void;
+    seedDatabase: () => void;
 }
