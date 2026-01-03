@@ -75,6 +75,34 @@ export default function DMPage() {
         if (!sessionNote) return;
         setIsGenerating(true);
 
+        try {
+            // MODE A: Full Script Parsing (detected by headers or read aloud markers)
+            if (sessionNote.includes("## ") || sessionNote.includes("**Read Aloud")) {
+                const { parseScript } = await import("@/utils/scriptParser");
+                const locations = parseScript(sessionNote);
+
+                if (locations.length > 0) {
+                    const queue = locations.map(loc => {
+                        const cleanDesc = loc.description.slice(0, 300).replace(/[^\w\s]/gi, '');
+                        const mapPrompt = encodeURIComponent(`d&d battlemap, top down, fantasy, 8k resolution, ${cleanDesc}`);
+                        return {
+                            title: loc.title,
+                            description: loc.description,
+                            url: `https://image.pollinations.ai/prompt/${mapPrompt}?nolog=true`
+                        };
+                    });
+
+                    setMapQueue(queue);
+                    alert(`Parsed ${queue.length} scenes from text! Queue updated.`);
+                    setIsGenerating(false);
+                    return; // Stop here, don't do single map gen
+                }
+            }
+        } catch (e) {
+            console.error("Script parse error", e);
+        }
+
+        // MODE B: Single Map Generation (Fallback)
         // 1. Generate Map using Pollinations AI
         // specific keywords to ensure good style
         const mapPrompt = encodeURIComponent(`d&d battlemap, top down, fantasy, 8k resolution, ${sessionNote.slice(0, 200)}`);
@@ -91,12 +119,6 @@ export default function DMPage() {
             // If it returned a real match (not the generic unknown fallback for everything)
             // We check if the 'type' is NOT "Unknown" to treat it as an auto-match
             if (monster.type !== "Unknown") {
-                // Avoid adding duplicates from same word occurrence, but allow multiple same monsters?
-                // For now, let's just add one per mention or just user interface to add more.
-                // Actually, let's just add it if matches.
-                // But usually "3 Goblins" -> extracting number is hard.
-                // Let's just add one of each unique found type to let DM duplicate?
-                // Or better: just add one, DM can click "+" to add more.
                 if (!foundMonsters.has(monster.name)) {
                     addEncounter(monster);
                     foundMonsters.add(monster.name);
@@ -147,7 +169,7 @@ export default function DMPage() {
                                             <option key={file} value={file}>{file.replace('.md', '').replace(/_/g, ' ')}</option>
                                         ))
                                     ) : (
-                                        <option value="">No scripts found</option>
+                                        <option value="">No scripts found - Defaulting to Session 1</option>
                                     )}
                                 </select>
                             </div>
