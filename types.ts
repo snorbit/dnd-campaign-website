@@ -74,4 +74,6 @@ export interface CampaignState {
     addQuest: (quest: Quest) => void;
     updateQuest: (id: string, updates: Partial<Quest>) => void;
     seedDatabase: () => void;
+    connectionStatus?: 'connecting' | 'connected' | 'error';
+    lastError?: string | null;
 }

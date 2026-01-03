@@ -10,7 +10,7 @@ import { useEffect, useState } from "react";
 
 export default function PlayerPage({ params }: { params: { id: string } }) {
     const router = useRouter();
-    const { players, encounters, quests, updatePlayer } = useCampaign();
+    const { players, encounters, quests, updatePlayer, map, connectionStatus, lastError } = useCampaign();
     const player = players.find(p => p.id === params.id);
     const otherPlayers = players.filter(p => p.id !== params.id);
 

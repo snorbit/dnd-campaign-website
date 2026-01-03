@@ -21,8 +21,11 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
     const [encounters, setEncounters] = useState<Monster[]>([]);
     const [quests, setQuests] = useState<Quest[]>([]);
     const [dbId, setDbId] = useState<number>(1); // Default to row 1
+    const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'error'>('connecting');
+    const [lastError, setLastError] = useState<string | null>(null);
 
     // 1. Initial Fetch & Auto-Seed
+
     useEffect(() => {
         const fetchData = async () => {
             console.log("CampaignContext: Fetching data from Supabase...");
@@ -234,7 +237,8 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
             setMapQueue, nextMap,
             addEncounter, removeEncounter, updateEncounter,
             addQuest, updateQuest, updatePlayerPosition,
-            seedDatabase
+            seedDatabase,
+            connectionStatus, lastError
         }}>
             {children}
         </CampaignContext.Provider>

@@ -18,7 +18,7 @@ export default function DMPage() {
     const [selectedSession, setSelectedSession] = useState<string>("");
 
     // AI Configuration State
-    const [aiProvider, setAiProvider] = useState<'pollinations' | 'openai' | 'local'>('pollinations');
+    const [aiProvider, setAiProvider] = useState<'openai' | 'local'>('local');
     const [apiKey, setApiKey] = useState("");
     const [customUrl, setCustomUrl] = useState("http://127.0.0.1:7860");
 
@@ -56,11 +56,11 @@ export default function DMPage() {
             if (locations.length > 0) {
                 const queue = locations.map(loc => {
                     const cleanDesc = loc.description.slice(0, 300).replace(/[^\w\s]/gi, '');
-                    const mapPrompt = encodeURIComponent(`d&d battlemap, top down, fantasy, 8k resolution, ${cleanDesc}`);
+                    // const mapPrompt = encodeURIComponent(`d&d battlemap, top down, fantasy, 8k resolution, ${cleanDesc}`);
                     return {
                         title: loc.title,
                         description: loc.description,
-                        url: `https://image.pollinations.ai/prompt/${mapPrompt}?nolog=true`
+                        url: "" // Placeholder - needs generation
                     };
                 });
 
@@ -110,6 +110,7 @@ export default function DMPage() {
                 return data.data[0].url;
             }
 
+
             if (aiProvider === 'local') {
                 // Compatible with Automatic1111 API
                 const res = await fetch(`${customUrl}/sdapi/v1/txt2img`, {
@@ -125,9 +126,7 @@ export default function DMPage() {
                 return `data:image/png;base64,${data.images[0]}`;
             }
 
-            // Fallback: Pollinations (Turbo mode for speed/unlimited feel)
-            const mapPrompt = encodeURIComponent(`d&d battlemap, top down, ${cleanPrompt}, unreal engine 5 render, 8k, distinct`);
-            return `https://image.pollinations.ai/prompt/${mapPrompt}?nolog=true&model=turbo&width=1920&height=1080&seed=${Math.floor(Math.random() * 10000)}`;
+            throw new Error("No valid AI Provider selected.");
         };
 
         try {
@@ -200,9 +199,8 @@ export default function DMPage() {
                         <div className="mb-4 p-3 bg-black/20 rounded border border-white/5">
                             <label className="text-[10px] text-fantasy-muted uppercase tracking-wider mb-2 block font-bold">Generation Engine:</label>
                             <div className="flex gap-2 mb-2">
-                                <button onClick={() => setAiProvider('pollinations')} className={`flex-1 text-[10px] py-1 rounded border border-white/5 ${aiProvider === 'pollinations' ? 'bg-fantasy-gold text-black font-bold' : 'bg-black/40 text-fantasy-muted hover:bg-white/5'}`}>Free (Turbo)</button>
+                                <button onClick={() => setAiProvider('local')} className={`flex-1 text-[10px] py-1 rounded border border-white/5 ${aiProvider === 'local' ? 'bg-fantasy-gold text-black font-bold' : 'bg-black/40 text-fantasy-muted hover:bg-white/5'}`}>Local SD (Free)</button>
                                 <button onClick={() => setAiProvider('openai')} className={`flex-1 text-[10px] py-1 rounded border border-white/5 ${aiProvider === 'openai' ? 'bg-fantasy-gold text-black font-bold' : 'bg-black/40 text-fantasy-muted hover:bg-white/5'}`}>OpenAI (HQ)</button>
-                                <button onClick={() => setAiProvider('local')} className={`flex-1 text-[10px] py-1 rounded border border-white/5 ${aiProvider === 'local' ? 'bg-fantasy-gold text-black font-bold' : 'bg-black/40 text-fantasy-muted hover:bg-white/5'}`}>Local SD</button>
                             </div>
 
                             {aiProvider === 'openai' && (
