@@ -8,7 +8,7 @@ import { Copy, Plus, Minus, Send, Sparkles, Skull, X, Leaf, ScrollText } from "l
 import { lookupMonster } from "@/utils/bestiary";
 
 export default function DMPage() {
-    const { world, players, encounters, quests, updateWorld, updateMap, setMapQueue, nextMap, updatePlayer, addEncounter, removeEncounter, updateEncounter, addQuest, updateQuest, seedDatabase } = useCampaign();
+    const { world, map, players, encounters, quests, updateWorld, updateMap, setMapQueue, nextMap, updatePlayer, addEncounter, removeEncounter, updateEncounter, addQuest, updateQuest, seedDatabase } = useCampaign();
     const [mapInput, setMapInput] = useState("");
     const [sessionNote, setSessionNote] = useState("");
     const [isGenerating, setIsGenerating] = useState(false);
