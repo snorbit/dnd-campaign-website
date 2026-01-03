@@ -7,11 +7,9 @@ import { supabase } from '@/lib/supabase';
 
 // Default / Fallback Data
 const defaultWorld: WorldState = { day: 1, time: "08:00 AM", session: 1 };
-const defaultMap: MapData = { url: "" };
+const defaultMap: MapData = { url: "", queue: [], currentIndex: 0 };
 
 const CampaignContext = createContext<CampaignState | undefined>(undefined);
-
-
 
 export const CampaignProvider = ({ children, initialPlayers }: { children: ReactNode, initialPlayers?: Player[] }) => {
     // Initialize state with defaults or props, falling back to local import
@@ -47,9 +45,17 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
                 }
 
                 if (data.world) setWorld(data.world);
-                if (data.map) setMap(data.map);
                 if (data.encounters) setEncounters(data.encounters);
                 if (data.quests) setQuests(data.quests);
+
+                // Map restoration: Ensure we have valid default structure if DB is partial
+                if (data.map) {
+                    setMap({
+                        url: data.map.url || "",
+                        queue: data.map.queue || [],
+                        currentIndex: data.map.currentIndex || 0
+                    });
+                }
             } else {
                 console.warn("CampaignContext: Supabase empty/failed, using local fallback");
                 // Already set in initial state, but ensuring it here
@@ -122,8 +128,35 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
     };
 
     const updateMap = (url: string) => {
-        setMap({ url });
-        pushUpdate('map', { url });
+        setMap(prev => {
+            // Updating map manually shouldn't break the queue, but maybe reset/pause it logic is needed?
+            // For now, simple update.
+            const newMap = { ...prev, url };
+            pushUpdate('map', newMap);
+            return newMap;
+        });
+    };
+
+    const setMapQueue = (queue: { title: string; url: string; description: string }[]) => {
+        setMap(prev => {
+            const startUrl = queue.length > 0 ? queue[0].url : prev.url;
+            const newMap = { ...prev, queue, currentIndex: 0, url: startUrl };
+            pushUpdate('map', newMap);
+            return newMap;
+        });
+    };
+
+    const nextMap = () => {
+        setMap(prev => {
+            if (prev.currentIndex + 1 < prev.queue.length) {
+                const nextIndex = prev.currentIndex + 1;
+                const nextUrl = prev.queue[nextIndex].url;
+                const newMap = { ...prev, currentIndex: nextIndex, url: nextUrl };
+                pushUpdate('map', newMap);
+                return newMap;
+            }
+            return prev;
+        });
     };
 
     const addEncounter = (monster: Monster) => {
@@ -177,6 +210,7 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
         <CampaignContext.Provider value={{
             players, world, map, encounters, quests,
             updatePlayer, updateWorld, updateMap,
+            setMapQueue, nextMap,
             addEncounter, removeEncounter, updateEncounter,
             addQuest, updateQuest, updatePlayerPosition,
             seedDatabase
