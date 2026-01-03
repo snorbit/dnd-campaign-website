@@ -140,45 +140,25 @@ export default function DMPage() {
                                 <select
                                     value={selectedSession}
                                     onChange={(e) => setSelectedSession(e.target.value)}
-                                    className="flex-1 bg-black/40 text-xs py-2 px-2 rounded border border-fantasy-muted/30 focus:border-fantasy-gold outline-none"
+                                    className="w-full bg-black/40 text-xs py-2 px-2 rounded border border-fantasy-muted/30 focus:border-fantasy-gold outline-none"
                                 >
                                     {availableSessions.length > 0 ? (
                                         availableSessions.map(file => (
                                             <option key={file} value={file}>{file.replace('.md', '').replace(/_/g, ' ')}</option>
                                         ))
                                     ) : (
-                                        <option value="">No scripts found</option>
+                                        <option value="">No scripts found - Defaulting to Session 1</option>
                                     )}
                                 </select>
-                                <button
-                                    onClick={() => handleLoadScript()}
-                                    disabled={isGenerating || !selectedSession}
-                                    className="bg-fantasy-muted/20 hover:bg-fantasy-accent/20 text-xs px-3 py-2 rounded border border-fantasy-muted/30 whitespace-nowrap"
-                                >
-                                    Load Maps
-                                </button>
                             </div>
-                            {/* Fallback: Explicit Load Button if dropdown fails */}
-                            <button
-                                onClick={() => handleLoadScript("Session_1_Full_Read_Off_Script.md")}
-                                className="mt-2 w-full text-[10px] text-fantasy-muted hover:text-white underline"
-                            >
-                                Force Generate All Maps for "Session 1"
-                            </button>
                         </div>
 
-                        <textarea
-                            value={sessionNote}
-                            onChange={(e) => setSessionNote(e.target.value)}
-                            placeholder="Ex: The party enters a dark spider-infested cave..."
-                            className="w-full h-20 rounded border border-fantasy-muted/20 bg-black/40 p-3 text-sm focus:border-fantasy-gold focus:outline-none resize-none mb-3"
-                        />
                         <button
-                            onClick={handleSmartGenerate}
+                            onClick={() => handleLoadScript("Session_1_Full_Read_Off_Script.md")}
                             disabled={isGenerating}
                             className="w-full flex items-center justify-center gap-2 rounded bg-gradient-to-r from-fantasy-gold to-fantasy-accent px-4 py-2 font-bold text-fantasy-dark hover:brightness-110 disabled:opacity-50"
                         >
-                            {isGenerating ? "Conjuring..." : "Generate Single Map"} <Sparkles size={16} />
+                            {isGenerating ? "Weaving Reality..." : "Generate All Maps from Script"} <Sparkles size={16} />
                         </button>
                     </section>
 
