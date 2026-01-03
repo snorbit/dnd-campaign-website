@@ -100,7 +100,9 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
 
     // Helper to push changes
     const pushUpdate = async (column: string, data: any) => {
-        await supabase.from('campaign').update({ [column]: data }).eq('id', 1);
+        console.log(`[CampaignContext] Pushing update to ${column}:`, data);
+        const { error } = await supabase.from('campaign').update({ [column]: data }).eq('id', 1);
+        if (error) console.error(`[CampaignContext] Push failed for ${column}:`, error);
     };
 
     const updatePlayer = (id: string, updates: Partial<Player>) => {
