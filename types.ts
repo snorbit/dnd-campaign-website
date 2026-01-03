@@ -40,6 +40,8 @@ export interface WorldState {
 
 export interface MapData {
     url: string;
+    queue: { title: string; url: string; description: string }[];
+    currentIndex: number;
 }
 
 export interface Monster {
@@ -64,6 +66,8 @@ export interface CampaignState {
     updatePlayerPosition: (id: string, x: number, y: number) => void;
     updateWorld: (updates: Partial<WorldState>) => void;
     updateMap: (url: string) => void;
+    setMapQueue: (queue: { title: string; url: string; description: string }[]) => void;
+    nextMap: () => void;
     addEncounter: (monster: Monster) => void;
     removeEncounter: (id: string) => void;
     updateEncounter: (id: string, updates: Partial<Monster>) => void;

@@ -4,7 +4,7 @@ import { useCampaign } from "@/context/CampaignContext";
 import React, { useState } from "react";
 
 export default function MapComponent() {
-    const { map, players, updatePlayerPosition } = useCampaign();
+    const { map, players, updatePlayerPosition, nextMap, updatePlayer } = useCampaign();
 
     if (!map.url) {
         return (

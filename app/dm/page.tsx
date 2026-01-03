@@ -8,15 +8,65 @@ import { Copy, Plus, Minus, Send, Sparkles, Skull, X, Leaf, ScrollText } from "l
 import { lookupMonster } from "@/utils/bestiary";
 
 export default function DMPage() {
-    const { world, players, encounters, quests, updateWorld, updateMap, updatePlayer, addEncounter, removeEncounter, updateEncounter, addQuest, updateQuest, seedDatabase } = useCampaign();
+    const { world, players, encounters, quests, updateWorld, updateMap, setMapQueue, nextMap, updatePlayer, addEncounter, removeEncounter, updateEncounter, addQuest, updateQuest, seedDatabase } = useCampaign();
     const [mapInput, setMapInput] = useState("");
     const [sessionNote, setSessionNote] = useState("");
     const [isGenerating, setIsGenerating] = useState(false);
     const [newQuestTitle, setNewQuestTitle] = useState("");
 
+    const [availableSessions, setAvailableSessions] = useState<string[]>([]);
+    const [selectedSession, setSelectedSession] = useState<string>("");
+
+    // Load available sessions on mount
+    React.useEffect(() => {
+        const fetchSessions = async () => {
+            try {
+                const { listSessions } = await import("@/app/actions");
+                const sessions = await listSessions();
+                setAvailableSessions(sessions);
+                if (sessions.length > 0 && !selectedSession) {
+                    setSelectedSession(sessions[0]);
+                }
+            } catch (e) {
+                console.error("Failed to list sessions", e);
+            }
+        };
+        fetchSessions();
+    }, []);
+
     const handleMapSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (mapInput) updateMap(mapInput);
+    };
+
+    const handleLoadScript = async () => {
+        if (!selectedSession) return;
+        setIsGenerating(true);
+        try {
+            const { loadSessionScript } = await import("@/app/actions");
+            const locations = await loadSessionScript(selectedSession);
+
+            if (locations.length > 0) {
+                const queue = locations.map(loc => {
+                    const cleanDesc = loc.description.slice(0, 300).replace(/[^\w\s]/gi, '');
+                    const mapPrompt = encodeURIComponent(`d&d battlemap, top down, fantasy, 8k resolution, ${cleanDesc}`);
+                    return {
+                        title: loc.title,
+                        description: loc.description,
+                        url: `https://image.pollinations.ai/prompt/${mapPrompt}?nolog=true`
+                    };
+                });
+
+                setMapQueue(queue);
+                alert(`Loaded ${queue.length} scenes from ${selectedSession}!`);
+            } else {
+                alert("No scenes found in script.");
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Failed to load script.");
+        }
+        setIsGenerating(false);
     };
 
     const handleSmartGenerate = async () => {
@@ -80,21 +130,46 @@ export default function DMPage() {
                         <h2 className="mb-2 text-xl font-bold text-fantasy-gold flex items-center gap-2">
                             <Sparkles size={20} /> Smart Session
                         </h2>
-                        <p className="text-xs text-fantasy-muted mb-3">
-                            Paste your session notes. AI will generate a map and find monsters.
-                        </p>
+
+                        {/* Manual Input */}
+                        <div className="mb-4">
+                            <p className="text-xs text-fantasy-muted mb-2">Select Campaign Script</p>
+                            <div className="flex gap-2">
+                                <select
+                                    value={selectedSession}
+                                    onChange={(e) => setSelectedSession(e.target.value)}
+                                    className="flex-1 bg-black/40 text-xs py-2 px-2 rounded border border-fantasy-muted/30 focus:border-fantasy-gold outline-none"
+                                >
+                                    {availableSessions.length > 0 ? (
+                                        availableSessions.map(file => (
+                                            <option key={file} value={file}>{file.replace('.md', '').replace(/_/g, ' ')}</option>
+                                        ))
+                                    ) : (
+                                        <option value="">No scripts found</option>
+                                    )}
+                                </select>
+                                <button
+                                    onClick={handleLoadScript}
+                                    disabled={isGenerating || !selectedSession}
+                                    className="bg-fantasy-muted/20 hover:bg-fantasy-accent/20 text-xs px-3 py-2 rounded border border-fantasy-muted/30 whitespace-nowrap"
+                                >
+                                    Load Maps
+                                </button>
+                            </div>
+                        </div>
+
                         <textarea
                             value={sessionNote}
                             onChange={(e) => setSessionNote(e.target.value)}
-                            placeholder="Ex: The party enters a dark spider-infested cave. Two Goblins guard the entrance..."
-                            className="w-full h-32 rounded border border-fantasy-muted/20 bg-black/40 p-3 text-sm focus:border-fantasy-gold focus:outline-none resize-none mb-3"
+                            placeholder="Ex: The party enters a dark spider-infested cave..."
+                            className="w-full h-20 rounded border border-fantasy-muted/20 bg-black/40 p-3 text-sm focus:border-fantasy-gold focus:outline-none resize-none mb-3"
                         />
                         <button
                             onClick={handleSmartGenerate}
                             disabled={isGenerating}
                             className="w-full flex items-center justify-center gap-2 rounded bg-gradient-to-r from-fantasy-gold to-fantasy-accent px-4 py-2 font-bold text-fantasy-dark hover:brightness-110 disabled:opacity-50"
                         >
-                            {isGenerating ? "Conjuring..." : "Generate Session"} <Sparkles size={16} />
+                            {isGenerating ? "Conjuring..." : "Generate Single Map"} <Sparkles size={16} />
                         </button>
                     </section>
 
