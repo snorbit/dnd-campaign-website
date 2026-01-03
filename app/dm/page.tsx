@@ -75,6 +75,22 @@ export default function DMPage() {
         if (!sessionNote) return;
         setIsGenerating(true);
 
+        // 1. Parse for Monsters (Always run this first)
+        const words = sessionNote.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "").split(/\s+/);
+        const foundMonsters = new Set<string>();
+
+        words.forEach(word => {
+            const monster = lookupMonster(word, "enc");
+            // If it returned a real match (not the generic unknown fallback for everything)
+            // We check if the 'type' is NOT "Unknown" to treat it as an auto-match
+            if (monster.type !== "Unknown") {
+                if (!foundMonsters.has(monster.name)) {
+                    addEncounter(monster);
+                    foundMonsters.add(monster.name);
+                }
+            }
+        });
+
         try {
             // MODE A: Full Script Parsing (detected by headers or read aloud markers)
             if (sessionNote.includes("## ") || sessionNote.includes("**Read Aloud")) {
@@ -93,9 +109,9 @@ export default function DMPage() {
                     });
 
                     setMapQueue(queue);
-                    alert(`Parsed ${queue.length} scenes from text! Queue updated.`);
+                    alert(`Parsed ${queue.length} scenes & ${foundMonsters.size} encounters from text!`);
                     setIsGenerating(false);
-                    return; // Stop here, don't do single map gen
+                    return; // Stop here after successful queue generation
                 }
             }
         } catch (e) {
@@ -103,28 +119,9 @@ export default function DMPage() {
         }
 
         // MODE B: Single Map Generation (Fallback)
-        // 1. Generate Map using Pollinations AI
-        // specific keywords to ensure good style
         const mapPrompt = encodeURIComponent(`d&d battlemap, top down, fantasy, 8k resolution, ${sessionNote.slice(0, 200)}`);
         const aiMapUrl = `https://image.pollinations.ai/prompt/${mapPrompt}?nolog=true`;
         updateMap(aiMapUrl);
-
-        // 2. Parse for Monsters
-        // Simple logic: split words, check against bestiary
-        const words = sessionNote.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "").split(/\s+/);
-        const foundMonsters = new Set<string>();
-
-        words.forEach(word => {
-            const monster = lookupMonster(word, "enc");
-            // If it returned a real match (not the generic unknown fallback for everything)
-            // We check if the 'type' is NOT "Unknown" to treat it as an auto-match
-            if (monster.type !== "Unknown") {
-                if (!foundMonsters.has(monster.name)) {
-                    addEncounter(monster);
-                    foundMonsters.add(monster.name);
-                }
-            }
-        });
 
         setIsGenerating(false);
     };
