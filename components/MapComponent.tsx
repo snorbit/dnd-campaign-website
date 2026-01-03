@@ -59,8 +59,15 @@ export default function MapComponent() {
             <img
                 src={map.url}
                 alt="Campaign Map"
-                className="h-full w-full object-cover scale-[1.02] origin-top select-none pointer-events-none"
+                className="h-full w-full object-cover scale-[1.02] origin-top select-none pointer-events-auto"
             />
+
+            {/* Instruction Overlay if token selected */}
+            {selectedTokenId && (
+                <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-black/60 px-3 py-1 rounded-full text-[10px] text-white pointer-events-none animate-pulse z-20 border border-white/20">
+                    Click anywhere to move
+                </div>
+            )}
 
             {/* Tokens Layer */}
             {players.map(player => (

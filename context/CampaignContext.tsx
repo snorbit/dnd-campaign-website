@@ -128,13 +128,10 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
     };
 
     const updateMap = (url: string) => {
-        setMap(prev => {
-            // Updating map manually shouldn't break the queue, but maybe reset/pause it logic is needed?
-            // For now, simple update.
-            const newMap = { ...prev, url };
-            pushUpdate('map', newMap);
-            return newMap;
-        });
+        const newMap = { ...map, url: url }; // Use current state as base
+        console.log("Setting Map URL to:", url);
+        setMap(newMap);
+        pushUpdate('map', newMap);
     };
 
     const setMapQueue = (queue: { title: string; url: string; description: string }[]) => {
@@ -147,16 +144,15 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
     };
 
     const nextMap = () => {
-        setMap(prev => {
-            if (prev.currentIndex + 1 < prev.queue.length) {
-                const nextIndex = prev.currentIndex + 1;
-                const nextUrl = prev.queue[nextIndex].url;
-                const newMap = { ...prev, currentIndex: nextIndex, url: nextUrl };
-                pushUpdate('map', newMap);
-                return newMap;
-            }
-            return prev;
-        });
+        if (map.currentIndex + 1 < map.queue.length) {
+            const nextIndex = map.currentIndex + 1;
+            const nextUrl = map.queue[nextIndex].url;
+            console.log("Advancing to map:", nextUrl);
+            const newMap = { ...map, currentIndex: nextIndex, url: nextUrl };
+
+            setMap(newMap);
+            pushUpdate('map', newMap);
+        }
     };
 
     const addEncounter = (monster: Monster) => {
