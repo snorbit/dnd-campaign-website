@@ -79,11 +79,14 @@ export default function DMPage() {
         }
 
         if (aiProvider === 'nanobanana') {
-            if (!apiKey) throw new Error("Missing Nano Banana API Key");
-            // Using Google's Gemini 2.5 Flash Image model
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${apiKey}`, {
+            if (!apiKey) throw new Error("Missing Gemini API Key");
+            // Using Google's Gemini 2.5 Flash Image model (official REST format)
+            const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: {
+                    "Content-Type": "application/json",
+                    "x-goog-api-key": apiKey
+                },
                 body: JSON.stringify({
                     contents: [{
                         parts: [{
