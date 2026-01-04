@@ -5,16 +5,28 @@ import React, { useState } from "react";
 
 export default function MapComponent() {
     const { map, players, updatePlayerPosition, nextMap, updatePlayer } = useCampaign();
+    const [imageLoaded, setImageLoaded] = useState(false);
+    const [imageError, setImageError] = useState(false);
+    const [selectedTokenId, setSelectedTokenId] = useState<string | null>(null);
+
+    // Reset loading states when map URL changes
+    React.useEffect(() => {
+        if (map.url) {
+            setImageLoaded(false);
+            setImageError(false);
+        }
+    }, [map.url]);
 
     if (!map.url) {
         return (
             <div className="flex h-[60vh] w-full items-center justify-center rounded-lg border-2 border-dashed border-fantasy-muted/20 bg-black/40">
-                <p className="text-fantasy-muted text-sm">No map currently displayed by the DM.</p>
+                <div className="text-center">
+                    <p className="text-fantasy-muted text-sm mb-2">No map currently displayed by the DM.</p>
+                    <p className="text-fantasy-muted/50 text-xs">Waiting for the adventure to begin...</p>
+                </div>
             </div>
         );
     }
-
-    const [selectedTokenId, setSelectedTokenId] = useState<string | null>(null);
 
     const handleMapClick = (e: React.MouseEvent<HTMLDivElement>) => {
         // If no token is selected, do nothing on empty map click
@@ -56,10 +68,29 @@ export default function MapComponent() {
             onClick={handleMapClick}
         >
             {/* Map Image */}
+            {!imageLoaded && !imageError && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black">
+                    <div className="text-center">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-fantasy-gold mx-auto mb-4"></div>
+                        <p className="text-fantasy-muted text-sm">Loading map...</p>
+                    </div>
+                </div>
+            )}
+            {imageError && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/80">
+                    <div className="text-center p-6">
+                        <p className="text-red-400 text-sm mb-2">Failed to load map</p>
+                        <p className="text-fantasy-muted text-xs">The map image could not be displayed</p>
+                    </div>
+                </div>
+            )}
             <img
                 src={map.url}
                 alt="Campaign Map"
-                className="h-full w-full object-cover scale-[1.02] origin-top select-none pointer-events-auto"
+                className={`h-full w-full object-cover scale-[1.02] origin-top select-none pointer-events-auto transition-opacity duration-300 ${imageLoaded ? 'opacity-100' : 'opacity-0'
+                    }`}
+                onLoad={() => setImageLoaded(true)}
+                onError={() => setImageError(true)}
             />
 
             {/* Instruction Overlay if token selected */}

@@ -13,12 +13,13 @@ export default function DMPage() {
     const [sessionNote, setSessionNote] = useState("");
     const [isGenerating, setIsGenerating] = useState(false);
     const [newQuestTitle, setNewQuestTitle] = useState("");
+    const [generationProgress, setGenerationProgress] = useState<{ current: number, total: number } | null>(null);
 
     const [availableSessions, setAvailableSessions] = useState<string[]>([]);
     const [selectedSession, setSelectedSession] = useState<string>("");
 
     // AI Configuration State
-    const [aiProvider, setAiProvider] = useState<'openai' | 'local' | 'lightx'>('local');
+    const [aiProvider, setAiProvider] = useState<'openai' | 'local' | 'lightx' | 'nanobanana'>('nanobanana');
     const [apiKey, setApiKey] = useState("");
     const [customUrl, setCustomUrl] = useState("http://127.0.0.1:7860");
 
@@ -44,6 +45,93 @@ export default function DMPage() {
         if (mapInput) updateMap(mapInput);
     };
 
+    // Helper: Generate Image based on Provider
+    const generateImage = async (prompt: string): Promise<string> => {
+        const cleanPrompt = prompt.slice(0, 1000).replace(/[^\\w\\s,.]/gi, '');
+
+        if (aiProvider === 'openai') {
+            if (!apiKey) throw new Error("Missing OpenAI API Key");
+            const res = await fetch("https://api.openai.com/v1/images/generations", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+                body: JSON.stringify({ model: "dall-e-3", prompt: `D&D battlemap, top down, ${cleanPrompt}`, n: 1, size: "1024x1024" })
+            });
+            const data = await res.json();
+            if (data.error) throw new Error(data.error.message);
+            return data.data[0].url;
+        }
+
+        if (aiProvider === 'lightx') {
+            if (!apiKey) throw new Error("Missing LightX API Key");
+            const res = await fetch("https://api.lightxeditor.com/external/api/v1/text2image", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "x-api-key": apiKey },
+                body: JSON.stringify({ textPrompt: `D&D battlemap, top down, ${cleanPrompt}` })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || "LightX API Error");
+            if (data.body && data.body.imageURL) return data.body.imageURL;
+            if (data.imageURL) return data.imageURL;
+            if (data.url) return data.url;
+
+            console.error("LightX Unknown Response:", data);
+            throw new Error("LightX did not return an image URL.");
+        }
+
+        if (aiProvider === 'nanobanana') {
+            if (!apiKey) throw new Error("Missing Nano Banana API Key");
+            // Using Google's Gemini API for Nano Banana
+            const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-generate-images:generateImages", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+                body: JSON.stringify({
+                    prompt: `D&D top-down battlemap: ${cleanPrompt}`,
+                    numImages: 1,
+                    aspectRatio: "1:1"
+                })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error?.message || "Nano Banana API Error");
+            if (data.generatedImages && data.generatedImages[0]?.imageUri) {
+                return data.generatedImages[0].imageUri;
+            }
+            if (data.generatedImages && data.generatedImages[0]?.image) {
+                return `data:image/png;base64,${data.generatedImages[0].image}`;
+            }
+            throw new Error("Nano Banana did not return an image.");
+        }
+
+        if (aiProvider === 'local') {
+            // Compatible with Automatic1111 API
+            try {
+                const res = await fetch(`${customUrl}/sdapi/v1/txt2img`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        prompt: `(top down battlemap:1.4), ${cleanPrompt}`,
+                        steps: 20, width: 1024, height: 1024
+                    })
+                });
+                if (!res.ok) throw new Error(`Status: ${res.statusText}`);
+                const data = await res.json();
+                if (!data.images) throw new Error("No images returned from Local SD");
+                return `data:image/png;base64,${data.images[0]}`;
+            } catch (err: any) {
+                if (err.message.includes("Failed to fetch")) {
+                    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+                    if (isLocal) {
+                        throw new Error(`Connection Failed! Is Local SD running at ${customUrl}? Check your terminal.`);
+                    } else {
+                        throw new Error("Connection Failed! Vercel (HTTPS) cannot talk to your PC (HTTP). Please run the website locally using 'npm run dev'.");
+                    }
+                }
+                throw err;
+            }
+        }
+
+        throw new Error("No valid AI Provider selected.");
+    };
+
     const handleLoadScript = async (filenameOverride?: string) => {
         const targetSession = filenameOverride || selectedSession;
         if (!targetSession) return;
@@ -54,18 +142,31 @@ export default function DMPage() {
             const locations = await loadSessionScript(targetSession);
 
             if (locations.length > 0) {
-                const queue = locations.map(loc => {
-                    const cleanDesc = loc.description.slice(0, 300).replace(/[^\w\s]/gi, '');
-                    // const mapPrompt = encodeURIComponent(`d&d battlemap, top down, fantasy, 8k resolution, ${cleanDesc}`);
-                    return {
-                        title: loc.title,
-                        description: loc.description,
-                        url: "" // Placeholder - needs generation
-                    };
-                });
+                // Auto-generate maps for all locations
+                setGenerationProgress({ current: 0, total: locations.length });
+                const queue = [];
+
+                for (let i = 0; i < locations.length; i++) {
+                    const loc = locations[i];
+                    setGenerationProgress({ current: i + 1, total: locations.length });
+
+                    try {
+                        const url = await generateImage(loc.description);
+                        queue.push({ title: loc.title, description: loc.description, url });
+                    } catch (err) {
+                        console.error(`Failed to generate map for ${loc.title}:`, err);
+                        // Use a placeholder/fallback
+                        queue.push({
+                            title: loc.title,
+                            description: loc.description,
+                            url: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1024' height='1024'%3E%3Crect fill='%23111' width='1024' height='1024'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%23999' font-family='serif' font-size='24'%3EMap Generation Failed%3C/text%3E%3C/svg%3E"
+                        });
+                    }
+                }
 
                 setMapQueue(queue);
-                alert(`Loaded ${queue.length} scenes from ${targetSession}!`);
+                setGenerationProgress(null);
+                alert(`Generated ${queue.length} maps from ${targetSession}!`);
             } else {
                 alert("No scenes found in script.");
             }
@@ -93,77 +194,6 @@ export default function DMPage() {
                 }
             }
         });
-
-        // Helper: Generate Image based on Provider
-        const generateImage = async (prompt: string): Promise<string> => {
-            const cleanPrompt = prompt.slice(0, 1000).replace(/[^\w\s,.]/gi, '');
-
-            if (aiProvider === 'openai') {
-                if (!apiKey) throw new Error("Missing OpenAI API Key");
-                const res = await fetch("https://api.openai.com/v1/images/generations", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-                    body: JSON.stringify({ model: "dall-e-3", prompt: `D&D battlemap, top down, ${cleanPrompt}`, n: 1, size: "1024x1024" })
-                });
-                const data = await res.json();
-                if (data.error) throw new Error(data.error.message);
-                return data.data[0].url;
-            }
-
-            if (aiProvider === 'lightx') {
-                if (!apiKey) throw new Error("Missing LightX API Key");
-                const res = await fetch("https://api.lightxeditor.com/external/api/v1/text2image", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json", "x-api-key": apiKey },
-                    body: JSON.stringify({ textPrompt: `D&D battlemap, top down, ${cleanPrompt}` })
-                });
-                const data = await res.json();
-                // Check for errors or empty body
-                if (!res.ok) throw new Error(data.message || "LightX API Error");
-                // Assuming standard response has 'body.imageURL' or similar. 
-                // Documentation isn't explicit on response body structure in snippet, but commonly it's `body: { imageURL: "..." }` or similar.
-                // I will try to inspect `data`. If it fails, I'll log it. 
-                // A common LightX pattern is { "body": { "imageURL": "..." }, "statusCode": 200 }
-                if (data.body && data.body.imageURL) return data.body.imageURL;
-                // Retry fallback if structure is different
-                if (data.imageURL) return data.imageURL;
-                if (data.url) return data.url;
-
-                console.error("LightX Unknown Response:", data);
-                throw new Error("LightX did not return an image URL.");
-            }
-
-
-            if (aiProvider === 'local') {
-                // Compatible with Automatic1111 API
-                try {
-                    const res = await fetch(`${customUrl}/sdapi/v1/txt2img`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            prompt: `(top down battlemap:1.4), ${cleanPrompt}`,
-                            steps: 20, width: 1024, height: 1024
-                        })
-                    });
-                    if (!res.ok) throw new Error(`Status: ${res.statusText}`);
-                    const data = await res.json();
-                    if (!data.images) throw new Error("No images returned from Local SD");
-                    return `data:image/png;base64,${data.images[0]}`;
-                } catch (err: any) {
-                    if (err.message.includes("Failed to fetch")) {
-                        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-                        if (isLocal) {
-                            throw new Error(`Connection Failed! Is Local SD running at ${customUrl}? Check your terminal.`);
-                        } else {
-                            throw new Error("Connection Failed! Vercel (HTTPS) cannot talk to your PC (HTTP). Please run the website locally using 'npm run dev'.");
-                        }
-                    }
-                    throw err;
-                }
-            }
-
-            throw new Error("No valid AI Provider selected.");
-        };
 
         try {
             // MODE A: Full Script Parsing
@@ -233,22 +263,8 @@ export default function DMPage() {
 
                         {/* AI Settings */}
                         <div className="mb-4 p-3 bg-black/20 rounded border border-white/5">
-                            <label className="text-[10px] text-fantasy-muted uppercase tracking-wider mb-2 block font-bold">Generation Engine:</label>
-                            <div className="flex gap-2 mb-2">
-                                <button onClick={() => setAiProvider('local')} className={`flex-1 text-[10px] py-1 rounded border border-white/5 ${aiProvider === 'local' ? 'bg-fantasy-gold text-black font-bold' : 'bg-black/40 text-fantasy-muted hover:bg-white/5'}`}>Local SD</button>
-                                <button onClick={() => setAiProvider('lightx')} className={`flex-1 text-[10px] py-1 rounded border border-white/5 ${aiProvider === 'lightx' ? 'bg-fantasy-gold text-black font-bold' : 'bg-black/40 text-fantasy-muted hover:bg-white/5'}`}>LightX</button>
-                                <button onClick={() => setAiProvider('openai')} className={`flex-1 text-[10px] py-1 rounded border border-white/5 ${aiProvider === 'openai' ? 'bg-fantasy-gold text-black font-bold' : 'bg-black/40 text-fantasy-muted hover:bg-white/5'}`}>OpenAI</button>
-                            </div>
-
-                            {aiProvider === 'openai' && (
-                                <input type="password" placeholder="Paste OpenAI API Key (sk-...)" value={apiKey} onChange={e => setApiKey(e.target.value)} className="w-full bg-black/40 text-xs p-2 rounded border border-white/10 text-white focus:border-fantasy-gold outline-none" />
-                            )}
-                            {aiProvider === 'lightx' && (
-                                <input type="password" placeholder="Paste LightX API Key..." value={apiKey} onChange={e => setApiKey(e.target.value)} className="w-full bg-black/40 text-xs p-2 rounded border border-white/10 text-white focus:border-fantasy-gold outline-none" />
-                            )}
-                            {aiProvider === 'local' && (
-                                <input type="text" placeholder="API URL (e.g. http://127.0.0.1:7860)" value={customUrl} onChange={e => setCustomUrl(e.target.value)} className="w-full bg-black/40 text-xs p-2 rounded border border-white/10 text-white focus:border-fantasy-gold outline-none" />
-                            )}
+                            <label className="text-[10px] text-fantasy-muted uppercase tracking-wider mb-2 block font-bold">AI Generation: Nano Banana 🍌</label>
+                            <input type="password" placeholder="Paste Google AI API Key (from aistudio.google.com/apikey)" value={apiKey} onChange={e => setApiKey(e.target.value)} className="w-full bg-black/40 text-xs p-2 rounded border border-white/10 text-white focus:border-fantasy-gold outline-none" />
                         </div>
 
                         {/* Manual Input */}
@@ -286,6 +302,12 @@ export default function DMPage() {
                                 placeholder="Paste your full '## Session' markdown script here to generate a queue, OR just type a scene description for a single map..."
                                 className="w-full h-32 rounded border border-fantasy-muted/20 bg-black/40 p-3 text-xs focus:border-fantasy-gold focus:outline-none resize-none mb-3 font-mono"
                             />
+                            {generationProgress && (
+                                <div className="mb-3 flex items-center justify-center gap-2 bg-fantasy-gold/10 border border-fantasy-gold/30 rounded p-2 text-xs text-fantasy-gold animate-pulse">
+                                    <Sparkles size={14} className="animate-spin" />
+                                    Generating map {generationProgress.current}/{generationProgress.total}...
+                                </div>
+                            )}
                             <button
                                 onClick={handleSmartGenerate}
                                 disabled={isGenerating || !sessionNote}
