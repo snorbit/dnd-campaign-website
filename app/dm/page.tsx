@@ -20,7 +20,7 @@ export default function DMPage() {
 
     // AI Configuration State
     const [aiProvider, setAiProvider] = useState<'openai' | 'local' | 'lightx' | 'nanobanana'>('nanobanana');
-    const [apiKey, setApiKey] = useState("");
+    const [apiKey, setApiKey] = useState(process.env.NEXT_PUBLIC_GOOGLE_AI_KEY || "");
     const [customUrl, setCustomUrl] = useState("http://127.0.0.1:7860");
 
     // Load available sessions on mount
@@ -265,6 +265,12 @@ export default function DMPage() {
                         <div className="mb-4 p-3 bg-black/20 rounded border border-white/5">
                             <label className="text-[10px] text-fantasy-muted uppercase tracking-wider mb-2 block font-bold">AI Generation: Nano Banana 🍌</label>
                             <input type="password" placeholder="Paste Google AI API Key (from aistudio.google.com/apikey)" value={apiKey} onChange={e => setApiKey(e.target.value)} className="w-full bg-black/40 text-xs p-2 rounded border border-white/10 text-white focus:border-fantasy-gold outline-none" />
+                            {process.env.NEXT_PUBLIC_GOOGLE_AI_KEY && (
+                                <p className="text-[10px] text-green-400 mt-1">✓ API key loaded from .env.local</p>
+                            )}
+                            {!process.env.NEXT_PUBLIC_GOOGLE_AI_KEY && !apiKey && (
+                                <p className="text-[10px] text-fantasy-muted mt-1">Add NEXT_PUBLIC_GOOGLE_AI_KEY to .env.local or paste above</p>
+                            )}
                         </div>
 
                         {/* Manual Input */}
