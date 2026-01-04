@@ -1,0 +1,140 @@
+'use client';
+
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { useParams, useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { Map, User, Backpack, Users, ScrollText, Award } from 'lucide-react';
+
+type TabId = 'map' | 'stats' | 'inventory' | 'party' | 'quests' | 'feats';
+
+const tabs = [
+    { id: 'map' as TabId, label: 'Map', icon: Map },
+    { id: 'stats' as TabId, label: 'Stats', icon: User },
+    { id: 'inventory' as TabId, label: 'Inventory', icon: Backpack },
+    { id: 'party' as TabId, label: 'Party', icon: Users },
+    { id: 'quests' as TabId, label: 'Quests', icon: ScrollText },
+    { id: 'feats' as TabId, label: 'Feats', icon: Award },
+];
+
+export default function PlayerCampaignPage() {
+    const params = useParams();
+    const router = useRouter();
+    const supabase = createClientComponentClient();
+
+    const [activeTab, setActiveTab] = useState<TabId>('map');
+    const [campaign, setCampaign] = useState<any>(null);
+    const [character, setCharacter] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        loadCampaignAndCharacter();
+    }, [params.campaignId]);
+
+    const loadCampaignAndCharacter = async () => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                router.push('/auth/login');
+                return;
+            }
+
+            // Load campaign
+            const { data: campaignData } = await supabase
+                .from('campaigns')
+                .select('*')
+                .eq('id', params.campaignId)
+                .single();
+
+            // Load player's character in this campaign
+            const { data: characterData } = await supabase
+                .from('campaign_players')
+                .select('*')
+                .eq('campaign_id', params.campaignId)
+                .eq('player_id', user.id)
+                .single();
+
+            if (!campaignData || !characterData) {
+                console.error('Campaign or character not found');
+                router.push('/campaigns');
+                return;
+            }
+
+            setCampaign(campaignData);
+            setCharacter(characterData);
+        } catch (error) {
+            console.error('Error loading data:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black flex items-center justify-center">
+                <div className="text-white text-xl">Loading campaign...</div>
+            </div>
+        );
+    }
+
+    if (!campaign || !character) {
+        return null;
+    }
+
+    return (
+        <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black flex">
+            {/* Sidebar */}
+            <div className="w-64 bg-gray-800 border-r border-gray-700 flex flex-col">
+                {/* Campaign Header */}
+                <div className="p-4 border-b border-gray-700">
+                    <button
+                        onClick={() => router.push('/campaigns')}
+                        className="text-gray-400 hover:text-white text-sm mb-2"
+                    >
+                        ← Back to Campaigns
+                    </button>
+                    <h2 className="text-xl font-bold text-white truncate">{campaign.name}</h2>
+                    <p className="text-sm text-gray-400 truncate">{character.character_name}</p>
+                    <span className="text-xs text-blue-500 font-semibold">Level {character.level || 1}</span>
+                </div>
+
+                {/* Tabs */}
+                <nav className="flex-1 p-4 space-y-1">
+                    {tabs.map((tab) => {
+                        const Icon = tab.icon;
+                        const isActive = activeTab === tab.id;
+                        return (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id)}
+                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
+                                        ? 'bg-blue-600 text-white font-bold'
+                                        : 'text-gray-400 hover:bg-gray-700 hover:text-white'
+                                    }`}
+                            >
+                                <Icon size={20} />
+                                <span>{tab.label}</span>
+                            </button>
+                        );
+                    })}
+                </nav>
+            </div>
+
+            {/* Main Content */}
+            <div className="flex-1 overflow-y-auto">
+                <div className="p-8">
+                    <h1 className="text-3xl font-bold text-white mb-6 capitalize">{activeTab}</h1>
+
+                    {/* Tab Content Placeholder */}
+                    <div className="bg-gray-800 rounded-lg border border-gray-700 p-8 text-center">
+                        <p className="text-gray-400">
+                            {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} tab content coming soon...
+                        </p>
+                        <p className="text-gray-500 text-sm mt-2">
+                            This feature is under construction 🚧
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
