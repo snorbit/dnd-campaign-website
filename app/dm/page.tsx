@@ -80,27 +80,27 @@ export default function DMPage() {
 
         if (aiProvider === 'nanobanana') {
             if (!apiKey) throw new Error("Missing Nano Banana API Key");
-            // Using Google's Imagen 3.0 API
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`, {
+            // Using Google's Gemini 2.5 Flash Image model
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${apiKey}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    instances: [{
-                        prompt: `D&D top-down battlemap: ${cleanPrompt}`
-                    }],
-                    parameters: {
-                        sampleCount: 1,
-                        aspectRatio: "1:1"
-                    }
+                    contents: [{
+                        parts: [{
+                            text: `Generate a high-quality D&D top-down battlemap for this scene: ${cleanPrompt}. The map should be suitable for tabletop RPG gameplay with clear terrain features.`
+                        }]
+                    }]
                 })
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error?.message || "Nano Banana API Error");
-            if (data.predictions && data.predictions[0]?.bytesBase64Encoded) {
-                return `data:image/png;base64,${data.predictions[0].bytesBase64Encoded}`;
-            }
-            if (data.predictions && data.predictions[0]?.gcsUri) {
-                return data.predictions[0].gcsUri;
+
+            // Gemini returns images in the response candidates
+            if (data.candidates && data.candidates[0]?.content?.parts) {
+                const imagePart = data.candidates[0].content.parts.find((part: any) => part.inlineData);
+                if (imagePart?.inlineData?.data) {
+                    return `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`;
+                }
             }
             throw new Error("Nano Banana did not return an image.");
         }
