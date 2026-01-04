@@ -80,23 +80,27 @@ export default function DMPage() {
 
         if (aiProvider === 'nanobanana') {
             if (!apiKey) throw new Error("Missing Nano Banana API Key");
-            // Using Google's Gemini API for Nano Banana
-            const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-generate-images:generateImages", {
+            // Using Google's Imagen 3.0 API
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    prompt: `D&D top-down battlemap: ${cleanPrompt}`,
-                    numImages: 1,
-                    aspectRatio: "1:1"
+                    instances: [{
+                        prompt: `D&D top-down battlemap: ${cleanPrompt}`
+                    }],
+                    parameters: {
+                        sampleCount: 1,
+                        aspectRatio: "1:1"
+                    }
                 })
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error?.message || "Nano Banana API Error");
-            if (data.generatedImages && data.generatedImages[0]?.imageUri) {
-                return data.generatedImages[0].imageUri;
+            if (data.predictions && data.predictions[0]?.bytesBase64Encoded) {
+                return `data:image/png;base64,${data.predictions[0].bytesBase64Encoded}`;
             }
-            if (data.generatedImages && data.generatedImages[0]?.image) {
-                return `data:image/png;base64,${data.generatedImages[0].image}`;
+            if (data.predictions && data.predictions[0]?.gcsUri) {
+                return data.predictions[0].gcsUri;
             }
             throw new Error("Nano Banana did not return an image.");
         }
