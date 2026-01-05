@@ -216,4 +216,33 @@ ALTER TABLE public.player_feats ENABLE ROW LEVEL SECURITY;
 -- Inventory items
 CREATE TABLE public.player_inventory (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  campaign_player_id UUID REFERENCES public
+  campaign_player_id UUID REFERENCES public.campaign_players(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  description TEXT,
+  quantity INTEGER DEFAULT 1,
+  weight DECIMAL DEFAULT 0,
+  category TEXT CHECK (category IN ('weapon', 'armor', 'consumable', 'misc')),
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+ALTER TABLE public.player_inventory ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Players can view their own inventory"
+  ON public.player_inventory FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.campaign_players
+      WHERE id = campaign_player_id AND player_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "DMs can view campaign player inventories"
+  ON public.player_inventory FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.campaign_players cp
+      JOIN public.campaigns c ON cp.campaign_id = c.id
+      WHERE cp.id = campaign_player_id AND c.dm_id = auth.uid()
+    )
+  );
+
