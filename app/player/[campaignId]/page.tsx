@@ -4,6 +4,12 @@ import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Map, User, Backpack, Users, ScrollText, Award } from 'lucide-react';
+import MapTab from '@/components/player/MapTab';
+import StatsTab from '@/components/player/StatsTab';
+import InventoryTab from '@/components/player/InventoryTab';
+import PartyTab from '@/components/player/PartyTab';
+import QuestsTab from '@/components/player/QuestsTab';
+import FeatsTab from '@/components/player/FeatsTab';
 
 type TabId = 'map' | 'stats' | 'inventory' | 'party' | 'quests' | 'feats';
 
@@ -68,6 +74,33 @@ export default function PlayerCampaignPage() {
         }
     };
 
+    const renderTabContent = () => {
+        const campaignId = params.campaignId as string;
+
+        if (!character) return <div className="text-gray-400">Character not found</div>;
+
+        switch (activeTab) {
+            case 'map':
+                return <MapTab campaignId={campaignId} />;
+            case 'stats':
+                return <StatsTab
+                    campaignPlayerId={character.id}
+                    level={character.level || 1}
+                    characterClass={character.character_class || 'Adventurer'}
+                />;
+            case 'inventory':
+                return <InventoryTab campaignPlayerId={character.id} />;
+            case 'party':
+                return <PartyTab campaignId={campaignId} />;
+            case 'quests':
+                return <QuestsTab campaignId={campaignId} />;
+            case 'feats':
+                return <FeatsTab campaignPlayerId={character.id} campaignId={campaignId} />;
+            default:
+                return <div className="text-gray-400">Tab not found</div>;
+        }
+    };
+
     if (loading) {
         return (
             <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black flex items-center justify-center">
@@ -107,8 +140,8 @@ export default function PlayerCampaignPage() {
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id)}
                                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
-                                        ? 'bg-blue-600 text-white font-bold'
-                                        : 'text-gray-400 hover:bg-gray-700 hover:text-white'
+                                    ? 'bg-blue-600 text-white font-bold'
+                                    : 'text-gray-400 hover:bg-gray-700 hover:text-white'
                                     }`}
                             >
                                 <Icon size={20} />
@@ -122,17 +155,7 @@ export default function PlayerCampaignPage() {
             {/* Main Content */}
             <div className="flex-1 overflow-y-auto">
                 <div className="p-8">
-                    <h1 className="text-3xl font-bold text-white mb-6 capitalize">{activeTab}</h1>
-
-                    {/* Tab Content Placeholder */}
-                    <div className="bg-gray-800 rounded-lg border border-gray-700 p-8 text-center">
-                        <p className="text-gray-400">
-                            {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} tab content coming soon...
-                        </p>
-                        <p className="text-gray-500 text-sm mt-2">
-                            This feature is under construction 🚧
-                        </p>
-                    </div>
+                    {renderTabContent()}
                 </div>
             </div>
         </div>

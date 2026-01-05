@@ -4,6 +4,13 @@ import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Map, Swords, Users, ScrollText, UserCircle, Package, Award } from 'lucide-react';
+import MapsTab from '@/components/dm/MapsTab';
+import EncountersTab from '@/components/dm/EncountersTab';
+import PlayersTab from '@/components/dm/PlayersTab';
+import QuestsTab from '@/components/dm/QuestsTab';
+import NPCsTab from '@/components/dm/NPCsTab';
+import ItemsTab from '@/components/dm/ItemsTab';
+import DMFeatsTab from '@/components/dm/FeatsTab';
 
 type TabId = 'maps' | 'encounters' | 'players' | 'quests' | 'npcs' | 'items' | 'feats';
 
@@ -59,6 +66,29 @@ export default function DMCampaignPage() {
         }
     };
 
+    const renderTabContent = () => {
+        const campaignId = params.campaignId as string;
+
+        switch (activeTab) {
+            case 'maps':
+                return <MapsTab campaignId={campaignId} />;
+            case 'encounters':
+                return <EncountersTab campaignId={campaignId} />;
+            case 'players':
+                return <PlayersTab campaignId={campaignId} />;
+            case 'quests':
+                return <QuestsTab campaignId={campaignId} />;
+            case 'npcs':
+                return <NPCsTab campaignId={campaignId} />;
+            case 'items':
+                return <ItemsTab campaignId={campaignId} />;
+            case 'feats':
+                return <DMFeatsTab campaignId={campaignId} />;
+            default:
+                return <div className="text-gray-400">Tab not found</div>;
+        }
+    };
+
     if (loading) {
         return (
             <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black flex items-center justify-center">
@@ -97,8 +127,8 @@ export default function DMCampaignPage() {
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id)}
                                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
-                                        ? 'bg-yellow-600 text-white font-bold'
-                                        : 'text-gray-400 hover:bg-gray-700 hover:text-white'
+                                    ? 'bg-yellow-600 text-white font-bold'
+                                    : 'text-gray-400 hover:bg-gray-700 hover:text-white'
                                     }`}
                             >
                                 <Icon size={20} />
@@ -112,17 +142,7 @@ export default function DMCampaignPage() {
             {/* Main Content */}
             <div className="flex-1 overflow-y-auto">
                 <div className="p-8">
-                    <h1 className="text-3xl font-bold text-white mb-6 capitalize">{activeTab}</h1>
-
-                    {/* Tab Content Placeholder */}
-                    <div className="bg-gray-800 rounded-lg border border-gray-700 p-8 text-center">
-                        <p className="text-gray-400">
-                            {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} tab content coming soon...
-                        </p>
-                        <p className="text-gray-500 text-sm mt-2">
-                            This feature is under construction 🚧
-                        </p>
-                    </div>
+                    {renderTabContent()}
                 </div>
             </div>
         </div>
