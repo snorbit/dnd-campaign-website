@@ -1,6 +1,6 @@
 'use client';
 
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { supabase } from '@/lib/supabase';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Map, User, Backpack, Users, ScrollText, Award } from 'lucide-react';
@@ -25,7 +25,7 @@ const tabs = [
 export default function PlayerCampaignPage() {
     const params = useParams();
     const router = useRouter();
-    const supabase = createClientComponentClient();
+    // Using imported supabase client
 
     const [activeTab, setActiveTab] = useState<TabId>('map');
     const [campaign, setCampaign] = useState<any>(null);

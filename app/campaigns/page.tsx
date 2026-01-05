@@ -1,6 +1,6 @@
 'use client';
 
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
@@ -24,7 +24,7 @@ export default function CampaignsPage() {
     const [newCampaignDesc, setNewCampaignDesc] = useState('');
 
     const router = useRouter();
-    const supabase = createClientComponentClient();
+    // Using imported supabase client
 
     useEffect(() => {
         checkUser();
