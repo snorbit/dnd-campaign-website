@@ -64,7 +64,7 @@ export default function PlayersTab({ campaignId }: PlayersTabProps) {
         `)
                 .eq('campaign_id', campaignId);
 
-            const formattedPlayers = (data || []).map(p => ({
+            const formattedPlayers = (data || []).map((p: any) => ({
                 id: p.id,
                 player_id: p.player_id,
                 character_name: p.character_name,
