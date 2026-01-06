@@ -21,7 +21,7 @@ export default function SignupPage() {
         setLoading(true);
 
         try {
-            // 1. Create auth user
+            // Create auth user - profile is created automatically by database trigger
             const { data: authData, error: authError } = await supabase.auth.signUp({
                 email,
                 password,
@@ -36,18 +36,7 @@ export default function SignupPage() {
             if (authError) throw authError;
             if (!authData.user) throw new Error('No user returned');
 
-            // 2. Create profile
-            const { error: profileError } = await supabase
-                .from('profiles')
-                .insert({
-                    id: authData.user.id,
-                    username,
-                    display_name: displayName || username,
-                });
-
-            if (profileError) throw profileError;
-
-            // 3. Redirect to campaigns
+            // Redirect to campaigns (profile created automatically by trigger)
             router.push('/campaigns');
 
         } catch (err: any) {
