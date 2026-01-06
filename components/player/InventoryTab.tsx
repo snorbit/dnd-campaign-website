@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { supabase } from '@/lib/supabase';
 
 interface Item {
     id: string;
@@ -19,7 +19,7 @@ interface InventoryTabProps {
 export default function InventoryTab({ campaignPlayerId }: InventoryTabProps) {
     const [items, setItems] = useState<Item[]>([]);
     const [loading, setLoading] = useState(true);
-    const supabase = createClientComponentClient();
+    // Using imported supabase client
 
     useEffect(() => {
         loadInventory();

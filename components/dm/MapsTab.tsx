@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { supabase } from '@/lib/supabase';
 import { Plus, Trash2, Upload, Image as ImageIcon } from 'lucide-react';
 
 interface Map {
@@ -22,7 +22,7 @@ export default function MapsTab({ campaignId }: MapsTabProps) {
     const [newMapUrl, setNewMapUrl] = useState('');
     const [newMapTitle, setNewMapTitle] = useState('');
     const [loading, setLoading] = useState(true);
-    const supabase = createClientComponentClient();
+    // Using imported supabase client
 
     useEffect(() => {
         loadMaps();

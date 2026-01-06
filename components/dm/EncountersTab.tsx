@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { supabase } from '@/lib/supabase';
 import { Plus, RotateCcw, Play, Trash2 } from 'lucide-react';
 
 interface Enemy {
@@ -30,7 +30,7 @@ export default function EncountersTab({ campaignId }: EncountersTabProps) {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [newEncounterName, setNewEncounterName] = useState('');
     const [loading, setLoading] = useState(true);
-    const supabase = createClientComponentClient();
+    // Using imported supabase client
 
     useEffect(() => {
         loadEncounters();

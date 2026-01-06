@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { supabase } from '@/lib/supabase';
 
 interface MapTabProps {
     campaignId: string;
@@ -10,7 +10,7 @@ interface MapTabProps {
 export default function MapTab({ campaignId }: MapTabProps) {
     const [mapUrl, setMapUrl] = useState<string>('');
     const [loading, setLoading] = useState(true);
-    const supabase = createClientComponentClient();
+    // Using imported supabase client
 
     useEffect(() => {
         loadMap();

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { supabase } from '@/lib/supabase';
 import { CheckCircle, Circle, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface Quest {
@@ -25,7 +25,7 @@ export default function QuestsTab({ campaignId }: QuestsTabProps) {
     const [quests, setQuests] = useState<Quest[]>([]);
     const [expandedQuests, setExpandedQuests] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(true);
-    const supabase = createClientComponentClient();
+    // Using imported supabase client
 
     useEffect(() => {
         loadQuests();

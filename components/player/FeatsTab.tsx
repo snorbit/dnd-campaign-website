@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { supabase } from '@/lib/supabase';
 import { Award, Search } from 'lucide-react';
 
 interface Feat {
@@ -25,7 +25,7 @@ export default function FeatsTab({ campaignPlayerId, campaignId }: FeatsTabProps
     const [searchTerm, setSearchTerm] = useState('');
     const [filter, setFilter] = useState<'all' | 'acquired' | 'available'>('all');
     const [loading, setLoading] = useState(true);
-    const supabase = createClientComponentClient();
+    // Using imported supabase client
 
     useEffect(() => {
         loadFeats();

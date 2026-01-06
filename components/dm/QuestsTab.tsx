@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { supabase } from '@/lib/supabase';
 import { Plus, CheckCircle, XCircle } from 'lucide-react';
 
 interface Quest {
@@ -21,7 +21,7 @@ export default function DMQuestsTab({ campaignId }: QuestsTabProps) {
     const [quests, setQuests] = useState<Quest[]>([]);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [newQuest, setNewQuest] = useState({ title: '', description: '', reward: '', objectives: [''] });
-    const supabase = createClientComponentClient();
+    // Using imported supabase client
 
     useEffect(() => {
         loadQuests();

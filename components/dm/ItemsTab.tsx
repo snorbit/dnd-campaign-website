@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { supabase } from '@/lib/supabase';
 import { Plus } from 'lucide-react';
 
 interface Item {
@@ -20,7 +20,7 @@ export default function ItemsTab({ campaignId }: ItemsTabProps) {
     const [items, setItems] = useState<Item[]>([]);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [newItem, setNewItem] = useState({ name: '', description: '', category: 'misc', weight: 0 });
-    const supabase = createClientComponentClient();
+    // Using imported supabase client
 
     useEffect(() => {
         loadItems();

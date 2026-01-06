@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { supabase } from '@/lib/supabase';
 import { TrendingUp, Heart, Shield, User } from 'lucide-react';
 
 interface Player {
@@ -31,7 +31,7 @@ interface PlayersTabProps {
 export default function PlayersTab({ campaignId }: PlayersTabProps) {
     const [players, setPlayers] = useState<Player[]>([]);
     const [loading, setLoading] = useState(true);
-    const supabase = createClientComponentClient();
+    // Using imported supabase client
 
     useEffect(() => {
         loadPlayers();

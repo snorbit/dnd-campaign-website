@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { supabase } from '@/lib/supabase';
 import { Plus, Trash2 } from 'lucide-react';
 
 interface NPC {
@@ -21,7 +21,7 @@ export default function NPCsTab({ campaignId }: NPCsTabProps) {
     const [npcs, setNpcs] = useState<NPC[]>([]);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [newNPC, setNewNPC] = useState({ name: '', race: '', role: '', notes: '' });
-    const supabase = createClientComponentClient();
+    // Using imported supabase client
 
     useEffect(() => {
         loadNPCs();

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { supabase } from '@/lib/supabase';
 import { Users as UsersIcon, Heart, Shield } from 'lucide-react';
 
 interface PartyMember {
@@ -23,7 +23,7 @@ export default function PartyTab({ campaignId }: PartyTabProps) {
     const [partyMembers, setPartyMembers] = useState<PartyMember[]>([]);
     const [npcs, setNpcs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const supabase = createClientComponentClient();
+    // Using imported supabase client
 
     useEffect(() => {
         loadParty();

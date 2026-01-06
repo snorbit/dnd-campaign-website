@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { supabase } from '@/lib/supabase';
 
 interface CharacterStats {
     hp_current: number;
@@ -25,7 +25,7 @@ interface StatsTabProps {
 export default function StatsTab({ campaignPlayerId, level, characterClass }: StatsTabProps) {
     const [stats, setStats] = useState<CharacterStats | null>(null);
     const [loading, setLoading] = useState(true);
-    const supabase = createClientComponentClient();
+    // Using imported supabase client
 
     useEffect(() => {
         loadStats();
