@@ -1,67 +1,79 @@
-import fs from 'fs';
-import path from 'path';
+'use client';
 
-async function getPlayers() {
-    try {
-        // Read directly from the file system at build/runtime
-        const filePath = path.join(process.cwd(), 'data', 'players.json');
-        if (!fs.existsSync(filePath)) return [];
-        const fileContents = fs.readFileSync(filePath, 'utf8');
-        return JSON.parse(fileContents);
-    } catch (e) {
-        console.error("Error reading players.json", e);
-        return [];
-    }
-}
+import { useRouter } from 'next/navigation';
+import { Shield, Users } from 'lucide-react';
 
-export default async function Home() {
-    // Dynamic import of players
-    const players = await getPlayers();
+export default function HomePage() {
+    const router = useRouter();
 
     return (
-        <main className="flex min-h-screen flex-col items-center justify-center p-24 text-center bg-fantasy-dark relative overflow-hidden">
-            {/* Background ambiance */}
-            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')] opacity-20 pointer-events-none" />
+        <div className="min-h-screen bg-gradient-to-b from-gray-900 via-black to-gray-900 flex items-center justify-center p-4">
+            <div className="max-w-4xl w-full">
+                {/* Header */}
+                <div className="text-center mb-12">
+                    <h1 className="text-6xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-yellow-600 mb-4">
+                        Campaign Portal
+                    </h1>
+                    <p className="text-gray-400 text-lg italic">
+                        Choose your destiny or guide the fate of others.
+                    </p>
+                </div>
 
-            <div className="z-10 bg-black/40 p-12 rounded-xl backdrop-blur-md border border-fantasy-gold/20 shadow-2xl">
-                <h1 className="text-5xl font-serif font-bold mb-2 text-fantasy-gold">Campaign Portal</h1>
-                <p className="text-fantasy-muted mb-8 italic">Choose your destiny or guide the fate of others.</p>
-
-                <div className="flex flex-col md:flex-row gap-8 items-start">
-                    {/* DM Portal */}
-                    <div className="flex-1 flex flex-col gap-4 w-full">
-                        <span className="text-xs text-fantasy-gold uppercase tracking-[0.2em] border-b border-fantasy-gold/20 pb-2 mb-2">Dungeon Master</span>
-                        <a href="/dm" className="group relative overflow-hidden rounded-lg bg-fantasy-gold/10 border border-fantasy-gold/50 px-8 py-6 font-bold text-fantasy-gold hover:bg-fantasy-gold hover:text-black transition-all duration-300">
-                            <span className="relative z-10 font-serif text-xl">Enter as DM</span>
-                            <div className="absolute inset-0 bg-fantasy-gold/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
-                        </a>
-                    </div>
-
-                    {/* Divider */}
-                    <div className="hidden md:block w-px bg-fantasy-muted/20 self-stretch mx-4" />
-
-                    {/* Players Portal */}
-                    <div className="flex flex-col gap-4 w-full md:min-w-[300px]">
-                        <span className="text-xs text-fantasy-muted uppercase tracking-[0.2em] border-b border-fantasy-muted/20 pb-2 mb-2">Player Characters</span>
-
-                        {players.length === 0 ? (
-                            <div className="text-red-400 text-sm italic">No players found in database.</div>
-                        ) : (
-                            <div className="grid grid-cols-1 gap-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                                {players.map((p: any) => (
-                                    <a key={p.id} href={`/player/${p.id}`} className="group flex items-center justify-between rounded-lg bg-black/40 border border-white/5 px-4 py-3 hover:border-fantasy-gold/50 hover:bg-white/5 transition-all">
-                                        <div className="flex flex-col items-start">
-                                            <span className="font-serif font-bold text-fantasy-text group-hover:text-fantasy-gold transition-colors">{p.name}</span>
-                                            <span className="text-[10px] text-fantasy-muted uppercase">{p.race} {p.class}</span>
-                                        </div>
-                                        <div className="h-2 w-2 rounded-full bg-fantasy-muted group-hover:bg-green-400 transition-colors shadow-lg shadow-green-400/0 group-hover:shadow-green-400/50" />
-                                    </a>
-                                ))}
+                {/* Role Selection */}
+                <div className="grid md:grid-cols-2 gap-8">
+                    {/* DM Button */}
+                    <button
+                        onClick={() => router.push('/campaigns')}
+                        className="group relative bg-gradient-to-br from-yellow-600 to-yellow-700 hover:from-yellow-500 hover:to-yellow-600 p-8 rounded-xl shadow-2xl transition-all duration-300 transform hover:scale-105 border-2 border-yellow-500"
+                    >
+                        <div className="flex flex-col items-center space-y-4">
+                            <div className="bg-yellow-900/30 p-6 rounded-full">
+                                <Shield size={80} className="text-yellow-200" />
                             </div>
-                        )}
-                    </div>
+                            <div className="text-center">
+                                <h2 className="text-3xl font-bold text-white mb-2">Dungeon Master</h2>
+                                <p className="text-yellow-100 text-sm">
+                                    Create campaigns, manage encounters, and guide your players
+                                </p>
+                            </div>
+                            <div className="text-yellow-200 text-sm uppercase tracking-wider">
+                                Enter as DM →
+                            </div>
+                        </div>
+                    </button>
+
+                    {/* Player Button */}
+                    <button
+                        onClick={() => router.push('/campaigns')}
+                        className="group relative bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 p-8 rounded-xl shadow-2xl transition-all duration-300 transform hover:scale-105 border-2 border-blue-500"
+                    >
+                        <div className="flex flex-col items-center space-y-4">
+                            <div className="bg-blue-900/30 p-6 rounded-full">
+                                <Users size={80} className="text-blue-200" />
+                            </div>
+                            <div className="text-center">
+                                <h2 className="text-3xl font-bold text-white mb-2">Player</h2>
+                                <p className="text-blue-100 text-sm">
+                                    Join campaigns, level up your character, and embark on adventures
+                                </p>
+                            </div>
+                            <div className="text-blue-200 text-sm uppercase tracking-wider">
+                                Enter as Player →
+                            </div>
+                        </div>
+                    </button>
+                </div>
+
+                {/* Footer */}
+                <div className="text-center mt-12">
+                    <p className="text-gray-500 text-sm">
+                        Don't have an account?{' '}
+                        <a href="/auth/signup" className="text-yellow-500 hover:text-yellow-400 underline">
+                            Sign up here
+                        </a>
+                    </p>
                 </div>
             </div>
-        </main>
+        </div>
     );
 }
