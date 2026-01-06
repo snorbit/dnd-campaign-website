@@ -85,18 +85,28 @@ export default function CampaignsPage() {
                 .select()
                 .single();
 
-            if (error) throw error;
+            if (error) {
+                alert('Campaign error: ' + error.message);
+                console.error('Campaign insert error:', error);
+                return;
+            }
 
             // Create initial campaign state
-            await supabase
+            const { error: stateError } = await supabase
                 .from('campaign_state')
                 .insert({ campaign_id: data.id });
+
+            if (stateError) {
+                alert('State error: ' + stateError.message);
+                console.error('State insert error:', stateError);
+            }
 
             setShowCreateModal(false);
             setNewCampaignName('');
             setNewCampaignDesc('');
             loadCampaigns();
-        } catch (error) {
+        } catch (error: any) {
+            alert('Error: ' + error.message);
             console.error('Error creating campaign:', error);
         }
     };

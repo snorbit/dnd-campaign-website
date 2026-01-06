@@ -213,6 +213,10 @@ CREATE POLICY "DMs can update campaign state"
   ON public.campaign_state FOR UPDATE
   USING (EXISTS (SELECT 1 FROM public.campaigns WHERE id = campaign_id AND dm_id = auth.uid()));
 
+CREATE POLICY "DMs can create campaign state"
+  ON public.campaign_state FOR INSERT
+  WITH CHECK (EXISTS (SELECT 1 FROM public.campaigns WHERE id = campaign_id AND dm_id = auth.uid()));
+
 CREATE POLICY "Everyone can view standard feats"
   ON public.standard_feats FOR SELECT USING (true);
 
