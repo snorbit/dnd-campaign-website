@@ -1,185 +1,249 @@
-# 🎮 Dad's To-Do: Loading Skeletons Implementation
+# 🔔 Dad's To-Do: Toast Notification System
 
 ## Overview
-Implementing loading skeleton animations for all DM and Player tabs using custom Tailwind CSS components.
+Replace all `alert()` calls with a modern toast notification system using `sonner` library.
 
-**Estimated Time:** 2-3 hours  
-**Difficulty:** Easy 🟢  
-**Task:** CONTRIBUTING.md Item #1 - Add Loading Skeletons
+**Estimated Time:** 1.5-2 hours  
+**Difficulty:** Easy-Medium �  
+**Task:** CONTRIBUTING.md Item #2 - Add Toast Notifications
 
 ---
 
-## ✅ Phase 1: Create Reusable Skeleton Components (30 minutes)
+## Why This Matters
 
-### [x] 1.1 Create Shared UI Directory Structure
-- **Action:** Create `components/shared/ui/` directory if it doesn't exist
-- **Command:** 
+**Current Problem:**
+- Using browser `alert()` dialogs (14 instances found)
+- Blocks user interaction
+- Looks unprofessional
+- No styling control
+- Can't show multiple notifications
+
+**After Implementation:**
+- ✨ Modern, non-blocking notifications
+- 🎨 Consistent styling with our dark theme
+- 📱 Mobile-friendly
+- ⚡ Multiple toasts can stack
+- 🎯 Success/Error/Info/Warning variants
+- ⏱️ Auto-dismiss with configurable duration
+
+---
+
+## 📊 Current Alert Usage Analysis
+
+Found **14 alert() calls** across **5 files**:
+
+| File | Count | Types |
+|------|-------|-------|
+| `app/campaigns/page.tsx` | 5 | Errors, validation |
+| `app/dm/[campaignId]/page.tsx` | 4 | Success, errors, clipboard |
+| `components/dm/EncountersTab.tsx` | 1 | Success |
+| `components/dm/PlayersTab.tsx` | 2 | Success, error |
+| `components/player/LevelUpModal.tsx` | 1 | Error |
+
+---
+
+## ✅ Phase 1: Setup Toast System (30 minutes)
+
+### [x] 1.1 Install Sonner Library
+- **Action:** Install the toast library
+- **Command:**
   ```bash
-  mkdir -p components/shared/ui
+  npm install sonner
   ```
+- **Why Sonner?**
+  - Lightweight (3kb)
+  - Beautiful default styling
+  - TypeScript support
+  - Works great with dark mode
+  - Zero configuration needed
 
-### [x] 1.2 Create Base Skeleton Component
-- **File:** `components/shared/ui/Skeleton.tsx`
-- **What:** Basic animated skeleton block with pulse animation
+### [x] 1.2 Create Toast Provider Component
+- **File:** `components/shared/ui/ToastProvider.tsx` (NEW)
+- **What:** Wrapper component for Sonner's Toaster
 - **Features:**
-  - Customizable width/height via props
-  - Rounded corners
-  - Pulse animation
-  - Optional className override
+  - Dark theme styling
+  - Position: bottom-right
+  - Custom duration defaults
+  - Rich colors matching our theme
 
-### [x] 1.3 Create Skeleton Card Component
-- **File:** `components/shared/ui/SkeletonCard.tsx`
-- **What:** Pre-built skeleton for card-style content
-- **Used for:** Quest cards, NPC cards, Item cards
-
-### [x] 1.4 Create Skeleton List Component
-- **File:** `components/shared/ui/SkeletonList.tsx`
-- **What:** Renders multiple skeleton items
-- **Props:** `items` (number of skeleton rows to show)
+### [x] 1.3 Add Provider to Root Layout
+- **File:** `app/layout.tsx`
+- **Action:** Wrap app with `<ToastProvider />`
+- **Test:** Verify toast container renders
 
 ---
 
-## ✅ Phase 2: Update DM Components (45 minutes)
+## ✅ Phase 2: Replace Alert Calls (45 minutes)
 
-### [x] 2.1 DM QuestsTab
-- **File:** `components/dm/QuestsTab.tsx`
-- **Action:** 
-  - Add `loading` state
-  - Add loading handler in `loadQuests()`
-  - Render `SkeletonCard` component while loading
-- **Test:** Verify skeleton shows on page load
+### [x] 2.1 Campaign Creation Page
+- **File:** `app/campaigns/page.tsx`
+- **Alerts to Replace:** 5 instances
+  
+  | Line | Current | Toast Type |
+  |------|---------|------------|
+  | 119 | `alert('Campaign error: ' + error.message)` | `toast.error()` |
+  | 127 | `alert('Failed to generate unique campaign code...')` | `toast.error()` |
+  | 137 | `alert('State error: ' + stateError.message)` | `toast.error()` |
+  | 146 | `alert('Error: ' + error.message)` | `toast.error()` |
 
-### [x] 2.2 DM NPCsTab
-- **File:** `components/dm/NPCsTab.tsx`
-- **Action:** Same as above
-- **Test:** Verify skeleton shows on page load
+### [x] 2.2 DM Campaign Page
+- **File:** `app/dm/[campaignId]/page.tsx`
+- **Alerts to Replace:** 4 instances
 
-### [x] 2.3 DM ItemsTab
-- **File:** `components/dm/ItemsTab.tsx`
-- **Action:** Same as above
-- **Test:** Verify skeleton shows on page load
+  | Line | Current | Toast Type |
+  |------|---------|------------|
+  | 75 | `alert('Please enter campaign text')` | `toast.warning()` |
+  | 97 | `alert('Campaign imported successfully!...')` | `toast.success()` |
+  | 105 | `alert('Failed to import campaign...')` | `toast.error()` |
+  | 187 | `alert('Join code copied!');` | `toast.success()` |
 
-### [x] 2.4 DM MapsTab
-- **File:** `components/dm/MapsTab.tsx`
-- **Action:** Same as above
-- **Test:** Verify skeleton shows on page load
-
-### [x] 2.5 DM EncountersTab
+### [x] 2.3 DM Encounters Tab
 - **File:** `components/dm/EncountersTab.tsx`
-- **Action:** Same as above
-- **Test:** Verify skeleton shows on page load
+- **Alerts to Replace:** 1 instance
 
-### [x] 2.6 DM PlayersTab
+  | Line | Current | Toast Type |
+  |------|---------|------------|
+  | 130 | `alert('Encounter reset!...')` | `toast.success()` |
+
+### [x] 2.4 DM Players Tab
 - **File:** `components/dm/PlayersTab.tsx`
-- **Action:** Same as above
-- **Test:** Verify skeleton shows on page load
+- **Alerts to Replace:** 2 instances
 
-### [x] 2.7 DM FeatsTab
-- **File:** `components/dm/FeatsTab.tsx`
-- **Action:** Same as above
-- **Test:** Verify skeleton shows on page load
+  | Line | Current | Toast Type |
+  |------|---------|------------|
+  | 96 | `alert('Level granted! Player is now level ${newLevel}.')` | `toast.success()` |
+  | 99 | `alert('Failed to grant level')` | `toast.error()` |
 
+### [x] 2.5 Player Level Up Modal
+- **File:** `components/player/LevelUpModal.tsx`
+- **Alerts to Replace:** 1 instance
 
----
-
-## ✅ Phase 3: Update Player Components (45 minutes)
-
-### [x] 3.1 Player QuestsTab
-- **File:** `components/player/QuestsTab.tsx`
-- **Action:** 
-  - Replace "Loading quests..." text with `SkeletonCard`
-  - Ensure `loading` state is properly managed
-- **Test:** Verify skeleton shows on page load
-
-### [x] 3.2 Player InventoryTab
-- **File:** `components/player/InventoryTab.tsx`
-- **Action:** Add loading state + skeleton
-- **Test:** Verify skeleton shows on page load
-
-### [x] 3.3 Player MapTab
-- **File:** `components/player/MapTab.tsx`
-- **Action:** Add loading state + skeleton
-- **Test:** Verify skeleton shows on page load
-
-### [x] 3.4 Player PartyTab
-- **File:** `components/player/PartyTab.tsx`
-- **Action:** Add loading state + skeleton
-- **Test:** Verify skeleton shows on page load
-
-### [x] 3.5 Player StatsTab
-- **File:** `components/player/StatsTab.tsx`
-- **Action:** Add loading state + skeleton
-- **Test:** Verify skeleton shows on page load
-
-### [x] 3.6 Player FeatsTab
-- **File:** `components/player/FeatsTab.tsx`
-- **Action:** Add loading state + skeleton
-- **Test:** Verify skeleton shows on page load
-
+  | Line | Current | Toast Type |
+  |------|---------|------------|
+  | 137 | `alert('Failed to complete level up')` | `toast.error()` |
 
 ---
 
-## ✅ Phase 4: Testing & Polish (30 minutes)
+## ✅ Phase 3: Enhanced Toast Features (15 minutes)
 
-### [x] 4.1 Visual Testing
-- **Action:** Test all tabs in both DM and Player views
-- **Check:**
-  - Skeletons appear on initial load
-  - Smooth transition from skeleton to content
-  - Animations work correctly
-  - No layout shift when content loads
+### [x] 3.1 Add Custom Toast Variants
+- **File:** `utils/toast.ts` (NEW)
+- **What:** Created utility helpers for standardizing toasts across the app.
 
-### [x] 4.2 Add Test Delays (Optional - for demo)
-- **What:** Temporarily add delays to see skeletons in action
-- **Code:**
-  ```typescript
-  await new Promise(resolve => setTimeout(resolve, 2000));
-  ```
-- **Where:** In each `loadData()` function
-- **Note:** Added to all 13 tab components for verification.
-
-### [x] 4.3 Cross-browser Testing
-- **Test in:**
-  - Chrome/Edge
-  - Firefox
-  - Safari (if available)
-
-### [x] 4.4 Mobile Testing
-- **Action:** Test responsive behavior on mobile screens
-- **Check:** Skeletons adapt to smaller screens
-
+### [x] 3.2 Special Cases
+- **Success:** Implemented `toast.promise()` for campaign imports.
+- **Success:** Added 📋 icon for clipboard copy.
+- **Success:** Added ⬆️ icon for player level granting.
 
 ---
 
-## 📝 Code Pattern Reference
+## ✅ Phase 4: Testing & Verification (20 minutes)
 
-### Loading State Pattern
+### 4.1 Manual Testing Checklist
+
+Test each toast type in the app:
+
+- [ ] **Campaign Creation**
+  - [ ] Create campaign successfully
+  - [ ] Trigger validation errors
+  - [ ] Test error scenarios
+
+- [ ] **DM Campaign Page**
+  - [ ] Import session (success)
+  - [ ] Import session (error)
+  - [ ] Copy join code
+  - [ ] Empty import text warning
+
+- [ ] **DM Encounters**
+  - [ ] Reset encounter
+
+- [ ] **DM Players**
+  - [ ] Grant level (success)
+  - [ ] Grant level (error)
+
+- [ ] **Player Level Up**
+  - [ ] Level up failure
+
+### 4.2 Visual Verification
+
+- [ ] Toasts appear in bottom-right
+- [ ] Dark theme styling matches app
+- [ ] Auto-dismiss works correctly
+- [ ] Multiple toasts stack properly
+- [ ] Mobile responsive
+- [ ] Icons display correctly
+- [ ] Long messages wrap properly
+
+### 4.3 Cross-browser Testing
+
+- [ ] Chrome/Edge
+- [ ] Firefox
+- [ ] Safari (if available)
+- [ ] Mobile browsers
+
+---
+
+## 📝 Implementation Pattern Reference
+
+### Basic Replacement Pattern
+
+**Before:**
 ```typescript
-const [data, setData] = useState([]);
-const [loading, setLoading] = useState(true);
+alert('Something happened!');
+```
 
-useEffect(() => {
-  loadData();
-}, [campaignId]);
+**After:**
+```typescript
+import { toast } from 'sonner';
 
-const loadData = async () => {
-  try {
-    setLoading(true);
-    // ... fetch data
-    setData(result);
-  } catch (error) {
-    console.error('Error:', error);
-  } finally {
-    setLoading(false);
-  }
-};
+toast.success('Something happened!');
+```
 
-if (loading) {
-  return <SkeletonCard count={3} />;
+### Error Handling Pattern
+
+**Before:**
+```typescript
+try {
+  // ... code
+} catch (error) {
+  alert('Error: ' + error.message);
 }
+```
 
-return (
-  // ... normal UI
+**After:**
+```typescript
+import { toast } from 'sonner';
+
+try {
+  // ... code
+} catch (error) {
+  toast.error(error.message || 'An error occurred');
+}
+```
+
+### Async Operation Pattern
+
+**Before:**
+```typescript
+const result = await someAsyncOperation();
+if (result.success) {
+  alert('Success!');
+} else {
+  alert('Failed!');
+}
+```
+
+**After:**
+```typescript
+import { toast } from 'sonner';
+
+toast.promise(
+  someAsyncOperation(),
+  {
+    loading: 'Processing...',
+    success: 'Success!',
+    error: 'Failed!',
+  }
 );
 ```
 
@@ -187,57 +251,56 @@ return (
 
 ## 🎯 Success Criteria
 
-- [x] All 13 tab components show skeleton loaders
-- [x] No more "Loading..." text anywhere
-- [x] Smooth animations (pulse effect)
-- [x] No layout shift when content loads
+- [x] Sonner library installed
+- [x] ToastProvider created and added to layout
+- [x] All 14 alert() calls replaced
+- [x] No console errors
+- [x] Toasts display correctly in all scenarios
 - [x] Mobile responsive
-- [x] Consistent design across all tabs
+- [x] Consistent styling with app theme
+- [x] Auto-dismiss works as expected
 
 ---
 
 ## 📦 Files Created/Modified Summary
 
-### New Files (3)
-- `components/shared/ui/Skeleton.tsx`
-- `components/shared/ui/SkeletonCard.tsx`
-- `components/shared/ui/SkeletonList.tsx`
+### New Files (2)
+- `components/shared/ui/ToastProvider.tsx`
+- `utils/toast.ts` (optional helpers)
 
-### Modified Files (13)
-**DM Components (7):**
-- `components/dm/QuestsTab.tsx`
-- `components/dm/NPCsTab.tsx`
-- `components/dm/ItemsTab.tsx`
-- `components/dm/MapsTab.tsx`
-- `components/dm/EncountersTab.tsx`
-- `components/dm/PlayersTab.tsx`
-- `components/dm/FeatsTab.tsx`
-
-**Player Components (6):**
-- `components/player/QuestsTab.tsx`
-- `components/player/InventoryTab.tsx`
-- `components/player/MapTab.tsx`
-- `components/player/PartyTab.tsx`
-- `components/player/StatsTab.tsx`
-- `components/player/FeatsTab.tsx`
+### Modified Files (6)
+1. `package.json` - Add sonner dependency
+2. `app/layout.tsx` - Add ToastProvider
+3. `app/campaigns/page.tsx` - Replace 5 alerts
+4. `app/dm/[campaignId]/page.tsx` - Replace 4 alerts
+5. `components/dm/EncountersTab.tsx` - Replace 1 alert
+6. `components/dm/PlayersTab.tsx` - Replace 2 alerts
+7. `components/player/LevelUpModal.tsx` - Replace 1 alert
 
 ---
 
 ## 💡 Pro Tips
 
-1. **Start with skeleton components first** - Get those working before touching tab files
-2. **Test as you go** - Don't wait until all files are done
-3. **Keep it simple** - Skeletons should match the general shape of your content
-4. **Use consistent spacing** - Match the spacing of your actual content
-5. **Don't overdo animations** - Subtle pulse is better than aggressive flashing
+1. **Import Once**: Add `import { toast } from 'sonner'` at the top of each file
+2. **Test Errors**: Temporarily break things to see error toasts
+3. **Duration Matters**: 
+   - Success: 3s
+   - Error: 4s (users need more time to read)
+   - Info: 3s
+   - Warning: 3.5s
+4. **Use Descriptions**: For longer messages, use the `description` field
+5. **Icons**: Add emoji icons for visual appeal (📋, ⬆️, ✅, ❌)
+6. **Promise Toasts**: Use `toast.promise()` for async operations
 
 ---
 
 ## 🚀 Ready to Start?
 
-1. Create the skeleton components
-2. Test them in one component first
-3. Roll out to all other components
-4. Polish and test
+1. Install sonner: `npm install sonner`
+2. Create ToastProvider component
+3. Add to layout
+4. Replace alerts one file at a time
+5. Test each replacement
+6. Commit when done!
 
-**Good luck, Dad! You've got this! 💪**
+**Good luck, Dad! This will make the app feel much more professional! 💪**

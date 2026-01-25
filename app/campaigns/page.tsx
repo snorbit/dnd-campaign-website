@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
+import { toast } from 'sonner';
 
 interface Campaign {
     id: string;
@@ -116,7 +117,7 @@ export default function CampaignsPage() {
                     success = true;
                 } else if (error.code !== '23505') {
                     // Not a duplicate error, fail immediately
-                    alert('Campaign error: ' + error.message);
+                    toast.error('Campaign error', { description: error.message });
                     console.error('Campaign insert error:', error);
                     return;
                 }
@@ -124,7 +125,7 @@ export default function CampaignsPage() {
             }
 
             if (!success || !campaignData) {
-                alert('Failed to generate unique campaign code. Please try again.');
+                toast.error('Failed to generate unique campaign code. Please try again.');
                 return;
             }
 
@@ -134,7 +135,7 @@ export default function CampaignsPage() {
                 .insert({ campaign_id: campaignData.id });
 
             if (stateError) {
-                alert('State error: ' + stateError.message);
+                toast.error('State error', { description: stateError.message });
                 console.error('State insert error:', stateError);
             }
 
@@ -143,7 +144,7 @@ export default function CampaignsPage() {
             setNewCampaignDesc('');
             loadCampaigns();
         } catch (error: any) {
-            alert('Error: ' + error.message);
+            toast.error('Error', { description: error.message });
             console.error('Error creating campaign:', error);
         }
     };

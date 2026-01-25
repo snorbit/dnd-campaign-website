@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Plus, RotateCcw, Play, Trash2 } from 'lucide-react';
 import { SkeletonList } from '@/components/shared/ui/SkeletonList';
+import { toast } from 'sonner';
 
 interface Enemy {
     id: string;
@@ -127,7 +128,9 @@ export default function EncountersTab({ campaignId }: EncountersTabProps) {
                 setActiveEncounterId(null);
             }
 
-            alert('Encounter reset! All enemy HP restored and status cleared.');
+            toast.success('Encounter reset!', {
+                description: 'All enemy HP restored and status cleared.'
+            });
         } catch (error) {
             console.error('Error resetting encounter:', error);
         }
