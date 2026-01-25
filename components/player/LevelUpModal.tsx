@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Award, TrendingUp, X } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface LevelUpModalProps {
     campaignPlayerId: string;
@@ -134,7 +135,7 @@ export default function LevelUpModal({
             onComplete();
         } catch (error) {
             console.error('Error completing level up:', error);
-            alert('Failed to complete level up');
+            toast.error('Failed to complete level up');
         } finally {
             setLoading(false);
         }
@@ -216,8 +217,8 @@ export default function LevelUpModal({
                                         key={feat.id}
                                         onClick={() => setSelectedFeatId(feat.id)}
                                         className={`bg-gray-700 rounded-lg border-2 p-4 cursor-pointer transition-colors ${selectedFeatId === feat.id
-                                                ? 'border-yellow-500 bg-gray-600'
-                                                : 'border-gray-600 hover:border-gray-500'
+                                            ? 'border-yellow-500 bg-gray-600'
+                                            : 'border-gray-600 hover:border-gray-500'
                                             }`}
                                     >
                                         <div className="flex items-start justify-between mb-2">

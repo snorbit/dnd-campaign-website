@@ -5,6 +5,7 @@ import { CampaignProvider } from '@/context/CampaignContext';
 import fs from 'fs';
 import path from 'path';
 import DiceRoller from '@/components/DiceRoller';
+import { ToastProvider } from '@/components/shared/ui/ToastProvider';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 const cinzel = Cinzel({ subsets: ['latin'], variable: '--font-cinzel' });
@@ -46,6 +47,7 @@ export default async function RootLayout({
                 <CampaignProvider initialPlayers={players}>
                     {children}
                     <DiceRoller />
+                    <ToastProvider />
                 </CampaignProvider>
             </body>
         </html>

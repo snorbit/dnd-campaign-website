@@ -3,6 +3,7 @@
 import { supabase } from '@/lib/supabase';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { Map, Swords, Users, ScrollText, UserCircle, Package, Award, BookOpen } from 'lucide-react';
 import MapsTab from '@/components/dm/MapsTab';
 import EncountersTab from '@/components/dm/EncountersTab';
@@ -72,13 +73,11 @@ export default function DMCampaignPage() {
 
     const handleImportCampaign = async () => {
         if (!importText.trim()) {
-            alert('Please enter campaign text');
+            toast.warning('Please enter campaign text');
             return;
         }
 
-        setImporting(true);
-        try {
-            // Call API to parse and generate campaign
+        const importPromise = (async () => {
             const response = await fetch('/api/import-campaign', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -93,16 +92,25 @@ export default function DMCampaignPage() {
             }
 
             const result = await response.json();
+            return result;
+        })();
 
-            alert(`Campaign imported successfully!\n\n${result.summary}`);
-            setShowImportModal(false);
-            setImportText('');
+        setImporting(true);
+        toast.promise(importPromise, {
+            loading: 'Importing session and generating content...',
+            success: (data) => {
+                setShowImportModal(false);
+                setImportText('');
+                setTimeout(() => window.location.reload(), 2000);
+                return 'Campaign imported successfully!';
+            },
+            error: 'Failed to import campaign. Please try again.',
+        });
 
-            // Reload to show new content
-            window.location.reload();
+        try {
+            await importPromise;
         } catch (error) {
             console.error('Error importing campaign:', error);
-            alert('Failed to import campaign. Please try again.');
         } finally {
             setImporting(false);
         }
@@ -184,7 +192,7 @@ export default function DMCampaignPage() {
                                 <button
                                     onClick={() => {
                                         navigator.clipboard.writeText(campaign.join_code);
-                                        alert('Join code copied!');
+                                        toast.success('Join code copied!', { icon: '📋' });
                                     }}
                                     className="px-2 py-1 bg-yellow-600 hover:bg-yellow-700 text-white text-xs rounded transition-colors shrink-0"
                                     title="Copy join code"

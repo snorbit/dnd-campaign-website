@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { TrendingUp, Heart, Shield, User } from 'lucide-react';
 import { SkeletonList } from '@/components/shared/ui/SkeletonList';
+import { toast } from 'sonner';
 
 interface Player {
     id: string;
@@ -93,10 +94,13 @@ export default function PlayersTab({ campaignId }: PlayersTabProps) {
                 .eq('id', playerId);
 
             loadPlayers();
-            alert(`Level granted! Player is now level ${newLevel}.`);
+            toast.success(`Level granted!`, {
+                description: `Player is now level ${newLevel}.`,
+                icon: '⬆️'
+            });
         } catch (error) {
             console.error('Error granting level:', error);
-            alert('Failed to grant level');
+            toast.error('Failed to grant level');
         }
     };
 
