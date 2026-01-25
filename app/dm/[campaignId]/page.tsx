@@ -3,7 +3,7 @@
 import { supabase } from '@/lib/supabase';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { Map, Swords, Users, ScrollText, UserCircle, Package, Award } from 'lucide-react';
+import { Map, Swords, Users, ScrollText, UserCircle, Package, Award, BookOpen } from 'lucide-react';
 import MapsTab from '@/components/dm/MapsTab';
 import EncountersTab from '@/components/dm/EncountersTab';
 import PlayersTab from '@/components/dm/PlayersTab';
@@ -12,7 +12,7 @@ import NPCsTab from '@/components/dm/NPCsTab';
 import ItemsTab from '@/components/dm/ItemsTab';
 import DMFeatsTab from '@/components/dm/FeatsTab';
 
-type TabId = 'maps' | 'encounters' | 'players' | 'quests' | 'npcs' | 'items' | 'feats';
+type TabId = 'maps' | 'encounters' | 'players' | 'quests' | 'npcs' | 'items' | 'feats' | 'sessions';
 
 const tabs = [
     { id: 'maps' as TabId, label: 'Maps', icon: Map },
@@ -22,6 +22,7 @@ const tabs = [
     { id: 'npcs' as TabId, label: 'NPCs', icon: UserCircle },
     { id: 'items' as TabId, label: 'Items', icon: Package },
     { id: 'feats' as TabId, label: 'Feats', icon: Award },
+    { id: 'sessions' as TabId, label: 'Sessions', icon: BookOpen },
 ];
 
 export default function DMCampaignPage() {
@@ -125,6 +126,22 @@ export default function DMCampaignPage() {
                 return <ItemsTab campaignId={campaignId} />;
             case 'feats':
                 return <DMFeatsTab campaignId={campaignId} />;
+            case 'sessions':
+                return <div className="text-gray-300">
+                    <h2 className="text-2xl font-bold text-white mb-4">📚 Session History</h2>
+                    <p className="text-gray-400 mb-6">
+                        View and review all your imported sessions. Each session contains the maps, quests, items, and encounters you generated.
+                    </p>
+                    <div className="bg-gray-800 rounded-lg border border-gray-700 p-12 text-center">
+                        <p className="text-gray-400 mb-4">No sessions imported yet</p>
+                        <button
+                            onClick={() => setShowImportModal(true)}
+                            className="px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-bold rounded-lg transition-all"
+                        >
+                            📥 Import Your First Session
+                        </button>
+                    </div>
+                </div>;
             default:
                 return <div className="text-gray-400">Tab not found</div>;
         }
@@ -202,14 +219,14 @@ export default function DMCampaignPage() {
                     })}
                 </nav>
 
-                {/* Import Campaign Button */}
+                {/* Import Session Button */}
                 <div className="p-4 border-t border-gray-700">
                     <button
-                        onClick={() => {/* TODO: Open import modal */ }}
+                        onClick={() => setShowImportModal(true)}
                         className="w-full px-4 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-bold rounded-lg transition-all transform hover:scale-105 shadow-lg flex items-center justify-center gap-2"
                     >
                         <span className="text-xl">📥</span>
-                        <span>Import Campaign</span>
+                        <span>Import Session</span>
                     </button>
                     <p className="text-xs text-gray-500 text-center mt-2">
                         Auto-generate maps, quests & more
@@ -228,9 +245,9 @@ export default function DMCampaignPage() {
             {showImportModal && (
                 <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
                     <div className="bg-gray-800 rounded-lg p-6 max-w-3xl w-full border border-gray-700 max-h-[90vh] overflow-y-auto">
-                        <h2 className="text-2xl font-bold text-white mb-2">📥 Import Campaign Session</h2>
+                        <h2 className="text-2xl font-bold text-white mb-2">📥 Import Session</h2>
                         <p className="text-gray-400 text-sm mb-4">
-                            Paste your campaign description and we'll automatically generate maps, quests, items, and encounters!
+                            Paste your session description and we'll automatically generate maps, quests, items, and encounters!
                         </p>
 
                         <div className="bg-gray-900 rounded p-4 mb-4">
