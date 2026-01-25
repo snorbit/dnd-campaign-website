@@ -12,50 +12,95 @@ export async function POST(request: NextRequest) {
         const { campaignId, campaignText } = await request.json();
 
         if (!campaignText || !campaignId) {
+            console.error('Missing required fields:', { campaignId: !!campaignId, campaignText: !!campaignText });
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
-        console.log('Starting session import for campaign:', campaignId);
+        console.log('✓ Starting session import for campaign:', campaignId);
 
-        // Step 1: Parse the session text using AI
-        const parsed = await parseSessionText(campaignText);
-
-        console.log('Parsed session:', parsed);
+        // Step 1: Parse the session text
+        let parsed;
+        try {
+            parsed = await parseSessionText(campaignText);
+            console.log('✓ Parsed session successfully:', {
+                title: parsed.title,
+                locations: parsed.locations.length,
+                quests: parsed.quests.length,
+                items: parsed.items.length,
+                encounters: parsed.encounters.length
+            });
+        } catch (parseError) {
+            console.error('✗ Parse error:', parseError);
+            throw new Error('Failed to parse session text: ' + (parseError as Error).message);
+        }
 
         // Step 2: Generate maps for each location + travel maps
-        const maps = await generateAllMaps(parsed.locations, campaignId);
-
-        console.log('Generated maps:', maps.length);
+        let maps;
+        try {
+            maps = await generateAllMaps(parsed.locations, campaignId);
+            console.log('✓ Generated maps:', maps.length);
+        } catch (mapError) {
+            console.error('✗ Map generation error:', mapError);
+            throw new Error('Failed to generate maps: ' + (mapError as Error).message);
+        }
 
         // Step 3: Save session to database
-        const { data: session, error: sessionError } = await supabase
-            .from('campaign_sessions')
-            .insert({
-                campaign_id: campaignId,
-                title: parsed.title || 'Imported Session',
-                description: parsed.description,
-                session_text: campaignText,
-                maps_generated: maps.length,
-                quests_created: parsed.quests.length,
-                items_added: parsed.items.length,
-                encounters_created: parsed.encounters.length
-            })
-            .select()
-            .single();
+        let session;
+        try {
+            const { data, error: sessionError } = await supabase
+                .from('campaign_sessions')
+                .insert({
+                    campaign_id: campaignId,
+                    title: parsed.title || 'Imported Session',
+                    description: parsed.description,
+                    session_text: campaignText,
+                    maps_generated: maps.length,
+                    quests_created: parsed.quests.length,
+                    items_added: parsed.items.length,
+                    encounters_created: parsed.encounters.length
+                })
+                .select()
+                .single();
 
-        if (sessionError) throw sessionError;
+            if (sessionError) {
+                console.error('✗ Database error saving session:', sessionError);
+                throw sessionError;
+            }
+            session = data;
+            console.log('✓ Saved session to database:', session.id);
+        } catch (dbError) {
+            console.error('✗ Session save error:', dbError);
+            throw new Error('Failed to save session: ' + (dbError as Error).message);
+        }
 
-        // Step 4: Add maps to campaign
-        await addMapsToCampaign(campaignId, maps);
+        // Step 4-7: Create all content (non-fatal errors)
+        try {
+            await addMapsToCampaign(campaignId, maps);
+            console.log('✓ Added maps to campaign');
+        } catch (error) {
+            console.warn('⚠ Could not add maps to campaign:', error);
+        }
 
-        // Step 5: Create quests
-        await createQuests(campaignId, parsed.quests);
+        try {
+            await createQuests(campaignId, parsed.quests);
+            console.log('✓ Created quests');
+        } catch (error) {
+            console.warn('⚠ Could not create quests:', error);
+        }
 
-        // Step 6: Add items
-        await addItems(campaignId, parsed.items);
+        try {
+            await addItems(campaignId, parsed.items);
+            console.log('✓ Added items');
+        } catch (error) {
+            console.warn('⚠ Could not add items:', error);
+        }
 
-        // Step 7: Create encounters
-        await createEncounters(campaignId, parsed.encounters);
+        try {
+            await createEncounters(campaignId, parsed.encounters);
+            console.log('✓ Created encounters');
+        } catch (error) {
+            console.warn('⚠ Could not create encounters:', error);
+        }
 
         const summary = `✅ Session imported successfully!
 
@@ -65,6 +110,8 @@ export async function POST(request: NextRequest) {
 ⚔️ ${parsed.encounters.length} encounters created
 
 Your session "${parsed.title}" is ready to play!`;
+
+        console.log('✓ Import complete!');
 
         return NextResponse.json({
             success: true,
@@ -78,9 +125,10 @@ Your session "${parsed.title}" is ready to play!`;
         });
 
     } catch (error) {
-        console.error('Error importing session:', error);
+        console.error('✗ FATAL ERROR importing session:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
         return NextResponse.json(
-            { error: 'Failed to import session: ' + (error as Error).message },
+            { error: 'Failed to import session: ' + errorMessage },
             { status: 500 }
         );
     }
