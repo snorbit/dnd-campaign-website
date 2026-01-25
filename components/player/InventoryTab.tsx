@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import { SkeletonList } from '@/components/shared/ui/SkeletonList';
 
 interface Item {
     id: string;
@@ -19,7 +20,6 @@ interface InventoryTabProps {
 export default function InventoryTab({ campaignPlayerId }: InventoryTabProps) {
     const [items, setItems] = useState<Item[]>([]);
     const [loading, setLoading] = useState(true);
-    // Using imported supabase client
 
     useEffect(() => {
         loadInventory();
@@ -27,6 +27,7 @@ export default function InventoryTab({ campaignPlayerId }: InventoryTabProps) {
 
     const loadInventory = async () => {
         try {
+            setLoading(true);
             const { data } = await supabase
                 .from('player_inventory')
                 .select('*')
@@ -51,7 +52,7 @@ export default function InventoryTab({ campaignPlayerId }: InventoryTabProps) {
     };
 
     if (loading) {
-        return <div className="text-gray-400">Loading inventory...</div>;
+        return <SkeletonList count={4} />;
     }
 
     return (

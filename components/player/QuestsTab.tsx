@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { CheckCircle, Circle, ChevronDown, ChevronUp } from 'lucide-react';
+import { SkeletonList } from '@/components/shared/ui/SkeletonList';
 
 interface Quest {
     id: string;
@@ -25,7 +26,6 @@ export default function QuestsTab({ campaignId }: QuestsTabProps) {
     const [quests, setQuests] = useState<Quest[]>([]);
     const [expandedQuests, setExpandedQuests] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(true);
-    // Using imported supabase client
 
     useEffect(() => {
         loadQuests();
@@ -33,6 +33,7 @@ export default function QuestsTab({ campaignId }: QuestsTabProps) {
 
     const loadQuests = async () => {
         try {
+            setLoading(true);
             const { data } = await supabase
                 .from('campaign_state')
                 .select('quests')
@@ -67,7 +68,7 @@ export default function QuestsTab({ campaignId }: QuestsTabProps) {
     };
 
     if (loading) {
-        return <div className="text-gray-400">Loading quests...</div>;
+        return <SkeletonList count={3} />;
     }
 
     const activeQuests = quests.filter(q => q.status === 'active');

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import { Skeleton } from '@/components/shared/ui/Skeleton';
 
 interface MapTabProps {
     campaignId: string;
@@ -10,7 +11,6 @@ interface MapTabProps {
 export default function MapTab({ campaignId }: MapTabProps) {
     const [mapUrl, setMapUrl] = useState<string>('');
     const [loading, setLoading] = useState(true);
-    // Using imported supabase client
 
     useEffect(() => {
         loadMap();
@@ -42,6 +42,7 @@ export default function MapTab({ campaignId }: MapTabProps) {
 
     const loadMap = async () => {
         try {
+            setLoading(true);
             const { data } = await supabase
                 .from('campaign_state')
                 .select('map')
@@ -58,8 +59,11 @@ export default function MapTab({ campaignId }: MapTabProps) {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-[600px] bg-gray-800 rounded-lg border border-gray-700">
-                <div className="text-gray-400">Loading map...</div>
+            <div className="space-y-4">
+                <Skeleton width="w-48" height="h-8" />
+                <div className="bg-gray-800 rounded-lg border border-gray-700 p-2">
+                    <Skeleton width="w-full" height="h-[500px]" rounded="rounded-lg" />
+                </div>
             </div>
         );
     }

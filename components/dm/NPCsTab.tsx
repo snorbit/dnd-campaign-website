@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Plus, Trash2 } from 'lucide-react';
+import { SkeletonList } from '@/components/shared/ui/SkeletonList';
 
 interface NPC {
     id: string;
@@ -19,17 +20,24 @@ interface NPCsTabProps {
 
 export default function NPCsTab({ campaignId }: NPCsTabProps) {
     const [npcs, setNpcs] = useState<NPC[]>([]);
+    const [loading, setLoading] = useState(true);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [newNPC, setNewNPC] = useState({ name: '', race: '', role: '', notes: '' });
-    // Using imported supabase client
 
     useEffect(() => {
         loadNPCs();
     }, [campaignId]);
 
     const loadNPCs = async () => {
-        const { data } = await supabase.from('campaign_state').select('npcs').eq('campaign_id', campaignId).single();
-        setNpcs(data?.npcs || []);
+        try {
+            setLoading(true);
+            const { data } = await supabase.from('campaign_state').select('npcs').eq('campaign_id', campaignId).single();
+            setNpcs(data?.npcs || []);
+        } catch (error) {
+            console.error('Error loading NPCs:', error);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const createNPC = async () => {
@@ -57,22 +65,26 @@ export default function NPCsTab({ campaignId }: NPCsTabProps) {
                 </button>
             </div>
 
-            <div className="grid gap-3">
-                {npcs.map(npc => (
-                    <div key={npc.id} className="bg-gray-800 rounded-lg border border-gray-700 p-4">
-                        <div className="flex justify-between items-start">
-                            <div className="flex-1">
-                                <h3 className="text-white font-bold text-lg">{npc.name}</h3>
-                                <p className="text-gray-400 text-sm">{npc.race} - {npc.role}</p>
-                                {npc.notes && <p className="text-gray-500 text-sm mt-2">{npc.notes}</p>}
+            {loading ? (
+                <SkeletonList count={3} />
+            ) : (
+                <div className="grid gap-3">
+                    {npcs.map(npc => (
+                        <div key={npc.id} className="bg-gray-800 rounded-lg border border-gray-700 p-4">
+                            <div className="flex justify-between items-start">
+                                <div className="flex-1">
+                                    <h3 className="text-white font-bold text-lg">{npc.name}</h3>
+                                    <p className="text-gray-400 text-sm">{npc.race} - {npc.role}</p>
+                                    {npc.notes && <p className="text-gray-500 text-sm mt-2">{npc.notes}</p>}
+                                </div>
+                                <button onClick={() => deleteNPC(npc.id)} className="p-2 bg-red-600 hover:bg-red-700 text-white rounded">
+                                    <Trash2 size={14} />
+                                </button>
                             </div>
-                            <button onClick={() => deleteNPC(npc.id)} className="p-2 bg-red-600 hover:bg-red-700 text-white rounded">
-                                <Trash2 size={14} />
-                            </button>
                         </div>
-                    </div>
-                ))}
-            </div>
+                    ))}
+                </div>
+            )}
 
             {showCreateModal && (
                 <div className="fixed inset-0 bg-black/75 flex items-center justify-center p-4 z-50">

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Users as UsersIcon, Heart, Shield } from 'lucide-react';
+import { SkeletonList } from '@/components/shared/ui/SkeletonList';
 
 interface PartyMember {
     id: string;
@@ -21,9 +22,7 @@ interface PartyTabProps {
 
 export default function PartyTab({ campaignId }: PartyTabProps) {
     const [partyMembers, setPartyMembers] = useState<PartyMember[]>([]);
-    const [npcs, setNpcs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    // Using imported supabase client
 
     useEffect(() => {
         loadParty();
@@ -31,6 +30,7 @@ export default function PartyTab({ campaignId }: PartyTabProps) {
 
     const loadParty = async () => {
         try {
+            setLoading(true);
             // Load player characters
             const { data: players } = await supabase
                 .from('campaign_players')
@@ -81,7 +81,7 @@ export default function PartyTab({ campaignId }: PartyTabProps) {
     };
 
     if (loading) {
-        return <div className="text-gray-400">Loading party...</div>;
+        return <SkeletonList count={3} />;
     }
 
     return (

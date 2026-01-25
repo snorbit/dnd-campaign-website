@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Plus, Trash2, Upload, Image as ImageIcon } from 'lucide-react';
+import { SkeletonList } from '@/components/shared/ui/SkeletonList';
 
 interface Map {
     id: string;
@@ -22,7 +23,6 @@ export default function MapsTab({ campaignId }: MapsTabProps) {
     const [newMapUrl, setNewMapUrl] = useState('');
     const [newMapTitle, setNewMapTitle] = useState('');
     const [loading, setLoading] = useState(true);
-    // Using imported supabase client
 
     useEffect(() => {
         loadMaps();
@@ -30,6 +30,7 @@ export default function MapsTab({ campaignId }: MapsTabProps) {
 
     const loadMaps = async () => {
         try {
+            setLoading(true);
             const { data } = await supabase
                 .from('campaign_state')
                 .select('map')
@@ -134,7 +135,7 @@ export default function MapsTab({ campaignId }: MapsTabProps) {
     };
 
     if (loading) {
-        return <div className="text-gray-400">Loading maps...</div>;
+        return <SkeletonList count={3} />;
     }
 
     return (
