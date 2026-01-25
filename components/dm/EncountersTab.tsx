@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Plus, RotateCcw, Play, Trash2 } from 'lucide-react';
+import { SkeletonList } from '@/components/shared/ui/SkeletonList';
 
 interface Enemy {
     id: string;
@@ -30,7 +31,6 @@ export default function EncountersTab({ campaignId }: EncountersTabProps) {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [newEncounterName, setNewEncounterName] = useState('');
     const [loading, setLoading] = useState(true);
-    // Using imported supabase client
 
     useEffect(() => {
         loadEncounters();
@@ -38,6 +38,7 @@ export default function EncountersTab({ campaignId }: EncountersTabProps) {
 
     const loadEncounters = async () => {
         try {
+            setLoading(true);
             const { data } = await supabase
                 .from('campaign_state')
                 .select('encounters')
@@ -187,7 +188,7 @@ export default function EncountersTab({ campaignId }: EncountersTabProps) {
     };
 
     if (loading) {
-        return <div className="text-gray-400">Loading encounters...</div>;
+        return <SkeletonList count={3} />;
     }
 
     return (
@@ -220,8 +221,8 @@ export default function EncountersTab({ campaignId }: EncountersTabProps) {
                                 <div>
                                     <h3 className="text-xl font-bold text-white mb-1">{encounter.name}</h3>
                                     <span className={`text-xs px-2 py-1 rounded ${encounter.status === 'active' ? 'bg-yellow-900/30 text-yellow-400' :
-                                            encounter.status === 'completed' ? 'bg-green-900/30 text-green-400' :
-                                                'bg-gray-700 text-gray-400'
+                                        encounter.status === 'completed' ? 'bg-green-900/30 text-green-400' :
+                                            'bg-gray-700 text-gray-400'
                                         }`}>
                                         {encounter.status}
                                     </span>

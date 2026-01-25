@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { TrendingUp, Heart, Shield, User } from 'lucide-react';
+import { SkeletonList } from '@/components/shared/ui/SkeletonList';
 
 interface Player {
     id: string;
@@ -31,7 +32,6 @@ interface PlayersTabProps {
 export default function PlayersTab({ campaignId }: PlayersTabProps) {
     const [players, setPlayers] = useState<Player[]>([]);
     const [loading, setLoading] = useState(true);
-    // Using imported supabase client
 
     useEffect(() => {
         loadPlayers();
@@ -39,6 +39,7 @@ export default function PlayersTab({ campaignId }: PlayersTabProps) {
 
     const loadPlayers = async () => {
         try {
+            setLoading(true);
             const { data } = await supabase
                 .from('campaign_players')
                 .select(`
@@ -86,18 +87,12 @@ export default function PlayersTab({ campaignId }: PlayersTabProps) {
         const newLevel = currentLevel + 1;
 
         try {
-            // Update player level
             await supabase
                 .from('campaign_players')
                 .update({ level: newLevel })
                 .eq('id', playerId);
 
-            // TODO: Trigger level-up notification to player
-            // This would use real-time subscriptions or a notifications table
-
-            // Reload players
             loadPlayers();
-
             alert(`Level granted! Player is now level ${newLevel}.`);
         } catch (error) {
             console.error('Error granting level:', error);
@@ -114,7 +109,7 @@ export default function PlayersTab({ campaignId }: PlayersTabProps) {
     };
 
     if (loading) {
-        return <div className="text-gray-400">Loading players...</div>;
+        return <SkeletonList count={3} />;
     }
 
     return (

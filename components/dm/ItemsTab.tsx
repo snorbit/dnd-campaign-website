@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Plus } from 'lucide-react';
+import { SkeletonList } from '@/components/shared/ui/SkeletonList';
 
 interface Item {
     id: string;
@@ -18,17 +19,24 @@ interface ItemsTabProps {
 
 export default function ItemsTab({ campaignId }: ItemsTabProps) {
     const [items, setItems] = useState<Item[]>([]);
+    const [loading, setLoading] = useState(true);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [newItem, setNewItem] = useState({ name: '', description: '', category: 'misc', weight: 0 });
-    // Using imported supabase client
 
     useEffect(() => {
         loadItems();
     }, [campaignId]);
 
     const loadItems = async () => {
-        const { data } = await supabase.from('campaign_state').select('items').eq('campaign_id', campaignId).single();
-        setItems(data?.items || []);
+        try {
+            setLoading(true);
+            const { data } = await supabase.from('campaign_state').select('items').eq('campaign_id', campaignId).single();
+            setItems(data?.items || []);
+        } catch (error) {
+            console.error('Error loading items:', error);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const createItem = async () => {
@@ -50,17 +58,21 @@ export default function ItemsTab({ campaignId }: ItemsTabProps) {
                 </button>
             </div>
 
-            <div className="grid gap-3">
-                {items.map(item => (
-                    <div key={item.id} className="bg-gray-800 rounded-lg border border-gray-700 p-4">
-                        <h3 className="text-white font-bold">{item.name}</h3>
-                        <p className="text-gray-400 text-sm">{item.description}</p>
-                        <div className="text-gray-500 text-xs mt-2">
-                            {item.category} • {item.weight} lbs
+            {loading ? (
+                <SkeletonList count={3} />
+            ) : (
+                <div className="grid gap-3">
+                    {items.map(item => (
+                        <div key={item.id} className="bg-gray-800 rounded-lg border border-gray-700 p-4">
+                            <h3 className="text-white font-bold">{item.name}</h3>
+                            <p className="text-gray-400 text-sm">{item.description}</p>
+                            <div className="text-gray-500 text-xs mt-2">
+                                {item.category} • {item.weight} lbs
+                            </div>
                         </div>
-                    </div>
-                ))}
-            </div>
+                    ))}
+                </div>
+            )}
 
             {showCreateModal && (
                 <div className="fixed inset-0 bg-black/75 flex items-center justify-center p-4 z-50">

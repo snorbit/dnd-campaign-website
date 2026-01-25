@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Award, Search } from 'lucide-react';
+import { SkeletonList } from '@/components/shared/ui/SkeletonList';
 
 interface Feat {
     id: string;
@@ -25,7 +26,6 @@ export default function FeatsTab({ campaignPlayerId, campaignId }: FeatsTabProps
     const [searchTerm, setSearchTerm] = useState('');
     const [filter, setFilter] = useState<'all' | 'acquired' | 'available'>('all');
     const [loading, setLoading] = useState(true);
-    // Using imported supabase client
 
     useEffect(() => {
         loadFeats();
@@ -33,6 +33,7 @@ export default function FeatsTab({ campaignPlayerId, campaignId }: FeatsTabProps
 
     const loadFeats = async () => {
         try {
+            setLoading(true);
             // Load player's acquired feats
             const { data: playerFeats } = await supabase
                 .from('player_feats')
@@ -85,7 +86,7 @@ export default function FeatsTab({ campaignPlayerId, campaignId }: FeatsTabProps
     });
 
     if (loading) {
-        return <div className="text-gray-400">Loading feats...</div>;
+        return <SkeletonList count={3} />;
     }
 
     return (
