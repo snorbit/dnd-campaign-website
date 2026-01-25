@@ -127,8 +127,8 @@ export default function FeatsTab({ campaignPlayerId, campaignId }: FeatsTabProps
                     <div
                         key={feat.id}
                         className={`bg-gray-800 rounded-lg border p-4 transition-colors ${feat.isAcquired
-                                ? 'border-yellow-500 shadow-yellow-500/20 shadow-lg'
-                                : 'border-gray-700 hover:border-gray-600'
+                            ? 'border-yellow-500 shadow-yellow-500/20 shadow-lg'
+                            : 'border-gray-700 hover:border-gray-600'
                             }`}
                     >
                         <div className="flex items-start justify-between mb-2">

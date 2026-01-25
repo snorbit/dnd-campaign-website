@@ -32,6 +32,9 @@ export default function DMCampaignPage() {
     const [activeTab, setActiveTab] = useState<TabId>('maps');
     const [campaign, setCampaign] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [showImportModal, setShowImportModal] = useState(false);
+    const [importText, setImportText] = useState('');
+    const [importing, setImporting] = useState(false);
 
     useEffect(() => {
         loadCampaign();
@@ -63,6 +66,44 @@ export default function DMCampaignPage() {
             console.error('Error loading campaign:', error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleImportCampaign = async () => {
+        if (!importText.trim()) {
+            alert('Please enter campaign text');
+            return;
+        }
+
+        setImporting(true);
+        try {
+            // Call API to parse and generate campaign
+            const response = await fetch('/api/import-campaign', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    campaignId: params.campaignId,
+                    campaignText: importText
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to import campaign');
+            }
+
+            const result = await response.json();
+
+            alert(`Campaign imported successfully!\n\n${result.summary}`);
+            setShowImportModal(false);
+            setImportText('');
+
+            // Reload to show new content
+            window.location.reload();
+        } catch (error) {
+            console.error('Error importing campaign:', error);
+            alert('Failed to import campaign. Please try again.');
+        } finally {
+            setImporting(false);
         }
     };
 
@@ -160,6 +201,20 @@ export default function DMCampaignPage() {
                         );
                     })}
                 </nav>
+
+                {/* Import Campaign Button */}
+                <div className="p-4 border-t border-gray-700">
+                    <button
+                        onClick={() => {/* TODO: Open import modal */ }}
+                        className="w-full px-4 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-bold rounded-lg transition-all transform hover:scale-105 shadow-lg flex items-center justify-center gap-2"
+                    >
+                        <span className="text-xl">📥</span>
+                        <span>Import Campaign</span>
+                    </button>
+                    <p className="text-xs text-gray-500 text-center mt-2">
+                        Auto-generate maps, quests & more
+                    </p>
+                </div>
             </div>
 
             {/* Main Content */}
@@ -168,6 +223,94 @@ export default function DMCampaignPage() {
                     {renderTabContent()}
                 </div>
             </div>
+
+            {/* Import Campaign Modal */}
+            {showImportModal && (
+                <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+                    <div className="bg-gray-800 rounded-lg p-6 max-w-3xl w-full border border-gray-700 max-h-[90vh] overflow-y-auto">
+                        <h2 className="text-2xl font-bold text-white mb-2">📥 Import Campaign Session</h2>
+                        <p className="text-gray-400 text-sm mb-4">
+                            Paste your campaign description and we'll automatically generate maps, quests, items, and encounters!
+                        </p>
+
+                        <div className="bg-gray-900 rounded p-4 mb-4">
+                            <p className="text-xs text-gray-500 mb-2">Example format:</p>
+                            <pre className="text-xs text-gray-400 whitespace-pre-wrap">
+                                {`Session 3: The Cursed Temple
+
+The adventurers seek the Sun Medallion in the Temple of Solara.
+
+Locations:
+1. Desert Approach - Sandy dunes, ancient statues
+2. Temple Entrance - Stone pillars, hieroglyphs
+3. Grand Hall - Columns, murals, center altar
+4. Inner Sanctum - Golden chamber, sun beams
+
+Quests:
+- Retrieve the Sun Medallion
+- Decipher the ancient puzzle
+
+Encounters:
+- Sand Elementals (entrance, 3 enemies)
+- Temple Guardians (grand hall, 4 golems)
+- Corrupted Sun Priest (boss, sanctum)
+
+Items:
+- Ancient Scroll
+- Sun Medallion (quest item)
+- Healing Elixir x3`}
+                            </pre>
+                        </div>
+
+                        <textarea
+                            value={importText}
+                            onChange={(e) => setImportText(e.target.value)}
+                            placeholder="Paste your campaign session text here..."
+                            rows={15}
+                            className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:border-purple-500 focus:outline-none mb-4 font-mono text-sm"
+                        />
+
+                        <div className="flex gap-3">
+                            <button
+                                onClick={handleImportCampaign}
+                                disabled={importing || !importText.trim()}
+                                className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:from-gray-600 disabled:to-gray-600 text-white font-bold py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2"
+                            >
+                                {importing ? (
+                                    <>
+                                        <span className="animate-spin">⚙️</span>
+                                        <span>Generating Campaign...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <span>🎨</span>
+                                        <span>Generate Campaign</span>
+                                    </>
+                                )}
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setShowImportModal(false);
+                                    setImportText('');
+                                }}
+                                disabled={importing}
+                                className="px-6 py-3 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-700 text-white rounded-lg transition-colors"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+
+                        {importing && (
+                            <div className="mt-4 p-4 bg-purple-900/20 border border-purple-700 rounded-lg">
+                                <p className="text-purple-300 text-sm font-semibold mb-2">⏳ This may take a few minutes...</p>
+                                <p className="text-gray-400 text-xs">
+                                    Parsing campaign text, generating maps for each location and travel paths, creating quests, items, and encounters...
+                                </p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

@@ -168,8 +168,8 @@ export default function DMFeatsTab({ campaignId }: FeatsTabProps) {
                                 <Award size={20} className={feat.source === 'homebrew' ? 'text-purple-400' : 'text-yellow-500'} />
                                 <h3 className="text-white font-bold text-lg">{feat.name}</h3>
                                 <span className={`px-2 py-1 text-xs rounded ${feat.source === 'homebrew'
-                                        ? 'bg-purple-900/30 text-purple-400'
-                                        : 'bg-gray-700 text-gray-400'
+                                    ? 'bg-purple-900/30 text-purple-400'
+                                    : 'bg-gray-700 text-gray-400'
                                     }`}>
                                     {feat.source === 'homebrew' ? 'Homebrew' : 'Standard'}
                                 </span>
