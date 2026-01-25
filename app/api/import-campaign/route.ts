@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import fs from 'fs';
-import path from 'path';
 
 // Initialize Supabase client
 const supabase = createClient(
@@ -214,12 +212,6 @@ function extractDifficulty(text: string): number {
 // Generate maps for all locations plus travel maps
 async function generateAllMaps(locations: Array<{ name: string; description: string; order: number }>, campaignId: string) {
     const maps = [];
-    const mapsDir = path.join(process.cwd(), 'public', 'maps');
-
-    // Ensure maps directory exists
-    if (!fs.existsSync(mapsDir)) {
-        fs.mkdirSync(mapsDir, { recursive: true });
-    }
 
     for (let i = 0; i < locations.length; i++) {
         const location = locations[i];
