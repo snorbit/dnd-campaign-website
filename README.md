@@ -1,6 +1,6 @@
-# 🎲 D&D Campaign Platform - README
+# ⚔️ sessionforge
 
-A complete **virtual tabletop platform** for running D&D 5e campaigns online!
+The ultimate **virtual tabletop platform** for running D&D 5e campaigns online!
 
 ## ✨ Features
 

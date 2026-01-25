@@ -10,8 +10,8 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 const cinzel = Cinzel({ subsets: ['latin'], variable: '--font-cinzel' });
 
 export const metadata: Metadata = {
-    title: 'D&D Campaign Architect',
-    description: 'Real-time D&D Campaign Dashboard',
+    title: 'sessionforge',
+    description: 'The Ultimate D&D Campaign Platform',
 };
 
 export const viewport: Viewport = {

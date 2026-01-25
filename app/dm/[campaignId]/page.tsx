@@ -103,7 +103,6 @@ export default function DMCampaignPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black flex">
-            {/* Sidebar */}
             <div className="w-64 bg-gray-800 border-r border-gray-700 flex flex-col">
                 {/* Campaign Header */}
                 <div className="p-4 border-b border-gray-700">
@@ -115,7 +114,31 @@ export default function DMCampaignPage() {
                     </button>
                     <h2 className="text-xl font-bold text-white truncate">{campaign.name}</h2>
                     <span className="text-xs text-yellow-500 font-semibold">DUNGEON MASTER</span>
+
+                    {/* Join Code Display */}
+                    {campaign.join_code && (
+                        <div className="mt-3 p-3 bg-gradient-to-br from-yellow-900/30 to-yellow-800/30 border border-yellow-600/50 rounded-lg">
+                            <p className="text-xs text-yellow-300 mb-1 font-semibold">CAMPAIGN CODE</p>
+                            <div className="flex items-center justify-between gap-2">
+                                <p className="text-2xl font-mono font-bold text-yellow-400 tracking-wider">
+                                    {campaign.join_code}
+                                </p>
+                                <button
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(campaign.join_code);
+                                        alert('Join code copied!');
+                                    }}
+                                    className="px-2 py-1 bg-yellow-600 hover:bg-yellow-700 text-white text-xs rounded transition-colors shrink-0"
+                                    title="Copy join code"
+                                >
+                                    📋
+                                </button>
+                            </div>
+                            <p className="text-xs text-yellow-300/70 mt-2">Share this code with players</p>
+                        </div>
+                    )}
                 </div>
+
 
                 {/* Tabs */}
                 <nav className="flex-1 p-4 space-y-1">

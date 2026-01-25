@@ -11,11 +11,11 @@ export default function HomePage() {
             <div className="max-w-4xl w-full">
                 {/* Header */}
                 <div className="text-center mb-12">
-                    <h1 className="text-6xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-yellow-600 mb-4">
-                        Campaign Portal
+                    <h1 className="text-7xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-yellow-500 to-orange-500 mb-4 drop-shadow-lg">
+                        sessionforge
                     </h1>
                     <p className="text-gray-400 text-lg italic">
-                        Choose your destiny or guide the fate of others.
+                        Forge unforgettable D&D campaigns together
                     </p>
                 </div>
 
