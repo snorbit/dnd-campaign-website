@@ -11,6 +11,8 @@ import PartyTab from '@/components/player/PartyTab';
 import QuestsTab from '@/components/player/QuestsTab';
 import FeatsTab from '@/components/player/FeatsTab';
 import CharacterSheet from '@/components/player/CharacterSheet';
+import { DiceRoller } from '@/components/shared/DiceRoller';
+import { CampaignProvider } from '@/context/CampaignContext';
 
 type TabId = 'character' | 'map' | 'stats' | 'inventory' | 'party' | 'quests' | 'feats';
 
@@ -122,50 +124,53 @@ export default function PlayerCampaignPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black flex">
-            {/* Sidebar */}
-            <div className="w-64 bg-gray-800 border-r border-gray-700 flex flex-col">
-                {/* Campaign Header */}
-                <div className="p-4 border-b border-gray-700">
-                    <button
-                        onClick={() => router.push('/campaigns')}
-                        className="text-gray-400 hover:text-white text-sm mb-2"
-                    >
-                        ← Back to Campaigns
-                    </button>
-                    <h2 className="text-xl font-bold text-white truncate">{campaign.name}</h2>
-                    <p className="text-sm text-gray-400 truncate">{character.character_name}</p>
-                    <span className="text-xs text-blue-500 font-semibold">Level {character.level || 1}</span>
+        <CampaignProvider>
+            <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black flex">
+                {/* Sidebar */}
+                <div className="w-64 bg-gray-800 border-r border-gray-700 flex flex-col">
+                    {/* Campaign Header */}
+                    <div className="p-4 border-b border-gray-700">
+                        <button
+                            onClick={() => router.push('/campaigns')}
+                            className="text-gray-400 hover:text-white text-sm mb-2"
+                        >
+                            ← Back to Campaigns
+                        </button>
+                        <h2 className="text-xl font-bold text-white truncate">{campaign.name}</h2>
+                        <p className="text-sm text-gray-400 truncate">{character.character_name}</p>
+                        <span className="text-xs text-blue-500 font-semibold">Level {character.level || 1}</span>
+                    </div>
+
+                    {/* Tabs */}
+                    <nav className="flex-1 p-4 space-y-1">
+                        {tabs.map((tab) => {
+                            const Icon = tab.icon;
+                            const isActive = activeTab === tab.id;
+                            return (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setActiveTab(tab.id)}
+                                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
+                                        ? 'bg-blue-600 text-white font-bold'
+                                        : 'text-gray-400 hover:bg-gray-700 hover:text-white'
+                                        }`}
+                                >
+                                    <Icon size={20} />
+                                    <span>{tab.label}</span>
+                                </button>
+                            );
+                        })}
+                    </nav>
                 </div>
 
-                {/* Tabs */}
-                <nav className="flex-1 p-4 space-y-1">
-                    {tabs.map((tab) => {
-                        const Icon = tab.icon;
-                        const isActive = activeTab === tab.id;
-                        return (
-                            <button
-                                key={tab.id}
-                                onClick={() => setActiveTab(tab.id)}
-                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
-                                    ? 'bg-blue-600 text-white font-bold'
-                                    : 'text-gray-400 hover:bg-gray-700 hover:text-white'
-                                    }`}
-                            >
-                                <Icon size={20} />
-                                <span>{tab.label}</span>
-                            </button>
-                        );
-                    })}
-                </nav>
-            </div>
-
-            {/* Main Content */}
-            <div className="flex-1 overflow-y-auto">
-                <div className="p-8">
-                    {renderTabContent()}
+                {/* Main Content */}
+                <div className="flex-1 overflow-y-auto">
+                    <div className="p-8">
+                        {renderTabContent()}
+                    </div>
                 </div>
+                <DiceRoller />
             </div>
-        </div>
+        </CampaignProvider>
     );
 }
