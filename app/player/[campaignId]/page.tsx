@@ -10,12 +10,13 @@ import InventoryTab from '@/components/player/InventoryTab';
 import PartyTab from '@/components/player/PartyTab';
 import QuestsTab from '@/components/player/QuestsTab';
 import FeatsTab from '@/components/player/FeatsTab';
+import CharacterSheet from '@/components/player/CharacterSheet';
 
-type TabId = 'map' | 'stats' | 'inventory' | 'party' | 'quests' | 'feats';
+type TabId = 'character' | 'map' | 'stats' | 'inventory' | 'party' | 'quests' | 'feats';
 
 const tabs = [
+    { id: 'character' as TabId, label: 'Character', icon: User },
     { id: 'map' as TabId, label: 'Map', icon: Map },
-    { id: 'stats' as TabId, label: 'Stats', icon: User },
     { id: 'inventory' as TabId, label: 'Inventory', icon: Backpack },
     { id: 'party' as TabId, label: 'Party', icon: Users },
     { id: 'quests' as TabId, label: 'Quests', icon: ScrollText },
@@ -27,7 +28,7 @@ export default function PlayerCampaignPage() {
     const router = useRouter();
     // Using imported supabase client
 
-    const [activeTab, setActiveTab] = useState<TabId>('map');
+    const [activeTab, setActiveTab] = useState<TabId>('character');
     const [campaign, setCampaign] = useState<any>(null);
     const [character, setCharacter] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -80,6 +81,13 @@ export default function PlayerCampaignPage() {
         if (!character) return <div className="text-gray-400">Character not found</div>;
 
         switch (activeTab) {
+            case 'character':
+                return <CharacterSheet
+                    campaignPlayerId={character.id}
+                    characterName={character.character_name}
+                    characterClass={character.character_class || 'Adventurer'}
+                    level={character.level || 1}
+                />;
             case 'map':
                 return <MapTab campaignId={campaignId} />;
             case 'stats':

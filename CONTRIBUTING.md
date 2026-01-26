@@ -9,13 +9,13 @@ Welcome! This document lists tasks that can be done independently while the core
 
 ### UI/UX Improvements
 
-**1. Add Loading Skeletons**
+**1. Add Loading Skeletons**  - Done
 - **Where**: All tabs in DM and Player views
 - **What**: Replace "Loading..." text with animated skeleton loaders
 - **Files**: `components/dm/*.tsx` and `components/player/*.tsx`
 - **Why**: Better UX while data loads
 
-**2. Add Toast Notifications**
+**2. Add Toast Notifications** - Done
 - **Current**: Using `alert()` for notifications
 - **Goal**: Implement a toast notification system
 - **Library**: Consider `react-hot-toast` or `sonner`

@@ -11,8 +11,24 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 const cinzel = Cinzel({ subsets: ['latin'], variable: '--font-cinzel' });
 
 export const metadata: Metadata = {
-    title: 'sessionforge',
+    title: 'SessionForge - D&D Campaign Manager',
     description: 'The Ultimate D&D Campaign Platform',
+    manifest: '/manifest.json',
+    icons: {
+        icon: [
+            { url: '/favicon.ico', sizes: '32x32' },
+            { url: '/favicon.png', sizes: '192x192', type: 'image/png' },
+        ],
+        apple: '/apple-touch-icon.png',
+    },
+    appleWebApp: {
+        capable: true,
+        statusBarStyle: 'black-translucent',
+        title: 'SessionForge',
+    },
+    formatDetection: {
+        telephone: false,
+    },
 };
 
 export const viewport: Viewport = {
