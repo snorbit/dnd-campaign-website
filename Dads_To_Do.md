@@ -1,121 +1,352 @@
-# Dad's To-Do List
+# 🎯 Dad's Implementation Plan: Initiative Tracker (Item #8)
 
-## 🎲 Dice Roller Feature (Item #6 from CONTRIBUTING.md)
-
-### Overview
-Build an in-app dice rolling component with animations, modifiers, roll history, and campaign broadcast functionality.
-
-### Requirements (from CONTRIBUTING.md)
-- Multiple dice types (d4, d6, d8, d10, d12, d20, d100)
-- Modifiers (+/- bonuses)
-- Roll history
-- Broadcast rolls to campaign
+## Overview
+The **Initiative Tracker** is a combat management tool for DMs to track turn order, HP, and conditions during D&D encounters. This integrates with the existing Encounters system and provides a streamlined combat experience.
 
 ---
 
-## Implementation Checklist
+## 📋 Feature Requirements (from CONTRIBUTING.md)
 
-### Phase 1: Core Component
-- [x] Create `components/shared/DiceRoller.tsx`
-  - [x] Dice type selector UI
-  - [x] Quantity input (1-20)
-  - [x] Modifier input field
-  - [x] Roll button
-  - [x] Result display area
-  - [x] Public/Private toggle
-
-### Phase 2: Logic & Hooks
-- [x] Create `components/shared/hooks/useDiceRoller.ts`
-  - [x] Basic roll function (random number generation)
-  - [x] Modifier calculation
-  - [x] Advantage/Disadvantage for d20
-  - [x] Roll history state management
-  - [x] Roll formula parser
-
-### Phase 3: Animations
-- [x] Create `components/shared/DiceRoller.module.css`
-  - [x] 3D dice rolling animation
-  - [x] Bounce effect on result
-  - [x] Critical hit/fail pulse animation
-  - [x] Smooth transitions
-
-### Phase 4: Roll History
-- [x] History panel UI
-  - [x] Display past rolls with timestamps
-  - [x] Show formula and results
-  - [x] Clear history button
-  - [x] Scroll to latest roll
-
-### Phase 5: Real-time Broadcast
-- [x] Supabase real-time integration
-  - [x] Create campaign-specific channel
-  - [x] Broadcast public rolls
-  - [x] Subscribe to roll events
-  - [x] Display toast for incoming rolls
-  - [x] Shared roll feed component
-
-### Phase 6: Integration
-- [x] Add to DM view (`app/dm/[campaignId]/page.tsx`)
-  - [x] Floating action button
-  - [x] Modal/drawer for dice roller
-- [x] Add to Player view (`app/player/[campaignId]/page.tsx`)
-  - [x] Same UI as DM view
-  - [x] Access to campaign roll feed
-
-### Phase 7: Testing
-- [x] Unit tests for roll logic
-- [x] Test advantage/disadvantage
-- [x] Test modifier calculations
-- [x] Manual testing on mobile
-- [x] Accessibility testing
-- [x] Real-time broadcast testing (2 browsers)
+- **Add players/monsters** to the initiative order
+- **Track turn order** with automatic sorting by initiative
+- **HP tracking** during combat
+- **Condition/status effects** (e.g., poisoned, stunned, prone)
 
 ---
 
-## Optional Enhancements (Future)
-- [ ] Database persistence (`004_dice_rolls.sql` migration)
-- [ ] Dice sound effects
-- [ ] Custom dice themes/skins
-- [ ] Saved roll presets (e.g., "Fireball: 8d6")
-- [ ] Roll statistics dashboard
+## 🏗️ Architecture Overview
+
+### Files to Create
+
+| File | Purpose |
+|------|---------|
+| `components/dm/InitiativeTracker.tsx` | Main UI component |
+| `components/dm/InitiativeTracker.module.css` | Component styling |
+| `components/shared/hooks/useInitiativeTracker.ts` | Combat logic hook |
+| `lib/initiative-data/conditions.ts` | D&D 5e condition definitions |
+
+### Integration Points
+
+- **EncountersTab.tsx** - Add "Start Combat" button that opens the Initiative Tracker
+- **campaign_state** table - Store initiative data in existing JSONB structure
 
 ---
 
-## Technical Notes
+## 📊 Data Models
 
-### Dice Roll Formula
-- Format: `{quantity}d{sides} + {modifier}`
-- Example: `2d6 + 3` = Roll 2 six-sided dice and add 3
+### `InitiativeCombatant` Interface
+```typescript
+interface InitiativeCombatant {
+    id: string;
+    name: string;
+    type: 'player' | 'enemy' | 'ally';
+    initiative: number;
+    dexModifier?: number;  // For tie-breaking
+    hpCurrent: number;
+    hpMax: number;
+    ac: number;
+    conditions: Condition[];
+    notes?: string;
+    isVisible?: boolean;  // For hidden enemies
+}
+```
 
-### Advantage/Disadvantage (d20 only)
-- **Advantage**: Roll 2d20, take the higher result
-- **Disadvantage**: Roll 2d20, take the lower result
+### `Condition` Interface
+```typescript
+interface Condition {
+    id: string;
+    name: string;
+    icon: string;
+    description: string;
+    endTrigger?: 'start_of_turn' | 'end_of_turn' | 'manual';
+    duration?: number;  // Rounds remaining, -1 = indefinite
+}
+```
 
-### Real-time Channel
-- Channel name: `campaign:{campaignId}:dice`
-- Event: `roll`
-- Payload: `{ formula, results, total, rolledBy, timestamp }`
+### `InitiativeState` Interface
+```typescript
+interface InitiativeState {
+    combatants: InitiativeCombatant[];
+    currentTurn: number;  // Index in sorted array
+    round: number;
+    isActive: boolean;
+    encounterId?: string;  // Link to parent encounter
+}
+```
 
 ---
 
-## Files to Create
-1. `components/shared/DiceRoller.tsx` - Main component
-2. `components/shared/hooks/useDiceRoller.ts` - Logic hook
-3. `components/shared/DiceRoller.module.css` - Animations
-4. `supabase/migrations/004_dice_rolls.sql` - Optional DB table
+## 🔧 Implementation Steps
 
-## Files to Modify
-1. `app/dm/[campaignId]/page.tsx` - Add dice roller button
-2. `app/player/[campaignId]/page.tsx` - Add dice roller button
+### Phase 1: Data Layer (lib/initiative-data/)
+
+#### Step 1.1: Create Conditions Data File
+**File:** `lib/initiative-data/conditions.ts`
+
+Define all D&D 5e conditions:
+- Blinded, Charmed, Deafened, Exhaustion (1-6)
+- Frightened, Grappled, Incapacitated, Invisible
+- Paralyzed, Petrified, Poisoned, Prone
+- Restrained, Stunned, Unconscious
+
+Include for each:
+- Name and icon (Lucide icons)
+- Description (from PHB)
+- Mechanical summary
+- Common end triggers
 
 ---
 
-## Priority
-**Medium** - Fun feature that enhances gameplay but not critical for core functionality.
+### Phase 2: Hook Development (components/shared/hooks/)
 
-## Estimated Time
-- Core functionality: 4-6 hours
-- Animations & polish: 2-3 hours
-- Real-time broadcast: 2-3 hours
-- Testing: 1-2 hours
-- **Total: ~10-14 hours**
+#### Step 2.1: Create useInitiativeTracker Hook
+**File:** `components/shared/hooks/useInitiativeTracker.ts`
+
+##### State Management
+```typescript
+const [combatants, setCombatants] = useState<InitiativeCombatant[]>([]);
+const [currentTurn, setCurrentTurn] = useState(0);
+const [round, setRound] = useState(1);
+const [isActive, setIsActive] = useState(false);
+```
+
+##### Core Functions to Implement
+
+| Function | Description |
+|----------|-------------|
+| `addCombatant(combatant)` | Add player/enemy to initiative |
+| `removeCombatant(id)` | Remove from initiative |
+| `rollInitiative(id)` | Roll d20 + dex modifier |
+| `rollAllInitiative()` | Auto-roll for all enemies |
+| `setInitiative(id, value)` | Manual initiative entry |
+| `sortByInitiative()` | Sort combatants descending |
+| `nextTurn()` | Advance to next combatant |
+| `previousTurn()` | Go back one turn |
+| `updateHP(id, delta)` | Damage/heal a combatant |
+| `addCondition(id, condition)` | Apply condition with duration |
+| `removeCondition(id, conditionId)` | Remove a condition |
+| `tickConditions()` | Process duration-based effects |
+| `startCombat()` | Begin combat, reset round to 1 |
+| `endCombat()` | Clean up and close tracker |
+
+##### Utility Functions
+
+| Function | Description |
+|----------|-------------|
+| `getActiveCombatant()` | Return current turn's combatant |
+| `getSortedCombatants()` | Return initiative-sorted list |
+| `getHealthPercentage(id)` | Calculate HP bar width |
+| `isBloodied(id)` | True if HP <= 50% |
+| `isDead(id)` | True if HP <= 0 |
+
+---
+
+### Phase 3: UI Component (components/dm/)
+
+#### Step 3.1: Create InitiativeTracker.tsx
+
+##### Component Structure
+```
+InitiativeTracker
+├── Header
+│   ├── Round Counter
+│   ├── Combat Controls (Start/End/Reset)
+│   └── Add Combatant Button
+├── Initiative List
+│   ├── CombatantRow (map)
+│   │   ├── Turn Indicator (highlight current)
+│   │   ├── Initiative Score
+│   │   ├── Name & Type Icon
+│   │   ├── HP Bar & Controls
+│   │   ├── AC Display
+│   │   ├── Condition Badges
+│   │   └── Action Buttons
+│   └── Empty State
+├── Quick Add Panel
+│   ├── Add Player (from campaign)
+│   ├── Add Enemy (manual/from encounter)
+│   └── Add Custom
+└── Condition Modal
+    ├── Condition Grid
+    ├── Duration Selector
+    └── Apply/Cancel Buttons
+```
+
+##### Key UI Features
+
+1. **Turn Highlighting**
+   - Current combatant has glowing border
+   - On-deck combatant has subtle indicator
+   - Dead/unconscious combatants grayed out
+
+2. **HP Controls**
+   - Click HP to edit inline
+   - Quick damage/heal buttons (+/- 1, 5, 10)
+   - Color-coded HP bar:
+     - Green: > 50%
+     - Yellow: 25-50%
+     - Red: < 25%
+     - Gray: Dead (0)
+
+3. **Condition Management**
+   - Icon badges on combatant row
+   - Hover for condition description
+   - Click to remove or edit duration
+   - Auto-prompt at turn start/end
+
+4. **Drag & Drop (Optional/Future)**
+   - Reorder for manual initiative adjustments
+
+---
+
+### Phase 4: Styling (InitiativeTracker.module.css)
+
+#### Color Palette
+```css
+/* Player colors */
+--player-bg: hsl(210, 30%, 25%);
+--player-border: hsl(210, 60%, 50%);
+
+/* Enemy colors */
+--enemy-bg: hsl(0, 30%, 25%);
+--enemy-border: hsl(0, 60%, 50%);
+
+/* Ally colors */
+--ally-bg: hsl(120, 30%, 25%);
+--ally-border: hsl(120, 60%, 50%);
+
+/* Current turn */
+--active-glow: 0 0 20px rgba(234, 179, 8, 0.5);
+```
+
+#### Key Animations
+- Turn transition (slide/fade)
+- HP bar smooth transitions
+- Condition badge pulse on add
+- Next turn button pulse
+
+---
+
+### Phase 5: Integration
+
+#### Step 5.1: Update EncountersTab.tsx
+- Add "Combat Mode" button to active encounter
+- Pass enemy data to InitiativeTracker
+- Save initiative state back to campaign_state
+
+#### Step 5.2: Add Players Integration
+- Pull player data from `campaign_players` table
+- Show players with their characters
+- Use character DEX score for modifier
+
+#### Step 5.3: Persistence
+- Save state to `campaign_state.initiative` JSONB field
+- Auto-save on each action
+- Restore on page refresh
+- Optional: Real-time sync for player visibility
+
+---
+
+## 📦 Dependencies
+
+### Existing (No new packages needed)
+- `lucide-react` - Icons for conditions
+- `sonner` - Toast notifications
+- `@/lib/supabase` - Data persistence
+
+### Optional Enhancements
+- `@dnd-kit/sortable` - Drag and drop (future)
+- `framer-motion` - Smooth animations (future)
+
+---
+
+## 🎨 UX Considerations
+
+### Keyboard Shortcuts
+| Key | Action |
+|-----|--------|
+| `Space` / `N` | Next turn |
+| `Backspace` / `B` | Previous turn |
+| `D` | Quick damage dialog |
+| `H` | Quick heal dialog |
+| `C` | Add condition |
+| `Esc` | Close modals |
+
+### Accessibility
+- All controls keyboard accessible
+- ARIA labels for screen readers
+- Color not sole indicator (icons + text)
+- Focus management on turn change
+
+---
+
+## 🧪 Testing Checklist
+
+- [x] Add single player
+- [x] Add single enemy
+- [x] Add multiple combatants
+- [x] Roll initiative for one
+- [x] Roll initiative for all
+- [x] Manual initiative entry
+- [x] Sort by initiative
+- [x] Next turn cycles correctly
+- [x] Previous turn works
+- [x] Round counter increments
+- [x] Damage reduces HP
+- [x] Healing increases HP (max cap)
+- [x] HP bar color changes
+- [x] Death at 0 HP
+- [x] Add condition
+- [x] Remove condition
+- [x] Condition duration decrements
+- [x] Start combat
+- [x] End combat
+- [x] State persists on refresh
+- [x] Works with existing encounters
+
+---
+
+## 📈 Future Enhancements (Out of Scope)
+
+1. **Player View** - Players see simplified tracker on their screen
+2. **Lair Actions** - Special turn at initiative 20
+3. **Legendary Actions** - Track usage between turns
+4. **Concentration** - Track concentration spells
+5. **Roll History** - Log all initiative rolls
+6. **Encounter Analytics** - Damage dealt/taken per combatant
+7. **Templates** - Save enemy stat blocks for reuse
+
+---
+
+## ⏱️ Estimated Timeline
+
+| Phase | Time Estimate |
+|-------|---------------|
+| Phase 1: Data Layer | 1-2 hours |
+| Phase 2: Hook Development | 3-4 hours |
+| Phase 3: UI Component | 4-6 hours |
+| Phase 4: Styling | 2-3 hours |
+| Phase 5: Integration | 2-3 hours |
+| Testing & Polish | 2-3 hours |
+| **Total** | **14-21 hours** |
+
+---
+
+## 🚀 Getting Started
+
+1. [x] Create the `lib/initiative-data/` directory
+2. [x] Implement `conditions.ts` with D&D 5e conditions
+3. [x] Create the `useInitiativeTracker` hook shell
+4. [x] Build the basic UI layout
+5. [x] Implement add/remove combatants
+6. [x] Add initiative rolling
+7. [x] Implement turn tracking
+8. [x] Add HP management
+9. [x] Add condition system
+10. [x] Integrate with EncountersTab
+11. [x] Test thoroughly!
+
+---
+
+*Last Updated: 2026-01-27*
+*Status: ✅ Implementation Complete - Integrated and Persistent*
