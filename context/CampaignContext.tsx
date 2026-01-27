@@ -254,6 +254,7 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
 
     return (
         <CampaignContext.Provider value={{
+            id: dbId,
             players, world, map, encounters, quests,
             updatePlayer, updateWorld, updateMap,
             setMapQueue, nextMap,

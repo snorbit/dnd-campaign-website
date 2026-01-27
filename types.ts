@@ -57,6 +57,7 @@ export interface Monster {
 }
 
 export interface CampaignState {
+    id: number;
     players: Player[];
     world: WorldState;
     map: MapData;

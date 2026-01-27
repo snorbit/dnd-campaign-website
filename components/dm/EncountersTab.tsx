@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Plus, RotateCcw, Play, Trash2 } from 'lucide-react';
+import { Plus, RotateCcw, Play, Trash2, Sword } from 'lucide-react';
 import { SkeletonList } from '@/components/shared/ui/SkeletonList';
 import { toast } from 'sonner';
+import { InitiativeTracker } from './InitiativeTracker';
+import { InitiativeCombatant } from '@/components/shared/hooks/useInitiativeTracker';
 
 interface Enemy {
     id: string;
@@ -30,6 +32,8 @@ export default function EncountersTab({ campaignId }: EncountersTabProps) {
     const [encounters, setEncounters] = useState<Encounter[]>([]);
     const [activeEncounterId, setActiveEncounterId] = useState<string | null>(null);
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [showTracker, setShowTracker] = useState(false);
+    const [initiativeState, setInitiativeState] = useState<any>(null);
     const [newEncounterName, setNewEncounterName] = useState('');
     const [loading, setLoading] = useState(true);
 
@@ -42,13 +46,19 @@ export default function EncountersTab({ campaignId }: EncountersTabProps) {
             setLoading(true);
             const { data } = await supabase
                 .from('campaign_state')
-                .select('encounters')
+                .select('encounters, initiative')
                 .eq('campaign_id', campaignId)
                 .single();
 
             setEncounters(data?.encounters || []);
             const active = (data?.encounters || []).find((e: Encounter) => e.status === 'active');
             setActiveEncounterId(active?.id || null);
+
+            // If there's an active initiative state, load it
+            if (data?.initiative && data.initiative.isActive) {
+                setInitiativeState(data.initiative);
+                setShowTracker(true);
+            }
         } catch (error) {
             console.error('Error loading encounters:', error);
         } finally {
@@ -190,6 +200,71 @@ export default function EncountersTab({ campaignId }: EncountersTabProps) {
         }
     };
 
+    const handleStartCombat = async (encounter: Encounter) => {
+        // Fetch players to add them to initiative
+        try {
+            const { data: playerData } = await supabase
+                .from('campaign_players')
+                .select(`
+                    id,
+                    character_name,
+                    character_stats (
+                        hp_current,
+                        hp_max,
+                        ac,
+                        dex
+                    )
+                `)
+                .eq('campaign_id', campaignId);
+
+            const players: InitiativeCombatant[] = (playerData || []).map((p: any) => ({
+                id: p.id,
+                name: p.character_name,
+                type: 'player',
+                initiative: 0,
+                hpCurrent: p.character_stats?.[0]?.hp_current || 10,
+                hpMax: p.character_stats?.[0]?.hp_max || 10,
+                ac: p.character_stats?.[0]?.ac || 10,
+                dexModifier: Math.floor(((p.character_stats?.[0]?.dex || 10) - 10) / 2),
+                conditions: []
+            }));
+
+            const enemies: InitiativeCombatant[] = encounter.enemies.map(e => ({
+                id: e.id,
+                name: e.name,
+                type: 'enemy',
+                initiative: 0,
+                hpCurrent: e.hp_current,
+                hpMax: e.hp_max,
+                ac: e.ac,
+                dexModifier: 0,
+                conditions: []
+            }));
+
+            setInitiativeState({
+                combatants: [...players, ...enemies],
+                isActive: false,
+                round: 1,
+                currentTurn: 0
+            });
+            setShowTracker(true);
+        } catch (error) {
+            console.error('Error preparing combat:', error);
+            toast.error('Failed to prepare combat');
+        }
+    };
+
+    const handleInitiativeChange = async (state: any) => {
+        try {
+            await supabase
+                .from('campaign_state')
+                .update({ initiative: state })
+                .eq('campaign_id', campaignId);
+        } catch (error) {
+            console.error('Error saving initiative state:', error);
+        }
+    };
+
     if (loading) {
         return <SkeletonList count={3} />;
     }
@@ -232,13 +307,21 @@ export default function EncountersTab({ campaignId }: EncountersTabProps) {
                                 </div>
 
                                 <div className="flex gap-2">
-                                    {encounter.status !== 'active' && (
+                                    {encounter.status !== 'active' ? (
                                         <button
                                             onClick={() => startEncounter(encounter.id)}
                                             className="flex items-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors text-sm"
                                         >
                                             <Play size={16} />
                                             Start
+                                        </button>
+                                    ) : (
+                                        <button
+                                            onClick={() => handleStartCombat(encounter)}
+                                            className="flex items-center gap-2 px-3 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors text-sm"
+                                        >
+                                            <Sword size={16} />
+                                            Combat Mode
                                         </button>
                                     )}
                                     <button
@@ -339,6 +422,19 @@ export default function EncountersTab({ campaignId }: EncountersTabProps) {
                                 Cancel
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Initiative Tracker Modal */}
+            {showTracker && (
+                <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-[60]">
+                    <div className="max-w-5xl w-full max-h-[90vh] overflow-hidden">
+                        <InitiativeTracker
+                            initialState={initiativeState}
+                            onClose={() => setShowTracker(false)}
+                            onSave={handleInitiativeChange}
+                        />
                     </div>
                 </div>
             )}

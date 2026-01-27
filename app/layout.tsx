@@ -4,7 +4,7 @@ import './globals.css';
 import { CampaignProvider } from '@/context/CampaignContext';
 import fs from 'fs';
 import path from 'path';
-import DiceRoller from '@/components/DiceRoller';
+import { DiceRoller } from '@/components/shared/DiceRoller';
 import { ToastProvider } from '@/components/shared/ui/ToastProvider';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
