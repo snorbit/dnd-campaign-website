@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { generateProceduralMap, detectMapType } from '@/lib/mapGenerator';
 
 // Initialize Supabase client
 const supabase = createClient(
@@ -175,7 +176,6 @@ async function parseSessionText(text: string) {
 
         // Parse based on current section
         if (currentSection === 'locations') {
-            // Format: "1. Location Name - description" or "- Location Name - description"
             const match = line.match(/^[\d\-•]\s*\.?\s*(.+?)\s*[-–]\s*(.+)$/);
             if (match) {
                 locations.push({
@@ -184,7 +184,6 @@ async function parseSessionText(text: string) {
                     order: locationOrder++
                 });
             } else if (line.match(/^[\d\-•]/)) {
-                // Just a name without description
                 const name = line.replace(/^[\d\-•]\s*\.?\s*/, '').trim();
                 if (name) {
                     locations.push({
@@ -203,7 +202,6 @@ async function parseSessionText(text: string) {
                 });
             }
         } else if (currentSection === 'items') {
-            // Format: "- Item Name x3" or "- Item Name"
             const match = line.match(/^[-•]\s*(.+?)\s*(?:x(\d+))?$/);
             if (match) {
                 items.push({
@@ -212,7 +210,6 @@ async function parseSessionText(text: string) {
                 });
             }
         } else if (currentSection === 'encounters') {
-            // Format: "- Enemy Name (location, difficulty/count)" 
             const encounterLine = line.replace(/^[-•]\s*/, '').trim();
             if (encounterLine) {
                 const match = encounterLine.match(/^(.+?)\s*\(([^,]+)(?:,\s*(.+))?\)/);
@@ -231,7 +228,6 @@ async function parseSessionText(text: string) {
                 }
             }
         } else if (!currentSection && line.length > 20) {
-            // Treat as description
             description += line + ' ';
         }
     }
@@ -252,7 +248,6 @@ function extractDifficulty(text: string): number {
     if (lower.includes('medium') || lower.includes('moderate')) return 3;
     if (lower.includes('easy') || lower.includes('simple')) return 1;
 
-    // Extract number (e.g., "3 enemies", "level 4")
     const match = text.match(/(\d+)/);
     return match ? Math.min(parseInt(match[1]), 10) : 3;
 }
@@ -265,6 +260,7 @@ async function generateAllMaps(locations: Array<{ name: string; description: str
         const location = locations[i];
 
         // Generate main location map
+        console.log(`Generating map for: ${location.name}`);
         const mapPath = await generateMapImage(location.name, location.description, campaignId, i * 2);
         maps.push({
             title: location.name,
@@ -277,6 +273,7 @@ async function generateAllMaps(locations: Array<{ name: string; description: str
         if (i < locations.length - 1) {
             const nextLocation = locations[i + 1];
             const terrain = inferTravelTerrain(location, nextLocation);
+            console.log(`Generating travel map: ${location.name} → ${nextLocation.name}`);
             const travelPath = await generateMapImage(
                 `Travel: ${location.name} → ${nextLocation.name}`,
                 `${terrain} path between locations`,
@@ -324,19 +321,27 @@ function inferTravelTerrain(from: { name: string }, to: { name: string }): strin
     return terrains.length > 0 ? terrains.join(', ') : 'wilderness path';
 }
 
-// Generate a map image (placeholder - will use AI image generation)
+// Generate a map image using procedural generator
 async function generateMapImage(title: string, description: string, campaignId: string, order: number, isTravel: boolean = false): Promise<string> {
-    // For now, create a placeholder
-    // TODO: Integrate with actual image generation AI
+    try {
+        // Detect map type from description
+        const mapType = detectMapType(description);
 
-    const filename = `${campaignId}_${order}_${Date.now()}.png`;
-    const filepath = `/maps/${filename}`;
+        console.log(`  → Detected type: ${mapType}`);
 
-    // This is where you'd call the generate_image tool in a real implementation
-    // For now, return a placeholder path
-    console.log(`Would generate map: ${title} - ${description}`);
+        // Generate map using procedural generator
+        const imageUrl = await generateProceduralMap({
+            type: mapType as any,
+            description
+        });
 
-    return filepath;
+        console.log(`  ✓ Map generated: ${imageUrl}`);
+        return imageUrl;
+
+    } catch (error) {
+        console.error('Error generating map image:', error);
+        return `/maps/placeholder_${order}.png`;
+    }
 }
 
 // Add maps to campaign
