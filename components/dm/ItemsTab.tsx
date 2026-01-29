@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Plus } from 'lucide-react';
 import { SkeletonList } from '@/components/shared/ui/SkeletonList';
+import { useRealtimeSubscription } from '@/components/shared/hooks/useRealtimeSubscription';
+import { RealtimeStatus } from '@/components/shared/ui/RealtimeStatus';
 
 interface Item {
     id: string;
@@ -26,6 +28,16 @@ export default function ItemsTab({ campaignId }: ItemsTabProps) {
     useEffect(() => {
         loadItems();
     }, [campaignId]);
+
+    const handleItemsUpdate = useCallback((updatedItems: Item[]) => {
+        setItems(updatedItems);
+    }, []);
+
+    const { status: realtimeStatus } = useRealtimeSubscription<Item[]>(
+        campaignId,
+        'items',
+        handleItemsUpdate
+    );
 
     const loadItems = async () => {
         try {
@@ -51,8 +63,11 @@ export default function ItemsTab({ campaignId }: ItemsTabProps) {
     return (
         <div className="space-y-4">
             <div className="flex justify-between">
-                <h2 className="text-2xl font-bold text-white">Items</h2>
-                <button onClick={() => setShowCreateModal(true)} className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg">
+                <div className="flex items-center gap-3">
+                    <h2 className="text-2xl font-bold text-white">Items</h2>
+                    <RealtimeStatus status={realtimeStatus} />
+                </div>
+                <button onClick={() => setShowCreateModal(true)} className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors">
                     <Plus size={18} className="inline mr-2" />
                     New Item
                 </button>

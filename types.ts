@@ -77,6 +77,7 @@ export interface CampaignState {
     seedDatabase: () => void;
     connectionStatus?: 'connecting' | 'connected' | 'error';
     lastError?: string | null;
+    isSyncing?: boolean;
     resetMap: () => void;
     clearQuests: () => void;
 }

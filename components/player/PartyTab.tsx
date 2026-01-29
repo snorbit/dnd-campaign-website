@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Users as UsersIcon, Heart, Shield } from 'lucide-react';
 import { SkeletonList } from '@/components/shared/ui/SkeletonList';
+import { useRealtimeSubscription } from '@/components/shared/hooks/useRealtimeSubscription';
 
 interface PartyMember {
     id: string;
@@ -21,8 +22,77 @@ interface PartyTabProps {
 }
 
 export default function PartyTab({ campaignId }: PartyTabProps) {
-    const [partyMembers, setPartyMembers] = useState<PartyMember[]>([]);
+    const [playerMembers, setPlayerMembers] = useState<PartyMember[]>([]);
+    const [npcMembers, setNpcMembers] = useState<PartyMember[]>([]);
     const [loading, setLoading] = useState(true);
+
+    const handleNPCsUpdate = useCallback((npcs: any[]) => {
+        const members = (npcs || [])
+            .filter((npc: any) => npc.inParty)
+            .map((npc: any) => ({
+                ...npc,
+                isNPC: true,
+            }));
+        setNpcMembers(members);
+    }, []);
+
+    const handlePlayersUpdate = useCallback((payload: any) => {
+        const { eventType, new: newRecord } = payload;
+        if (eventType === 'UPDATE' || eventType === 'INSERT') {
+            setPlayerMembers(prev => {
+                const exists = prev.find(p => p.id === newRecord.id);
+                if (exists) {
+                    return prev.map(p => p.id === newRecord.id ? { ...p, ...newRecord } : p);
+                }
+                return [...prev, {
+                    id: newRecord.id,
+                    character_name: newRecord.character_name,
+                    character_class: newRecord.character_class || 'Adventurer',
+                    level: newRecord.level || 1,
+                    isNPC: false
+                }];
+            });
+        }
+    }, []);
+
+    const handleStatsUpdate = useCallback((payload: any) => {
+        const { eventType, new: newStats } = payload;
+        if (eventType === 'UPDATE' || eventType === 'INSERT') {
+            setPlayerMembers(prev => prev.map(member =>
+                member.id === newStats.campaign_player_id
+                    ? { ...member, hp_current: newStats.hp_current, hp_max: newStats.hp_max, ac: newStats.ac }
+                    : member
+            ));
+        }
+    }, []);
+
+    useRealtimeSubscription<any[]>(
+        campaignId,
+        'npcs',
+        handleNPCsUpdate
+    );
+
+    useRealtimeSubscription(
+        campaignId,
+        '*',
+        handlePlayersUpdate,
+        {
+            table: 'campaign_players',
+            filterColumn: 'campaign_id',
+            event: '*'
+        }
+    );
+
+    useRealtimeSubscription(
+        null,
+        '*',
+        handleStatsUpdate,
+        {
+            table: 'character_stats',
+            filterColumn: '',
+            event: '*'
+        }
+    );
 
     useEffect(() => {
         loadParty();
@@ -47,7 +117,7 @@ export default function PartyTab({ campaignId }: PartyTabProps) {
         `)
                 .eq('campaign_id', campaignId);
 
-            const playerMembers = (players || []).map(p => ({
+            const playersList = (players || []).map(p => ({
                 id: p.id,
                 character_name: p.character_name,
                 character_class: p.character_class || 'Adventurer',
@@ -57,6 +127,7 @@ export default function PartyTab({ campaignId }: PartyTabProps) {
                 ac: p.character_stats?.[0]?.ac,
                 isNPC: false,
             }));
+            setPlayerMembers(playersList);
 
             // Load NPCs
             const { data: campaignState } = await supabase
@@ -65,20 +136,15 @@ export default function PartyTab({ campaignId }: PartyTabProps) {
                 .eq('campaign_id', campaignId)
                 .single();
 
-            const npcMembers = (campaignState?.npcs || [])
-                .filter((npc: any) => npc.inParty)
-                .map((npc: any) => ({
-                    ...npc,
-                    isNPC: true,
-                }));
-
-            setPartyMembers([...playerMembers, ...npcMembers]);
+            handleNPCsUpdate(campaignState?.npcs || []);
         } catch (error) {
             console.error('Error loading party:', error);
         } finally {
             setLoading(false);
         }
     };
+
+    const partyMembers = [...playerMembers, ...npcMembers];
 
     if (loading) {
         return <SkeletonList count={3} />;

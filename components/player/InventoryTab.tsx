@@ -1,8 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { SkeletonList } from '@/components/shared/ui/SkeletonList';
+import { useRealtimeSubscription } from '@/components/shared/hooks/useRealtimeSubscription';
+import { RealtimeStatus } from '@/components/shared/ui/RealtimeStatus';
 
 interface Item {
     id: string;
@@ -20,14 +22,55 @@ interface InventoryTabProps {
 export default function InventoryTab({ campaignPlayerId }: InventoryTabProps) {
     const [items, setItems] = useState<Item[]>([]);
     const [loading, setLoading] = useState(true);
+    const [hasInitialLoaded, setHasInitialLoaded] = useState(false);
 
+    const handleInventoryUpdate = useCallback((payload: any) => {
+        const { eventType, new: newRecord, old: oldRecord } = payload;
+
+        setItems((prev: Item[]) => {
+            if (eventType === 'INSERT') {
+                if (prev.find((item: Item) => item.id === newRecord.id)) return prev;
+                return [...prev, newRecord];
+            }
+            if (eventType === 'UPDATE') {
+                return prev.map((item: Item) => (item.id === newRecord.id ? { ...item, ...newRecord } : item));
+            }
+            if (eventType === 'DELETE') {
+                return prev.filter((item: Item) => item.id === oldRecord.id);
+            }
+            return prev;
+        });
+    }, []);
+
+    const { status: realtimeStatus } = useRealtimeSubscription(
+        campaignPlayerId,
+        '*',
+        handleInventoryUpdate,
+        {
+            table: 'player_inventory',
+            filterColumn: 'campaign_player_id',
+            event: '*',
+        }
+    );
+
+    // Initial load
     useEffect(() => {
         loadInventory();
+        setHasInitialLoaded(true);
     }, [campaignPlayerId]);
+
+    // Safety re-sync on reconnection
+    useEffect(() => {
+        if (realtimeStatus === 'connected' && hasInitialLoaded) {
+            console.log('[Inventory] Connection restored, re-syncing data...');
+            loadInventory();
+        }
+    }, [realtimeStatus]);
 
     const loadInventory = async () => {
         try {
-            setLoading(true);
+            // Only show loader on first load to prevent flickering on re-syncs
+            if (!hasInitialLoaded) setLoading(true);
             const { data } = await supabase
                 .from('player_inventory')
                 .select('*')
@@ -58,7 +101,10 @@ export default function InventoryTab({ campaignPlayerId }: InventoryTabProps) {
     return (
         <div className="space-y-4">
             <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-bold text-white">Inventory</h2>
+                <div className="flex items-center gap-3">
+                    <h2 className="text-2xl font-bold text-white">Inventory</h2>
+                    <RealtimeStatus status={realtimeStatus} />
+                </div>
                 <div className="text-gray-400 text-sm">
                     Total Weight: {items.reduce((sum, item) => sum + (item.weight * item.quantity), 0)} lbs
                 </div>

@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Plus, CheckCircle, XCircle } from 'lucide-react';
 import { SkeletonList } from '@/components/shared/ui/SkeletonList';
+import { useRealtimeSubscription } from '@/components/shared/hooks/useRealtimeSubscription';
+import { RealtimeStatus } from '@/components/shared/ui/RealtimeStatus';
 
 interface Quest {
     id: string;
@@ -21,17 +23,18 @@ interface QuestsTabProps {
 export default function DMQuestsTab({ campaignId }: QuestsTabProps) {
     const [quests, setQuests] = useState<Quest[]>([]);
     const [loading, setLoading] = useState(true);
+    const [hasInitialLoaded, setHasInitialLoaded] = useState(false);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [newQuest, setNewQuest] = useState({ title: '', description: '', reward: '', objectives: [''] });
     // Using imported supabase client
 
-    useEffect(() => {
-        loadQuests();
-    }, [campaignId]);
+    const handleQuestsUpdate = useCallback((updatedQuests: Quest[]) => {
+        setQuests(updatedQuests);
+    }, []);
 
     const loadQuests = async () => {
         try {
-            setLoading(true);
+            if (!hasInitialLoaded) setLoading(true);
             const { data } = await supabase
                 .from('campaign_state')
                 .select('quests')
@@ -45,6 +48,25 @@ export default function DMQuestsTab({ campaignId }: QuestsTabProps) {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        loadQuests();
+        setHasInitialLoaded(true);
+    }, [campaignId]);
+
+    const { status: realtimeStatus } = useRealtimeSubscription<Quest[]>(
+        campaignId,
+        'quests',
+        handleQuestsUpdate
+    );
+
+    // Safety re-sync on reconnection
+    useEffect(() => {
+        if (realtimeStatus === 'connected' && hasInitialLoaded) {
+            console.log('[Quests] Connection restored, re-syncing data...');
+            loadQuests();
+        }
+    }, [realtimeStatus, hasInitialLoaded]);
 
     const createQuest = async () => {
         const quest: Quest = {
@@ -77,10 +99,13 @@ export default function DMQuestsTab({ campaignId }: QuestsTabProps) {
         <div className="space-y-4">
             <div className="flex justify-between">
                 <h2 className="text-2xl font-bold text-white">Quests</h2>
-                <button onClick={() => setShowCreateModal(true)} className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg">
-                    <Plus size={18} className="inline mr-2" />
-                    New Quest
-                </button>
+                <div className="flex items-center gap-3">
+                    <RealtimeStatus status={realtimeStatus} />
+                    <button onClick={() => setShowCreateModal(true)} className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors">
+                        <Plus size={18} className="inline mr-2" />
+                        New Quest
+                    </button>
+                </div>
             </div>
 
             {loading ? (

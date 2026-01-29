@@ -13,7 +13,8 @@ import NPCsTab from '@/components/dm/NPCsTab';
 import ItemsTab from '@/components/dm/ItemsTab';
 import DMFeatsTab from '@/components/dm/FeatsTab';
 import { DiceRoller } from '@/components/shared/DiceRoller';
-import { CampaignProvider } from '@/context/CampaignContext';
+import { CampaignProvider, useCampaign } from '@/context/CampaignContext';
+import { Loader2 } from 'lucide-react';
 
 type TabId = 'maps' | 'encounters' | 'players' | 'quests' | 'npcs' | 'items' | 'feats' | 'sessions';
 
@@ -246,7 +247,9 @@ export default function DMCampaignPage() {
                 </div>
 
                 {/* Main Content */}
-                <div className="flex-1 overflow-y-auto">
+                <div className="flex-1 overflow-y-auto relative">
+                    {/* Global Sync Overlay for Context Actions */}
+                    <SyncIndicator />
                     <div className="p-8">
                         {renderTabContent()}
                     </div>
@@ -342,5 +345,27 @@ Items:
                 <DiceRoller />
             </div>
         </CampaignProvider>
+    );
+}
+
+function SyncIndicator() {
+    const { isSyncing, connectionStatus } = useCampaign();
+
+    if (!isSyncing && connectionStatus === 'connected') return null;
+
+    return (
+        <div className="fixed top-4 right-8 z-[70] pointer-events-none">
+            {isSyncing ? (
+                <div className="bg-blue-600/90 text-white px-3 py-1.5 rounded-lg shadow-xl flex items-center gap-2 text-xs font-bold animate-in fade-in slide-in-from-top-2 duration-300">
+                    <Loader2 size={14} className="animate-spin" />
+                    <span>Syncing to DB...</span>
+                </div>
+            ) : connectionStatus === 'error' ? (
+                <div className="bg-red-600/90 text-white px-3 py-1.5 rounded-lg shadow-xl flex items-center gap-2 text-xs font-bold">
+                    <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                    <span>Connection Lost</span>
+                </div>
+            ) : null}
+        </div>
     );
 }

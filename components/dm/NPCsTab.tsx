@@ -6,6 +6,8 @@ import { Plus, Trash2, Dices, List, Users } from 'lucide-react';
 import { SkeletonList } from '@/components/shared/ui/SkeletonList';
 import { NPCGenerator } from './NPCGenerator';
 import { toast } from 'sonner';
+import { useRealtimeSubscription } from '@/components/shared/hooks/useRealtimeSubscription';
+import { RealtimeStatus } from '@/components/shared/ui/RealtimeStatus';
 
 interface NPC {
     id: string;
@@ -23,17 +25,18 @@ interface NPCsTabProps {
 export default function NPCsTab({ campaignId }: NPCsTabProps) {
     const [npcs, setNpcs] = useState<NPC[]>([]);
     const [loading, setLoading] = useState(true);
+    const [hasInitialLoaded, setHasInitialLoaded] = useState(false);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [newNPC, setNewNPC] = useState({ name: '', race: '', role: '', notes: '' });
     const [mode, setMode] = useState<'list' | 'generate'>('list');
 
-    useEffect(() => {
-        loadNPCs();
-    }, [campaignId]);
+    const handleNPCsUpdate = useCallback((updatedNPCs: NPC[]) => {
+        setNpcs(updatedNPCs);
+    }, []);
 
     const loadNPCs = async () => {
         try {
-            setLoading(true);
+            if (!hasInitialLoaded) setLoading(true);
             const { data } = await supabase.from('campaign_state').select('npcs').eq('campaign_id', campaignId).single();
             setNpcs(data?.npcs || []);
         } catch (error) {
@@ -42,6 +45,25 @@ export default function NPCsTab({ campaignId }: NPCsTabProps) {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        loadNPCs();
+        setHasInitialLoaded(true);
+    }, [campaignId]);
+
+    const { status: realtimeStatus } = useRealtimeSubscription<NPC[]>(
+        campaignId,
+        'npcs',
+        handleNPCsUpdate
+    );
+
+    // Safety re-sync on reconnection
+    useEffect(() => {
+        if (realtimeStatus === 'connected' && hasInitialLoaded) {
+            console.log('[NPCs] Connection restored, re-syncing data...');
+            loadNPCs();
+        }
+    }, [realtimeStatus, hasInitialLoaded]);
 
     const createNPC = async () => {
         const npc: NPC = { id: crypto.randomUUID(), ...newNPC, inParty: false };
@@ -82,7 +104,10 @@ export default function NPCsTab({ campaignId }: NPCsTabProps) {
         <div className="space-y-4">
             {/* Header with Mode Toggle */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <h2 className="text-2xl font-bold text-white">NPCs</h2>
+                <div className="flex items-center gap-3">
+                    <h2 className="text-2xl font-bold text-white">NPCs</h2>
+                    <RealtimeStatus status={realtimeStatus} />
+                </div>
 
                 <div className="flex items-center gap-3">
                     {/* Mode Toggle */}
@@ -90,8 +115,8 @@ export default function NPCsTab({ campaignId }: NPCsTabProps) {
                         <button
                             onClick={() => setMode('list')}
                             className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${mode === 'list'
-                                    ? 'bg-yellow-600 text-white shadow-md'
-                                    : 'text-gray-400 hover:text-white hover:bg-gray-700'
+                                ? 'bg-yellow-600 text-white shadow-md'
+                                : 'text-gray-400 hover:text-white hover:bg-gray-700'
                                 }`}
                         >
                             <List size={16} />
@@ -100,8 +125,8 @@ export default function NPCsTab({ campaignId }: NPCsTabProps) {
                         <button
                             onClick={() => setMode('generate')}
                             className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${mode === 'generate'
-                                    ? 'bg-yellow-600 text-white shadow-md'
-                                    : 'text-gray-400 hover:text-white hover:bg-gray-700'
+                                ? 'bg-yellow-600 text-white shadow-md'
+                                : 'text-gray-400 hover:text-white hover:bg-gray-700'
                                 }`}
                         >
                             <Dices size={16} />

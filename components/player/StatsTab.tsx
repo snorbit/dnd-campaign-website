@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Skeleton } from '@/components/shared/ui/Skeleton';
+import { useRealtimeSubscription } from '@/components/shared/hooks/useRealtimeSubscription';
 
 interface CharacterStats {
     hp_current: number;
@@ -26,6 +27,24 @@ interface StatsTabProps {
 export default function StatsTab({ campaignPlayerId, level, characterClass }: StatsTabProps) {
     const [stats, setStats] = useState<CharacterStats | null>(null);
     const [loading, setLoading] = useState(true);
+
+    const handleStatsUpdate = useCallback((payload: any) => {
+        // payload is the single row update because we subscribe with '*' and it's a single record query
+        if (payload.new) {
+            setStats(payload.new);
+        }
+    }, []);
+
+    useRealtimeSubscription(
+        campaignPlayerId,
+        '*',
+        handleStatsUpdate,
+        {
+            table: 'character_stats',
+            filterColumn: 'campaign_player_id',
+            event: 'UPDATE'
+        }
+    );
 
     useEffect(() => {
         loadStats();

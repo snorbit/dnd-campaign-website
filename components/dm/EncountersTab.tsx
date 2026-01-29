@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Plus, RotateCcw, Play, Trash2, Sword } from 'lucide-react';
 import { SkeletonList } from '@/components/shared/ui/SkeletonList';
+import { useRealtimeSubscription } from '@/components/shared/hooks/useRealtimeSubscription';
+import { RealtimeStatus } from '@/components/shared/ui/RealtimeStatus';
 import { toast } from 'sonner';
 import { InitiativeTracker } from './InitiativeTracker';
 import { InitiativeCombatant } from '@/components/shared/hooks/useInitiativeTracker';
@@ -36,14 +38,33 @@ export default function EncountersTab({ campaignId }: EncountersTabProps) {
     const [initiativeState, setInitiativeState] = useState<any>(null);
     const [newEncounterName, setNewEncounterName] = useState('');
     const [loading, setLoading] = useState(true);
+    const [hasInitialLoaded, setHasInitialLoaded] = useState(false);
 
     useEffect(() => {
         loadEncounters();
+        setHasInitialLoaded(true);
     }, [campaignId]);
+
+    const { status: initiativeStatus } = useRealtimeSubscription<any>(
+        campaignId,
+        'initiative',
+        handleInitiativeUpdate
+    );
+
+    const realtimeStatus = encountersStatus === 'error' || initiativeStatus === 'error' ? 'error' :
+        encountersStatus === 'connecting' || initiativeStatus === 'connecting' ? 'connecting' : 'connected';
+
+    // Safety re-sync on reconnection
+    useEffect(() => {
+        if (realtimeStatus === 'connected' && hasInitialLoaded) {
+            console.log('[Encounters] Connection restored, re-syncing data...');
+            loadEncounters();
+        }
+    }, [realtimeStatus, hasInitialLoaded]);
 
     const loadEncounters = async () => {
         try {
-            setLoading(true);
+            if (!hasInitialLoaded) setLoading(true);
             const { data } = await supabase
                 .from('campaign_state')
                 .select('encounters, initiative')
@@ -273,13 +294,16 @@ export default function EncountersTab({ campaignId }: EncountersTabProps) {
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-bold text-white">Encounters</h2>
-                <button
-                    onClick={() => setShowCreateModal(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors"
-                >
-                    <Plus size={18} />
-                    New Encounter
-                </button>
+                <div className="flex items-center gap-3">
+                    <RealtimeStatus status={realtimeStatus} />
+                    <button
+                        onClick={() => setShowCreateModal(true)}
+                        className="flex items-center gap-2 px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors"
+                    >
+                        <Plus size={18} />
+                        New Encounter
+                    </button>
+                </div>
             </div>
 
             {encounters.length === 0 ? (
