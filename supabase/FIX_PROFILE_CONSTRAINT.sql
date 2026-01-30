@@ -1,4 +1,4 @@
--- FIX FOR: "campaigns" violates foreign key constraint "campaigns_dm_id_fkey"
+ -- FIX FOR: "campaigns" violates foreign key constraint "campaigns_dm_id_fkey"
 -- This ensures all auth users have profiles in the profiles table
 
 -- STEP 1: Create profiles for any existing auth users that don't have them
