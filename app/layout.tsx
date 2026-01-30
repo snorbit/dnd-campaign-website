@@ -4,14 +4,31 @@ import './globals.css';
 import { CampaignProvider } from '@/context/CampaignContext';
 import fs from 'fs';
 import path from 'path';
-import DiceRoller from '@/components/DiceRoller';
+import { DiceRoller } from '@/components/shared/DiceRoller';
+import { ToastProvider } from '@/components/shared/ui/ToastProvider';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 const cinzel = Cinzel({ subsets: ['latin'], variable: '--font-cinzel' });
 
 export const metadata: Metadata = {
-    title: 'sessionforge',
+    title: 'SessionForge - D&D Campaign Manager',
     description: 'The Ultimate D&D Campaign Platform',
+    manifest: '/manifest.json',
+    icons: {
+        icon: [
+            { url: '/favicon.ico', sizes: '32x32' },
+            { url: '/favicon.png', sizes: '192x192', type: 'image/png' },
+        ],
+        apple: '/apple-touch-icon.png',
+    },
+    appleWebApp: {
+        capable: true,
+        statusBarStyle: 'black-translucent',
+        title: 'SessionForge',
+    },
+    formatDetection: {
+        telephone: false,
+    },
 };
 
 export const viewport: Viewport = {
@@ -46,6 +63,7 @@ export default async function RootLayout({
                 <CampaignProvider initialPlayers={players}>
                     {children}
                     <DiceRoller />
+                    <ToastProvider />
                 </CampaignProvider>
             </body>
         </html>

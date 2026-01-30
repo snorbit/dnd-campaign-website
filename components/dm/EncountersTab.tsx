@@ -1,8 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Plus, RotateCcw, Play, Trash2 } from 'lucide-react';
+import { Plus, RotateCcw, Play, Trash2, Sword } from 'lucide-react';
+import { SkeletonList } from '@/components/shared/ui/SkeletonList';
+import { useRealtimeSubscription } from '@/components/shared/hooks/useRealtimeSubscription';
+import { RealtimeStatus } from '@/components/shared/ui/RealtimeStatus';
+import { toast } from 'sonner';
+import { InitiativeTracker } from './InitiativeTracker';
+import { InitiativeCombatant } from '@/components/shared/hooks/useInitiativeTracker';
 
 interface Enemy {
     id: string;
@@ -28,25 +34,71 @@ export default function EncountersTab({ campaignId }: EncountersTabProps) {
     const [encounters, setEncounters] = useState<Encounter[]>([]);
     const [activeEncounterId, setActiveEncounterId] = useState<string | null>(null);
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [showTracker, setShowTracker] = useState(false);
+    const [initiativeState, setInitiativeState] = useState<any>(null);
     const [newEncounterName, setNewEncounterName] = useState('');
     const [loading, setLoading] = useState(true);
-    // Using imported supabase client
+    const [hasInitialLoaded, setHasInitialLoaded] = useState(false);
+
+    const handleEncountersUpdate = useCallback((updatedEncounters: Encounter[]) => {
+        setEncounters(updatedEncounters);
+        const active = updatedEncounters.find((e: Encounter) => e.status === 'active');
+        setActiveEncounterId(active?.id || null);
+    }, []);
+
+    const handleInitiativeUpdate = useCallback((updatedInitiative: any) => {
+        if (updatedInitiative && updatedInitiative.isActive) {
+            setInitiativeState(updatedInitiative);
+            setShowTracker(true);
+        }
+    }, []);
 
     useEffect(() => {
         loadEncounters();
+        setHasInitialLoaded(true);
     }, [campaignId]);
+
+    const { status: encountersStatus } = useRealtimeSubscription<Encounter[]>(
+        campaignId,
+        'encounters',
+        handleEncountersUpdate
+    );
+
+    const { status: initiativeStatus } = useRealtimeSubscription<any>(
+        campaignId,
+        'initiative',
+        handleInitiativeUpdate
+    );
+
+    const realtimeStatus = encountersStatus === 'error' || initiativeStatus === 'error' ? 'error' :
+        encountersStatus === 'connecting' || initiativeStatus === 'connecting' ? 'connecting' : 'connected';
+
+    // Safety re-sync on reconnection
+    useEffect(() => {
+        if (realtimeStatus === 'connected' && hasInitialLoaded) {
+            console.log('[Encounters] Connection restored, re-syncing data...');
+            loadEncounters();
+        }
+    }, [realtimeStatus, hasInitialLoaded]);
 
     const loadEncounters = async () => {
         try {
+            if (!hasInitialLoaded) setLoading(true);
             const { data } = await supabase
                 .from('campaign_state')
-                .select('encounters')
+                .select('encounters, initiative')
                 .eq('campaign_id', campaignId)
                 .single();
 
             setEncounters(data?.encounters || []);
             const active = (data?.encounters || []).find((e: Encounter) => e.status === 'active');
             setActiveEncounterId(active?.id || null);
+
+            // If there's an active initiative state, load it
+            if (data?.initiative && data.initiative.isActive) {
+                setInitiativeState(data.initiative);
+                setShowTracker(true);
+            }
         } catch (error) {
             console.error('Error loading encounters:', error);
         } finally {
@@ -126,7 +178,9 @@ export default function EncountersTab({ campaignId }: EncountersTabProps) {
                 setActiveEncounterId(null);
             }
 
-            alert('Encounter reset! All enemy HP restored and status cleared.');
+            toast.success('Encounter reset!', {
+                description: 'All enemy HP restored and status cleared.'
+            });
         } catch (error) {
             console.error('Error resetting encounter:', error);
         }
@@ -186,21 +240,89 @@ export default function EncountersTab({ campaignId }: EncountersTabProps) {
         }
     };
 
+    const handleStartCombat = async (encounter: Encounter) => {
+        // Fetch players to add them to initiative
+        try {
+            const { data: playerData } = await supabase
+                .from('campaign_players')
+                .select(`
+                    id,
+                    character_name,
+                    character_stats (
+                        hp_current,
+                        hp_max,
+                        ac,
+                        dex
+                    )
+                `)
+                .eq('campaign_id', campaignId);
+
+            const players: InitiativeCombatant[] = (playerData || []).map((p: any) => ({
+                id: p.id,
+                name: p.character_name,
+                type: 'player',
+                initiative: 0,
+                hpCurrent: p.character_stats?.[0]?.hp_current || 10,
+                hpMax: p.character_stats?.[0]?.hp_max || 10,
+                ac: p.character_stats?.[0]?.ac || 10,
+                dexModifier: Math.floor(((p.character_stats?.[0]?.dex || 10) - 10) / 2),
+                conditions: []
+            }));
+
+            const enemies: InitiativeCombatant[] = encounter.enemies.map(e => ({
+                id: e.id,
+                name: e.name,
+                type: 'enemy',
+                initiative: 0,
+                hpCurrent: e.hp_current,
+                hpMax: e.hp_max,
+                ac: e.ac,
+                dexModifier: 0,
+                conditions: []
+            }));
+
+            setInitiativeState({
+                combatants: [...players, ...enemies],
+                isActive: false,
+                round: 1,
+                currentTurn: 0
+            });
+            setShowTracker(true);
+        } catch (error) {
+            console.error('Error preparing combat:', error);
+            toast.error('Failed to prepare combat');
+        }
+    };
+
+    const handleInitiativeChange = async (state: any) => {
+        try {
+            await supabase
+                .from('campaign_state')
+                .update({ initiative: state })
+                .eq('campaign_id', campaignId);
+        } catch (error) {
+            console.error('Error saving initiative state:', error);
+        }
+    };
+
     if (loading) {
-        return <div className="text-gray-400">Loading encounters...</div>;
+        return <SkeletonList count={3} />;
     }
 
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-bold text-white">Encounters</h2>
-                <button
-                    onClick={() => setShowCreateModal(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors"
-                >
-                    <Plus size={18} />
-                    New Encounter
-                </button>
+                <div className="flex items-center gap-3">
+                    <RealtimeStatus status={realtimeStatus} />
+                    <button
+                        onClick={() => setShowCreateModal(true)}
+                        className="flex items-center gap-2 px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors"
+                    >
+                        <Plus size={18} />
+                        New Encounter
+                    </button>
+                </div>
             </div>
 
             {encounters.length === 0 ? (
@@ -220,21 +342,29 @@ export default function EncountersTab({ campaignId }: EncountersTabProps) {
                                 <div>
                                     <h3 className="text-xl font-bold text-white mb-1">{encounter.name}</h3>
                                     <span className={`text-xs px-2 py-1 rounded ${encounter.status === 'active' ? 'bg-yellow-900/30 text-yellow-400' :
-                                            encounter.status === 'completed' ? 'bg-green-900/30 text-green-400' :
-                                                'bg-gray-700 text-gray-400'
+                                        encounter.status === 'completed' ? 'bg-green-900/30 text-green-400' :
+                                            'bg-gray-700 text-gray-400'
                                         }`}>
                                         {encounter.status}
                                     </span>
                                 </div>
 
                                 <div className="flex gap-2">
-                                    {encounter.status !== 'active' && (
+                                    {encounter.status !== 'active' ? (
                                         <button
                                             onClick={() => startEncounter(encounter.id)}
                                             className="flex items-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors text-sm"
                                         >
                                             <Play size={16} />
                                             Start
+                                        </button>
+                                    ) : (
+                                        <button
+                                            onClick={() => handleStartCombat(encounter)}
+                                            className="flex items-center gap-2 px-3 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors text-sm"
+                                        >
+                                            <Sword size={16} />
+                                            Combat Mode
                                         </button>
                                     )}
                                     <button
@@ -335,6 +465,19 @@ export default function EncountersTab({ campaignId }: EncountersTabProps) {
                                 Cancel
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Initiative Tracker Modal */}
+            {showTracker && (
+                <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-[60]">
+                    <div className="max-w-5xl w-full max-h-[90vh] overflow-hidden">
+                        <InitiativeTracker
+                            initialState={initiativeState}
+                            onClose={() => setShowTracker(false)}
+                            onSave={handleInitiativeChange}
+                        />
                     </div>
                 </div>
             )}

@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
+import { Skeleton } from '@/components/shared/ui/Skeleton';
+import { useRealtimeSubscription } from '@/components/shared/hooks/useRealtimeSubscription';
 
 interface CharacterStats {
     hp_current: number;
@@ -25,7 +27,24 @@ interface StatsTabProps {
 export default function StatsTab({ campaignPlayerId, level, characterClass }: StatsTabProps) {
     const [stats, setStats] = useState<CharacterStats | null>(null);
     const [loading, setLoading] = useState(true);
-    // Using imported supabase client
+
+    const handleStatsUpdate = useCallback((payload: any) => {
+        // payload is the single row update because we subscribe with '*' and it's a single record query
+        if (payload.new) {
+            setStats(payload.new);
+        }
+    }, []);
+
+    useRealtimeSubscription(
+        campaignPlayerId,
+        '*',
+        handleStatsUpdate,
+        {
+            table: 'character_stats',
+            filterColumn: 'campaign_player_id',
+            event: 'UPDATE'
+        }
+    );
 
     useEffect(() => {
         loadStats();
@@ -33,6 +52,7 @@ export default function StatsTab({ campaignPlayerId, level, characterClass }: St
 
     const loadStats = async () => {
         try {
+            setLoading(true);
             const { data } = await supabase
                 .from('character_stats')
                 .select('*')
@@ -56,7 +76,44 @@ export default function StatsTab({ campaignPlayerId, level, characterClass }: St
     };
 
     if (loading || !stats) {
-        return <div className="text-gray-400">Loading character stats...</div>;
+        return (
+            <div className="space-y-6">
+                <div className="flex items-center gap-4 mb-6">
+                    <div className="space-y-2">
+                        <Skeleton width="w-32" height="h-8" />
+                        <Skeleton width="w-48" height="h-4" />
+                    </div>
+                </div>
+
+                {/* HP and AC Skeletons */}
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-gray-800 rounded-lg border border-gray-700 p-6 flex flex-col items-center gap-2">
+                        <Skeleton width="w-20" height="h-4" />
+                        <Skeleton width="w-32" height="h-8" />
+                    </div>
+                    <div className="bg-gray-800 rounded-lg border border-gray-700 p-6 flex flex-col items-center gap-2">
+                        <Skeleton width="w-20" height="h-4" />
+                        <Skeleton width="w-16" height="h-8" />
+                    </div>
+                </div>
+
+                {/* Ability Scores Skeletons */}
+                <div>
+                    <Skeleton width="w-40" height="h-6" className="mb-4" />
+                    <div className="grid grid-cols-3 gap-3">
+                        {Array.from({ length: 6 }).map((_, i) => (
+                            <div key={i} className="bg-gray-800 rounded-lg border border-gray-700 p-4 flex flex-col items-center gap-2">
+                                <Skeleton width="w-16" height="h-3" />
+                                <Skeleton width="w-12" height="h-6" />
+                                <Skeleton width="w-8" height="h-4" />
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                <Skeleton width="w-full" height="h-16" rounded="rounded-lg" />
+            </div>
+        );
     }
 
     const abilities = [
@@ -104,7 +161,7 @@ export default function StatsTab({ campaignPlayerId, level, characterClass }: St
                             >
                                 <div className="text-gray-400 text-xs uppercase mb-2">{ability.name}</div>
                                 <div className="text-2xl font-bold text-white mb-1">{ability.value}</div>
-                                <div className="text-sm text-yellow-500 font-semibold">
+                                <div className="text-yellow-500 font-semibold text-sm">
                                     {formatModifier(modifier)}
                                 </div>
                             </div>

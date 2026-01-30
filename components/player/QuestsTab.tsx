@@ -1,8 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { CheckCircle, Circle, ChevronDown, ChevronUp } from 'lucide-react';
+import { SkeletonList } from '@/components/shared/ui/SkeletonList';
+import { useRealtimeSubscription } from '@/components/shared/hooks/useRealtimeSubscription';
+import { RealtimeStatus } from '@/components/shared/ui/RealtimeStatus';
 
 interface Quest {
     id: string;
@@ -25,14 +28,15 @@ export default function QuestsTab({ campaignId }: QuestsTabProps) {
     const [quests, setQuests] = useState<Quest[]>([]);
     const [expandedQuests, setExpandedQuests] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(true);
-    // Using imported supabase client
+    const [hasInitialLoaded, setHasInitialLoaded] = useState(false);
 
-    useEffect(() => {
-        loadQuests();
-    }, [campaignId]);
+    const handleQuestsUpdate = useCallback((updatedQuests: Quest[]) => {
+        setQuests(updatedQuests);
+    }, []);
 
     const loadQuests = async () => {
         try {
+            if (!hasInitialLoaded) setLoading(true);
             const { data } = await supabase
                 .from('campaign_state')
                 .select('quests')
@@ -46,6 +50,25 @@ export default function QuestsTab({ campaignId }: QuestsTabProps) {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        loadQuests();
+        setHasInitialLoaded(true);
+    }, [campaignId]);
+
+    const { status: realtimeStatus } = useRealtimeSubscription<Quest[]>(
+        campaignId,
+        'quests',
+        handleQuestsUpdate
+    );
+
+    // Safety re-sync on reconnection
+    useEffect(() => {
+        if (realtimeStatus === 'connected' && hasInitialLoaded) {
+            console.log('[Quests] Connection restored, re-syncing data...');
+            loadQuests();
+        }
+    }, [realtimeStatus, hasInitialLoaded]);
 
     const toggleQuest = (questId: string) => {
         const newExpanded = new Set(expandedQuests);
@@ -67,7 +90,7 @@ export default function QuestsTab({ campaignId }: QuestsTabProps) {
     };
 
     if (loading) {
-        return <div className="text-gray-400">Loading quests...</div>;
+        return <SkeletonList count={3} />;
     }
 
     const activeQuests = quests.filter(q => q.status === 'active');
@@ -77,7 +100,10 @@ export default function QuestsTab({ campaignId }: QuestsTabProps) {
         <div className="space-y-6">
             {/* Active Quests */}
             <div>
-                <h2 className="text-2xl font-bold text-white mb-4">Active Quests</h2>
+                <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-2xl font-bold text-white">Active Quests</h2>
+                    <RealtimeStatus status={realtimeStatus} />
+                </div>
                 {activeQuests.length === 0 ? (
                     <div className="bg-gray-800 rounded-lg border border-gray-700 p-8 text-center">
                         <p className="text-gray-400">No active quests</p>

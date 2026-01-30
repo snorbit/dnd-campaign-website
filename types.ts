@@ -57,6 +57,7 @@ export interface Monster {
 }
 
 export interface CampaignState {
+    id: number;
     players: Player[];
     world: WorldState;
     map: MapData;
@@ -76,6 +77,7 @@ export interface CampaignState {
     seedDatabase: () => void;
     connectionStatus?: 'connecting' | 'connected' | 'error';
     lastError?: string | null;
+    isSyncing?: boolean;
     resetMap: () => void;
     clearQuests: () => void;
 }

@@ -1,8 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Plus, CheckCircle, XCircle } from 'lucide-react';
+import { SkeletonList } from '@/components/shared/ui/SkeletonList';
+import { useRealtimeSubscription } from '@/components/shared/hooks/useRealtimeSubscription';
+import { RealtimeStatus } from '@/components/shared/ui/RealtimeStatus';
 
 interface Quest {
     id: string;
@@ -19,23 +22,51 @@ interface QuestsTabProps {
 
 export default function DMQuestsTab({ campaignId }: QuestsTabProps) {
     const [quests, setQuests] = useState<Quest[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [hasInitialLoaded, setHasInitialLoaded] = useState(false);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [newQuest, setNewQuest] = useState({ title: '', description: '', reward: '', objectives: [''] });
     // Using imported supabase client
 
-    useEffect(() => {
-        loadQuests();
-    }, [campaignId]);
+    const handleQuestsUpdate = useCallback((updatedQuests: Quest[]) => {
+        setQuests(updatedQuests);
+    }, []);
 
     const loadQuests = async () => {
-        const { data } = await supabase
-            .from('campaign_state')
-            .select('quests')
-            .eq('campaign_id', campaignId)
-            .single();
+        try {
+            if (!hasInitialLoaded) setLoading(true);
+            const { data } = await supabase
+                .from('campaign_state')
+                .select('quests')
+                .eq('campaign_id', campaignId)
+                .single();
 
-        setQuests(data?.quests || []);
+            setQuests(data?.quests || []);
+        } catch (error) {
+            console.error('Error loading quests:', error);
+        } finally {
+            setLoading(false);
+        }
     };
+
+    useEffect(() => {
+        loadQuests();
+        setHasInitialLoaded(true);
+    }, [campaignId]);
+
+    const { status: realtimeStatus } = useRealtimeSubscription<Quest[]>(
+        campaignId,
+        'quests',
+        handleQuestsUpdate
+    );
+
+    // Safety re-sync on reconnection
+    useEffect(() => {
+        if (realtimeStatus === 'connected' && hasInitialLoaded) {
+            console.log('[Quests] Connection restored, re-syncing data...');
+            loadQuests();
+        }
+    }, [realtimeStatus, hasInitialLoaded]);
 
     const createQuest = async () => {
         const quest: Quest = {
@@ -68,42 +99,49 @@ export default function DMQuestsTab({ campaignId }: QuestsTabProps) {
         <div className="space-y-4">
             <div className="flex justify-between">
                 <h2 className="text-2xl font-bold text-white">Quests</h2>
-                <button onClick={() => setShowCreateModal(true)} className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg">
-                    <Plus size={18} className="inline mr-2" />
-                    New Quest
-                </button>
+                <div className="flex items-center gap-3">
+                    <RealtimeStatus status={realtimeStatus} />
+                    <button onClick={() => setShowCreateModal(true)} className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors">
+                        <Plus size={18} className="inline mr-2" />
+                        New Quest
+                    </button>
+                </div>
             </div>
 
-            <div className="space-y-3">
-                {quests.map(quest => (
-                    <div key={quest.id} className="bg-gray-800 rounded-lg border border-gray-700 p-4">
-                        <div className="flex justify-between items-start mb-2">
-                            <h3 className="text-white font-bold text-lg">{quest.title}</h3>
-                            {quest.status === 'active' && (
-                                <button onClick={() => completeQuest(quest.id)} className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-sm">
-                                    Complete
-                                </button>
+            {loading ? (
+                <SkeletonList count={3} />
+            ) : (
+                <div className="space-y-3">
+                    {quests.map(quest => (
+                        <div key={quest.id} className="bg-gray-800 rounded-lg border border-gray-700 p-4">
+                            <div className="flex justify-between items-start mb-2">
+                                <h3 className="text-white font-bold text-lg">{quest.title}</h3>
+                                {quest.status === 'active' && (
+                                    <button onClick={() => completeQuest(quest.id)} className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-sm">
+                                        Complete
+                                    </button>
+                                )}
+                            </div>
+                            <p className="text-gray-400 text-sm mb-3">{quest.description}</p>
+                            {quest.reward && (
+                                <div className="bg-yellow-900/20 border border-yellow-700 rounded p-2 mb-3">
+                                    <div className="text-yellow-400 text-sm">Reward: {quest.reward}</div>
+                                </div>
+                            )}
+                            {quest.objectives.length > 0 && (
+                                <div className="space-y-1">
+                                    {quest.objectives.map(obj => (
+                                        <div key={obj.id} className="flex items-center gap-2 text-sm">
+                                            {obj.completed ? <CheckCircle size={14} className="text-green-400" /> : <XCircle size={14} className="text-gray-500" />}
+                                            <span className={obj.completed ? 'text-gray-500 line-through' : 'text-gray-300'}>{obj.text}</span>
+                                        </div>
+                                    ))}
+                                </div>
                             )}
                         </div>
-                        <p className="text-gray-400 text-sm mb-3">{quest.description}</p>
-                        {quest.reward && (
-                            <div className="bg-yellow-900/20 border border-yellow-700 rounded p-2 mb-3">
-                                <div className="text-yellow-400 text-sm">Reward: {quest.reward}</div>
-                            </div>
-                        )}
-                        {quest.objectives.length > 0 && (
-                            <div className="space-y-1">
-                                {quest.objectives.map(obj => (
-                                    <div key={obj.id} className="flex items-center gap-2 text-sm">
-                                        {obj.completed ? <CheckCircle size={14} className="text-green-400" /> : <XCircle size={14} className="text-gray-500" />}
-                                        <span className={obj.completed ? 'text-gray-500 line-through' : 'text-gray-300'}>{obj.text}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                ))}
-            </div>
+                    ))}
+                </div>
+            )}
 
             {showCreateModal && (
                 <div className="fixed inset-0 bg-black/75 flex items-center justify-center p-4 z-50">

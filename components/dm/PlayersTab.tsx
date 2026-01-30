@@ -1,8 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { TrendingUp, Heart, Shield, User } from 'lucide-react';
+import { SkeletonList } from '@/components/shared/ui/SkeletonList';
+import { toast } from 'sonner';
+import { useRealtimeSubscription } from '@/components/shared/hooks/useRealtimeSubscription';
+import { RealtimeStatus } from '@/components/shared/ui/RealtimeStatus';
 
 interface Player {
     id: string;
@@ -31,7 +35,50 @@ interface PlayersTabProps {
 export default function PlayersTab({ campaignId }: PlayersTabProps) {
     const [players, setPlayers] = useState<Player[]>([]);
     const [loading, setLoading] = useState(true);
-    // Using imported supabase client
+
+    const handlePlayersUpdate = useCallback((payload: any) => {
+        const { eventType, new: newRecord } = payload;
+        if (eventType === 'UPDATE' || eventType === 'INSERT') {
+            setPlayers(prev => {
+                const exists = prev.find(p => p.id === newRecord.id);
+                if (exists) {
+                    return prev.map(p => p.id === newRecord.id ? { ...p, ...newRecord } : p);
+                }
+                // For new players, we'd need to re-fetch to get the profile.username correctly
+                // but we can add a placeholder for now or trigger a refresh
+                loadPlayers();
+                return prev;
+            });
+        }
+    }, [campaignId]);
+
+    const handleStatsUpdate = useCallback((payload: any) => {
+        const { eventType, new: newStats } = payload;
+        if (eventType === 'UPDATE' || eventType === 'INSERT') {
+            setPlayers(prev => prev.map(p =>
+                p.id === newStats.campaign_player_id
+                    ? { ...p, stats: { ...p.stats, ...newStats } }
+                    : p
+            ));
+        }
+    }, []);
+
+    const { status: playersStatus } = useRealtimeSubscription(
+        campaignId,
+        '*',
+        handlePlayersUpdate,
+        { table: 'campaign_players', filterColumn: 'campaign_id', event: '*' }
+    );
+
+    const { status: statsStatus } = useRealtimeSubscription(
+        null,
+        '*',
+        handleStatsUpdate,
+        { table: 'character_stats', filterColumn: '', event: '*' }
+    );
+
+    const realtimeStatus = playersStatus === 'error' || statsStatus === 'error' ? 'error' :
+        playersStatus === 'connecting' || statsStatus === 'connecting' ? 'connecting' : 'connected';
 
     useEffect(() => {
         loadPlayers();
@@ -39,6 +86,7 @@ export default function PlayersTab({ campaignId }: PlayersTabProps) {
 
     const loadPlayers = async () => {
         try {
+            setLoading(true);
             const { data } = await supabase
                 .from('campaign_players')
                 .select(`
@@ -86,22 +134,19 @@ export default function PlayersTab({ campaignId }: PlayersTabProps) {
         const newLevel = currentLevel + 1;
 
         try {
-            // Update player level
             await supabase
                 .from('campaign_players')
                 .update({ level: newLevel })
                 .eq('id', playerId);
 
-            // TODO: Trigger level-up notification to player
-            // This would use real-time subscriptions or a notifications table
-
-            // Reload players
             loadPlayers();
-
-            alert(`Level granted! Player is now level ${newLevel}.`);
+            toast.success(`Level granted!`, {
+                description: `Player is now level ${newLevel}.`,
+                icon: '⬆️'
+            });
         } catch (error) {
             console.error('Error granting level:', error);
-            alert('Failed to grant level');
+            toast.error('Failed to grant level');
         }
     };
 
@@ -114,13 +159,16 @@ export default function PlayersTab({ campaignId }: PlayersTabProps) {
     };
 
     if (loading) {
-        return <div className="text-gray-400">Loading players...</div>;
+        return <SkeletonList count={3} />;
     }
 
     return (
         <div className="space-y-4">
             <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-white">Players</h2>
+                <div className="flex items-center gap-3">
+                    <h2 className="text-2xl font-bold text-white">Players</h2>
+                    <RealtimeStatus status={realtimeStatus} />
+                </div>
                 <div className="text-gray-400 text-sm">{players.length} players</div>
             </div>
 

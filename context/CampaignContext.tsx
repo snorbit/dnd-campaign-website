@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect, useRef } from 'react';
 import { CampaignState, Player, WorldState, MapData, Monster, Quest } from '@/types';
 import localPlayers from '@/data/players.json'; // Direct import as fallback
 import { supabase } from '@/lib/supabase';
@@ -23,6 +23,10 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
     const [dbId, setDbId] = useState<number>(1); // Default to row 1
     const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'error'>('connecting');
     const [lastError, setLastError] = useState<string | null>(null);
+    const [isSyncing, setIsSyncing] = useState<boolean>(false);
+
+    // Track debounce timers per column
+    const pendingUpdates = useRef<{ [key: string]: NodeJS.Timeout }>({});
 
     // 1. Initial Fetch & Auto-Seed
 
@@ -137,13 +141,35 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
     // 3. Database Updates (Optimistic UI + DB Push)
 
     // Helper to push changes
-    const pushUpdate = async (column: string, data: any) => {
+    const pushUpdate = async (column: string, data: any, debounceMs: number = 0) => {
         if (!dbId) {
             console.error("Cannot push update: No DB ID resolving yet.");
             return;
         }
+
+        // Handle debouncing if requested
+        if (debounceMs > 0) {
+            if (pendingUpdates.current[column]) {
+                clearTimeout(pendingUpdates.current[column]);
+            }
+
+            pendingUpdates.current[column] = setTimeout(async () => {
+                delete pendingUpdates.current[column];
+                await performUpdate(column, data);
+            }, debounceMs);
+            return;
+        }
+
+        await performUpdate(column, data);
+    };
+
+    const performUpdate = async (column: string, data: any) => {
+        setIsSyncing(true);
         console.log(`[CampaignContext] Pushing update to ${column} (ID: ${dbId}):`, data);
+
         const { error } = await supabase.from('campaign').update({ [column]: data }).eq('id', dbId);
+
+        setIsSyncing(false);
         if (error) {
             console.error(`[CampaignContext] Push failed for ${column}:`, error);
             setLastError(error.message);
@@ -164,7 +190,8 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
     const updatePlayerPosition = (id: string, x: number, y: number) => {
         setPlayers((prev: Player[]) => {
             const newPlayers = prev.map(p => p.id === id ? { ...p, position: { x, y } } : p);
-            pushUpdate('players', newPlayers);
+            // Debounce position updates (250ms) as they can be rapid
+            pushUpdate('players', newPlayers, 250);
             return newPlayers;
         });
     };
@@ -254,13 +281,14 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
 
     return (
         <CampaignContext.Provider value={{
+            id: dbId,
             players, world, map, encounters, quests,
             updatePlayer, updateWorld, updateMap,
             setMapQueue, nextMap,
             addEncounter, removeEncounter, updateEncounter,
             addQuest, updateQuest, updatePlayerPosition,
             seedDatabase,
-            connectionStatus, lastError,
+            connectionStatus, lastError, isSyncing,
             resetMap: () => {
                 const resetState = { url: "", queue: [], currentIndex: 0 };
                 setMap(resetState);
