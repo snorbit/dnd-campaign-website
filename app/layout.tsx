@@ -58,7 +58,7 @@ export default async function RootLayout({
     const players = await getPlayers();
 
     return (
-        <html lang="en">
+        <html lang="en" suppressHydrationWarning>
             <body className={`${inter.variable} ${cinzel.variable} font-sans bg-fantasy-dark text-fantasy-text`}>
                 <CampaignProvider initialPlayers={players}>
                     {children}
