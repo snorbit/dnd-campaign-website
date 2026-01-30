@@ -9,13 +9,13 @@ Welcome! This document lists tasks that can be done independently while the core
 
 ### UI/UX Improvements
 
-**1. Add Loading Skeletons**
+**1. Add Loading Skeletons**  - Done
 - **Where**: All tabs in DM and Player views
 - **What**: Replace "Loading..." text with animated skeleton loaders
 - **Files**: `components/dm/*.tsx` and `components/player/*.tsx`
 - **Why**: Better UX while data loads
 
-**2. Add Toast Notifications**
+**2. Add Toast Notifications** - Done
 - **Current**: Using `alert()` for notifications
 - **Goal**: Implement a toast notification system
 - **Library**: Consider `react-hot-toast` or `sonner`
@@ -36,7 +36,7 @@ Welcome! This document lists tasks that can be done independently while the core
 
 ### Feature Enhancements
 
-**5. Player Character Sheet**
+**5. Player Character Sheet** -Done
 - **What**: Create a detailed character sheet view for players
 - **Features**: 
   - Stats display (HP, AC, abilities)
@@ -46,7 +46,7 @@ Welcome! This document lists tasks that can be done independently while the core
 - **File**: Create `components/player/CharacterSheet.tsx`
 - **Database**: May need new tables in Supabase
 
-**6. Dice Roller**
+**6. Dice Roller** - Done
 - **What**: In-app dice rolling with animations
 - **Features**:
   - Multiple dice types (d4, d6, d8, d10, d12, d20, d100)
@@ -55,7 +55,7 @@ Welcome! This document lists tasks that can be done independently while the core
   - Broadcast rolls to campaign
 - **File**: Create `components/shared/DiceRoller.tsx`
 
-**7. NPC Generator**
+**7. NPC Generator** - Done 
 - **What**: Random NPC generator for DMs
 - **Features**:
   - Random name, race, class
@@ -63,7 +63,7 @@ Welcome! This document lists tasks that can be done independently while the core
   - Quick stats
 - **File**: `components/dm/NPCGenerator.tsx`
 
-**8. Initiative Tracker**
+**8. Initiative Tracker** - Done
 - **What**: Combat initiative tracker
 - **Features**:
   - Add players/monsters
@@ -78,7 +78,7 @@ Welcome! This document lists tasks that can be done independently while the core
 
 ### Backend Features
 
-**9. Real-time Synchronization Improvements**
+**9. Real-time Synchronization Improvements** - Done
 - **What**: Optimize real-time updates using Supabase subscriptions
 - **Where**: Map changes, quest updates, item additions
 - **Files**: All component files using Supabase

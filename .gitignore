@@ -8,3 +8,19 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .vercel
+
+# Build artifacts
+tsconfig.tsbuildinfo
+*.tsbuildinfo
+
+# Test output
+coverage/
+.vitest/
+
+# Playwright/Browser recordings
+.playwright-mcp/
+
+# Temporary files
+dev_output.log
+diff_report.txt
+MERGE_REPORT.md
