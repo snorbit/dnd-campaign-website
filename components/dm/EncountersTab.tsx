@@ -45,10 +45,28 @@ export default function EncountersTab({ campaignId }: EncountersTabProps) {
         setHasInitialLoaded(true);
     }, [campaignId]);
 
+    // Define handleInitiativeChange before using it in hooks
+    const handleInitiativeChange = useCallback(async (state: any) => {
+        try {
+            await supabase
+                .from('campaign_state')
+                .update({ initiative: state })
+                .eq('campaign_id', campaignId);
+        } catch (error) {
+            console.error('Error saving initiative state:', error);
+        }
+    }, [campaignId]);
+
+    const { status: encountersStatus } = useRealtimeSubscription<Encounter[]>(
+        campaignId,
+        'encounters',
+        (data) => setEncounters(data || [])
+    );
+
     const { status: initiativeStatus } = useRealtimeSubscription<any>(
         campaignId,
         'initiative',
-        handleInitiativeUpdate
+        handleInitiativeChange
     );
 
     const realtimeStatus = encountersStatus === 'error' || initiativeStatus === 'error' ? 'error' :
@@ -275,16 +293,6 @@ export default function EncountersTab({ campaignId }: EncountersTabProps) {
         }
     };
 
-    const handleInitiativeChange = async (state: any) => {
-        try {
-            await supabase
-                .from('campaign_state')
-                .update({ initiative: state })
-                .eq('campaign_id', campaignId);
-        } catch (error) {
-            console.error('Error saving initiative state:', error);
-        }
-    };
 
     if (loading) {
         return <SkeletonList count={3} />;
