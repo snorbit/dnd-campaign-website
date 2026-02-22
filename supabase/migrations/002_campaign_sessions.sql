@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS public.campaign_sessions (
 ALTER TABLE public.campaign_sessions ENABLE ROW LEVEL SECURITY;
 
 -- DMs can view and manage sessions for their campaigns
+DROP POLICY IF EXISTS "DMs can manage their campaign sessions" ON public.campaign_sessions;
 CREATE POLICY "DMs can manage their campaign sessions"
   ON public.campaign_sessions
   FOR ALL
