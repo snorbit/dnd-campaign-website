@@ -1,18 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-// Initialize Supabase client
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
 const SD_URL = process.env.SD_LOCAL_URL || 'http://127.0.0.1:7860';
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://127.0.0.1:11434';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'llama3.2';
 
+// Create an authenticated Supabase client using the user's JWT
+// This ensures auth.uid() resolves correctly and RLS policies pass
+function createAuthClient(token: string) {
+    return createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+            global: {
+                headers: { Authorization: `Bearer ${token}` }
+            }
+        }
+    );
+}
+
 export async function POST(request: NextRequest) {
     try {
+        // Extract the user's JWT from the Authorization header
+        const authHeader = request.headers.get('Authorization');
+        const token = authHeader?.replace('Bearer ', '');
+        if (!token) {
+            return NextResponse.json({ error: 'Unauthorized — missing auth token' }, { status: 401 });
+        }
+
+        // Use authenticated client so RLS passes (auth.uid() = DM's user id)
+        const supabase = createAuthClient(token);
+
         const { campaignId, campaignText } = await request.json();
 
         if (!campaignText || !campaignId) {
@@ -50,16 +68,16 @@ export async function POST(request: NextRequest) {
         if (sessionError) throw sessionError;
 
         // Step 4: Add maps to campaign
-        await addMapsToCampaign(campaignId, maps);
+        await addMapsToCampaign(supabase, campaignId, maps);
 
         // Step 5: Create quests
-        await createQuests(campaignId, parsed.quests);
+        await createQuests(supabase, campaignId, parsed.quests);
 
         // Step 6: Add items
-        await addItems(campaignId, parsed.items);
+        await addItems(supabase, campaignId, parsed.items);
 
         // Step 7: Create encounters
-        await createEncounters(campaignId, parsed.encounters);
+        await createEncounters(supabase, campaignId, parsed.encounters);
 
         const summary = `✅ Session imported successfully!
 
@@ -397,19 +415,26 @@ async function callStableDiffusion(prompt: string, negativePrompt: string, campa
     const filename = `${campaignId}/map_${order}_${Date.now()}.png`;
     const imageBuffer = Buffer.from(base64Image, 'base64');
 
-    const { error: uploadError } = await supabase.storage
+    // Use a module-level anon client for storage uploads (public bucket, no RLS)
+    const storageClient = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+
+    const { error: uploadError } = await storageClient.storage
         .from('campaign-maps')
         .upload(filename, imageBuffer, { contentType: 'image/png', upsert: true });
 
     if (uploadError) throw new Error(`Supabase upload failed: ${uploadError.message}`);
 
-    const { data: { publicUrl } } = supabase.storage.from('campaign-maps').getPublicUrl(filename);
+    const { data: { publicUrl } } = storageClient.storage.from('campaign-maps').getPublicUrl(filename);
     return publicUrl;
 }
 
 // ─── Database Operations ──────────────────────────────────────────────────────
 
-async function addMapsToCampaign(campaignId: string, maps: Array<{ title: string; url: string; order: number; description?: string }>) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function addMapsToCampaign(supabase: any, campaignId: string, maps: Array<{ title: string; url: string; order: number; description?: string }>) {
     const { data: campaignState } = await supabase.from('campaign_state').select('map').eq('campaign_id', campaignId).single();
     const currentQueue = campaignState?.map?.queue || [];
     await supabase.from('campaign_state').update({
@@ -417,17 +442,21 @@ async function addMapsToCampaign(campaignId: string, maps: Array<{ title: string
     }).eq('campaign_id', campaignId);
 }
 
-async function createQuests(campaignId: string, quests: Array<{ name: string; description: string }>) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function createQuests(supabase: any, campaignId: string, quests: Array<{ name: string; description: string }>) {
     if (quests.length === 0) return;
     await supabase.from('quests').insert(quests.map(q => ({ campaign_id: campaignId, title: q.name, description: q.description, status: 'active' as const })));
 }
 
-async function addItems(campaignId: string, items: Array<{ name: string; quantity: number }>) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function addItems(supabase: any, campaignId: string, items: Array<{ name: string; quantity: number }>) {
     if (items.length === 0) return;
     await supabase.from('items').insert(items.map(item => ({ campaign_id: campaignId, name: item.name, quantity: item.quantity, description: 'Found during session import' })));
 }
 
-async function createEncounters(campaignId: string, encounters: Array<{ name: string; location: string; difficulty: number }>) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function createEncounters(supabase: any, campaignId: string, encounters: Array<{ name: string; location: string; difficulty: number }>) {
     if (encounters.length === 0) return;
     await supabase.from('encounters').insert(encounters.map(enc => ({ campaign_id: campaignId, name: enc.name, description: `At ${enc.location}`, difficulty: enc.difficulty, status: 'pending' as const })));
 }
+

@@ -82,9 +82,19 @@ export default function DMCampaignPage() {
         }
 
         const importPromise = (async () => {
+            // Get the user's current session JWT so the server-side route
+            // can satisfy RLS policies (auth.uid() requires a valid token)
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session?.access_token) {
+                throw new Error('Not authenticated. Please log in again.');
+            }
+
             const response = await fetch('/api/import-campaign', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`
+                },
                 body: JSON.stringify({
                     campaignId: params.campaignId,
                     campaignText: importText
