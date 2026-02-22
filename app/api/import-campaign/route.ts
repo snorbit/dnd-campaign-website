@@ -445,18 +445,49 @@ async function addMapsToCampaign(supabase: any, campaignId: string, maps: Array<
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function createQuests(supabase: any, campaignId: string, quests: Array<{ name: string; description: string }>) {
     if (quests.length === 0) return;
-    await supabase.from('quests').insert(quests.map(q => ({ campaign_id: campaignId, title: q.name, description: q.description, status: 'active' as const })));
+    // QuestsTab reads from campaign_state.quests (JSONB array)
+    const { data } = await supabase.from('campaign_state').select('quests').eq('campaign_id', campaignId).single();
+    const existing = Array.isArray(data?.quests) ? data.quests : [];
+    const newQuests = quests.map(q => ({
+        id: crypto.randomUUID(),
+        title: q.name,
+        description: q.description,
+        status: 'active',
+        objectives: [],
+        reward: ''
+    }));
+    await supabase.from('campaign_state').update({ quests: [...existing, ...newQuests] }).eq('campaign_id', campaignId);
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function addItems(supabase: any, campaignId: string, items: Array<{ name: string; quantity: number }>) {
     if (items.length === 0) return;
-    await supabase.from('items').insert(items.map(item => ({ campaign_id: campaignId, name: item.name, quantity: item.quantity, description: 'Found during session import' })));
+    // ItemsTab reads from campaign_state.items (JSONB array)
+    const { data } = await supabase.from('campaign_state').select('items').eq('campaign_id', campaignId).single();
+    const existing = Array.isArray(data?.items) ? data.items : [];
+    const newItems = items.map(item => ({
+        id: crypto.randomUUID(),
+        name: item.name,
+        description: `Qty: ${item.quantity} — Found during session import`,
+        category: 'misc',
+        weight: 0
+    }));
+    await supabase.from('campaign_state').update({ items: [...existing, ...newItems] }).eq('campaign_id', campaignId);
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function createEncounters(supabase: any, campaignId: string, encounters: Array<{ name: string; location: string; difficulty: number }>) {
     if (encounters.length === 0) return;
-    await supabase.from('encounters').insert(encounters.map(enc => ({ campaign_id: campaignId, name: enc.name, description: `At ${enc.location}`, difficulty: enc.difficulty, status: 'pending' as const })));
+    // EncountersTab reads from campaign_state.encounters (JSONB array)
+    // Encounters need shape: { id, name, enemies: [], status: 'planned' }
+    const { data } = await supabase.from('campaign_state').select('encounters').eq('campaign_id', campaignId).single();
+    const existing = Array.isArray(data?.encounters) ? data.encounters : [];
+    const newEncounters = encounters.map(enc => ({
+        id: crypto.randomUUID(),
+        name: `${enc.name} (at ${enc.location})`,
+        enemies: [],
+        status: 'planned'
+    }));
+    await supabase.from('campaign_state').update({ encounters: [...existing, ...newEncounters] }).eq('campaign_id', campaignId);
 }
 
