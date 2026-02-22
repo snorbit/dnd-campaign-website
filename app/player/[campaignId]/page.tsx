@@ -3,7 +3,7 @@
 import { supabase } from '@/lib/supabase';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { Map, User, Backpack, Users, ScrollText, Award } from 'lucide-react';
+import { Map, User, Backpack, Users, ScrollText, Award, BarChart3 } from 'lucide-react';
 import MapTab from '@/components/player/MapTab';
 import StatsTab from '@/components/player/StatsTab';
 import InventoryTab from '@/components/player/InventoryTab';
@@ -19,6 +19,7 @@ type TabId = 'character' | 'map' | 'stats' | 'inventory' | 'party' | 'quests' | 
 const tabs = [
     { id: 'character' as TabId, label: 'Character', icon: User },
     { id: 'map' as TabId, label: 'Map', icon: Map },
+    { id: 'stats' as TabId, label: 'Stats', icon: BarChart3 },
     { id: 'inventory' as TabId, label: 'Inventory', icon: Backpack },
     { id: 'party' as TabId, label: 'Party', icon: Users },
     { id: 'quests' as TabId, label: 'Quests', icon: ScrollText },

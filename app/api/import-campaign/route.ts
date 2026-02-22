@@ -7,6 +7,10 @@ const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+const SD_URL = process.env.SD_LOCAL_URL || 'http://127.0.0.1:7860';
+const OLLAMA_URL = process.env.OLLAMA_URL || 'http://127.0.0.1:11434';
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'llama3.2';
+
 export async function POST(request: NextRequest) {
     try {
         const { campaignId, campaignText } = await request.json();
@@ -17,10 +21,10 @@ export async function POST(request: NextRequest) {
 
         console.log('Starting session import for campaign:', campaignId);
 
-        // Step 1: Parse the session text using AI
+        // Step 1: Parse the session text using Ollama (free local AI) or smart regex fallback
         const parsed = await parseSessionText(campaignText);
 
-        console.log('Parsed session:', parsed);
+        console.log('Parsed session:', JSON.stringify(parsed, null, 2));
 
         // Step 2: Generate maps for each location + travel maps
         const maps = await generateAllMaps(parsed.locations, campaignId);
@@ -86,8 +90,79 @@ Your session "${parsed.title}" is ready to play!`;
     }
 }
 
-// Parse session text and extract structured data
+// ─── AI Text Parsing (Free — Ollama) ─────────────────────────────────────────
+
 async function parseSessionText(text: string) {
+    // Try Ollama first (free, local LLM)
+    const ollamaAvailable = await checkOllamaAvailable();
+    if (ollamaAvailable) {
+        try {
+            return await parseWithOllama(text);
+        } catch (err) {
+            console.warn('Ollama parsing failed, falling back to smart regex:', err);
+        }
+    } else {
+        console.log('[Import] Ollama not running — using smart regex parser');
+    }
+    return parseWithSmartRegex(text);
+}
+
+async function checkOllamaAvailable(): Promise<boolean> {
+    try {
+        const res = await fetch(`${OLLAMA_URL}/api/tags`, {
+            signal: AbortSignal.timeout(2000)
+        });
+        return res.ok;
+    } catch {
+        return false;
+    }
+}
+
+async function parseWithOllama(text: string) {
+    const systemPrompt = `You are a D&D session assistant. Extract structured data from session notes.
+Return ONLY raw JSON (no markdown, no code fences) exactly in this shape:
+{
+  "title": "Session title or name",
+  "description": "2-3 sentence summary",
+  "locations": [{"name": "Name", "description": "Atmospheric description for map generation", "order": 0}],
+  "quests": [{"name": "Quest title", "description": "Quest description"}],
+  "items": [{"name": "Item name", "quantity": 1}],
+  "encounters": [{"name": "Enemy or encounter name", "location": "Where it happens", "difficulty": 3}]
+}
+Difficulty scale: 1=trivial, 3=moderate, 5=hard, 8=boss. Extract ALL mentioned content.`;
+
+    const response = await fetch(`${OLLAMA_URL}/v1/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            model: OLLAMA_MODEL,
+            messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: `Parse this D&D session:\n\n${text}` }
+            ],
+            temperature: 0.2,
+            stream: false
+        }),
+        signal: AbortSignal.timeout(60000) // 60s for local LLM
+    });
+
+    if (!response.ok) {
+        const err = await response.text();
+        throw new Error(`Ollama error: ${err}`);
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content?.trim();
+    if (!content) throw new Error('No content from Ollama');
+
+    // Strip any accidental markdown fencing
+    const jsonStr = content.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
+    return JSON.parse(jsonStr);
+}
+
+// ─── Smart Regex Fallback ─────────────────────────────────────────────────────
+
+function parseWithSmartRegex(text: string) {
     const lines = text.split('\n').map(l => l.trim()).filter(l => l);
 
     let title = 'Untitled Session';
@@ -99,98 +174,85 @@ async function parseSessionText(text: string) {
 
     let currentSection = '';
     let locationOrder = 0;
+    const descLines: string[] = [];
+
+    // Keywords that signal D&D enemies (for auto-detecting encounters)
+    const enemyKeywords = ['goblin', 'orc', 'skeleton', 'zombie', 'dragon', 'bandit', 'wolf', 'troll',
+        'ogre', 'vampire', 'wraith', 'ghoul', 'spider', 'rat', 'bear', 'cultist', 'guard', 'assassin', 'demon'];
 
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
         const lower = line.toLowerCase();
 
-        // Extract title (usually first line or line with "Session")
-        if (i === 0 || lower.includes('session')) {
-            title = line.replace(/session \d+:/i, '').trim() || title;
+        // Title: first line or lines with "session #"
+        if (i === 0 || lower.match(/^session\s*\d*/)) {
+            title = line.replace(/^session\s*\d*\s*[-:]/i, '').trim() || line;
             continue;
         }
 
-        // Detect sections
-        if (lower.startsWith('locations:')) {
-            currentSection = 'locations';
-            continue;
-        } else if (lower.startsWith('quests:')) {
-            currentSection = 'quests';
-            continue;
-        } else if (lower.startsWith('encounters:')) {
-            currentSection = 'encounters';
-            continue;
-        } else if (lower.startsWith('items:')) {
-            currentSection = 'items';
-            continue;
-        }
+        // Section headers (case-insensitive, with or without colon)
+        if (/^(locations?|places?|areas?)\s*:?$/i.test(lower)) { currentSection = 'locations'; continue; }
+        if (/^(quests?|objectives?|missions?)\s*:?$/i.test(lower)) { currentSection = 'quests'; continue; }
+        if (/^(encounters?|enemies|monsters?|combat)\s*:?$/i.test(lower)) { currentSection = 'encounters'; continue; }
+        if (/^(items?|loot|treasure|rewards?|inventory)\s*:?$/i.test(lower)) { currentSection = 'items'; continue; }
+        if (/^(notes?|summary|description|overview)\s*:?$/i.test(lower)) { currentSection = 'description'; continue; }
 
-        // Parse based on current section
+        const cleanLine = line.replace(/^[-•*\d]+\.?\s*/, '').trim();
+        if (!cleanLine) continue;
+
         if (currentSection === 'locations') {
-            // Format: "1. Location Name - description" or "- Location Name - description"
-            const match = line.match(/^[\d\-•]\s*\.?\s*(.+?)\s*[-–]\s*(.+)$/);
-            if (match) {
-                locations.push({
-                    name: match[1].trim(),
-                    description: match[2].trim(),
-                    order: locationOrder++
-                });
-            } else if (line.match(/^[\d\-•]/)) {
-                // Just a name without description
-                const name = line.replace(/^[\d\-•]\s*\.?\s*/, '').trim();
-                if (name) {
-                    locations.push({
-                        name,
-                        description: name.toLowerCase(),
-                        order: locationOrder++
-                    });
-                }
+            const parts = cleanLine.match(/^(.+?)\s*[-–:]\s*(.+)$/);
+            if (parts) {
+                locations.push({ name: parts[1].trim(), description: parts[2].trim(), order: locationOrder++ });
+            } else {
+                locations.push({ name: cleanLine, description: cleanLine.toLowerCase(), order: locationOrder++ });
             }
         } else if (currentSection === 'quests') {
-            const questLine = line.replace(/^[-•]\s*/, '').trim();
-            if (questLine) {
-                quests.push({
-                    name: questLine,
-                    description: questLine
-                });
-            }
+            const parts = cleanLine.match(/^(.+?)\s*[-–:]\s*(.+)$/);
+            quests.push({ name: parts ? parts[1].trim() : cleanLine, description: parts ? parts[2].trim() : cleanLine });
         } else if (currentSection === 'items') {
-            // Format: "- Item Name x3" or "- Item Name"
-            const match = line.match(/^[-•]\s*(.+?)\s*(?:x(\d+))?$/);
-            if (match) {
+            const qtyMatch = cleanLine.match(/^(.+?)\s*[x×](\d+)\s*$/i) || cleanLine.match(/^(\d+)\s+(.+)$/);
+            if (qtyMatch) {
+                const isNumFirst = /^\d/.test(cleanLine);
                 items.push({
-                    name: match[1].trim(),
-                    quantity: match[2] ? parseInt(match[2]) : 1
+                    name: isNumFirst ? qtyMatch[2].trim() : qtyMatch[1].trim(),
+                    quantity: parseInt(isNumFirst ? qtyMatch[1] : qtyMatch[2])
                 });
+            } else {
+                items.push({ name: cleanLine, quantity: 1 });
             }
         } else if (currentSection === 'encounters') {
-            // Format: "- Enemy Name (location, difficulty/count)" 
-            const encounterLine = line.replace(/^[-•]\s*/, '').trim();
-            if (encounterLine) {
-                const match = encounterLine.match(/^(.+?)\s*\(([^,]+)(?:,\s*(.+))?\)/);
-                if (match) {
+            const locationMatch = cleanLine.match(/^(.+?)\s*[(@]\s*(.+?)[)@]?\s*$/);
+            encounters.push({
+                name: locationMatch ? locationMatch[1].trim() : cleanLine,
+                location: locationMatch ? locationMatch[2].trim() : 'Unknown',
+                difficulty: extractDifficulty(cleanLine)
+            });
+        } else if (currentSection === 'description') {
+            descLines.push(cleanLine);
+        } else {
+            // Unstructured text: auto-detect content
+            if (cleanLine.length > 20) {
+                descLines.push(cleanLine);
+            }
+            // Auto-detect enemies in prose
+            const hasEnemy = enemyKeywords.some(k => lower.includes(k));
+            if (hasEnemy && !currentSection) {
+                const enemyMatch = enemyKeywords.find(k => lower.includes(k));
+                if (enemyMatch && !encounters.find(e => e.name.toLowerCase().includes(enemyMatch))) {
                     encounters.push({
-                        name: match[1].trim(),
-                        location: match[2].trim(),
-                        difficulty: extractDifficulty(match[3] || '')
-                    });
-                } else {
-                    encounters.push({
-                        name: encounterLine,
+                        name: enemyMatch.charAt(0).toUpperCase() + enemyMatch.slice(1),
                         location: 'Unknown',
-                        difficulty: 3
+                        difficulty: extractDifficulty(line)
                     });
                 }
             }
-        } else if (!currentSection && line.length > 20) {
-            // Treat as description
-            description += line + ' ';
         }
     }
 
     return {
         title: title || 'Imported Session',
-        description: description.trim() || text.substring(0, 200),
+        description: descLines.slice(0, 3).join(' ') || text.substring(0, 200),
         locations,
         quests,
         items,
@@ -200,36 +262,34 @@ async function parseSessionText(text: string) {
 
 function extractDifficulty(text: string): number {
     const lower = text.toLowerCase();
-    if (lower.includes('boss') || lower.includes('hard')) return 5;
+    if (lower.includes('boss') || lower.includes('legendary') || lower.includes('ancient')) return 8;
+    if (lower.includes('hard') || lower.includes('difficult') || lower.includes('elite')) return 5;
     if (lower.includes('medium') || lower.includes('moderate')) return 3;
-    if (lower.includes('easy') || lower.includes('simple')) return 1;
-
-    // Extract number (e.g., "3 enemies", "level 4")
+    if (lower.includes('easy') || lower.includes('simple') || lower.includes('weak')) return 1;
     const match = text.match(/(\d+)/);
     return match ? Math.min(parseInt(match[1]), 10) : 3;
 }
 
-// Generate maps for all locations plus travel maps
+// ─── Map Generation (Free — Local Stable Diffusion) ──────────────────────────
+
 async function generateAllMaps(locations: Array<{ name: string; description: string; order: number }>, campaignId: string) {
     const maps = [];
 
     for (let i = 0; i < locations.length; i++) {
         const location = locations[i];
 
-        // Generate main location map
-        const mapPath = await generateMapImage(location.name, location.description, campaignId, i * 2);
+        const mapUrl = await generateMapImage(location.name, location.description, campaignId, i * 2, false);
         maps.push({
             title: location.name,
-            url: mapPath,
+            url: mapUrl,
             order: i * 2,
             description: location.description
         });
 
-        // Generate travel map to next location (if not last)
         if (i < locations.length - 1) {
             const nextLocation = locations[i + 1];
             const terrain = inferTravelTerrain(location, nextLocation);
-            const travelPath = await generateMapImage(
+            const travelUrl = await generateMapImage(
                 `Travel: ${location.name} → ${nextLocation.name}`,
                 `${terrain} path between locations`,
                 campaignId,
@@ -238,7 +298,7 @@ async function generateAllMaps(locations: Array<{ name: string; description: str
             );
             maps.push({
                 title: `Travel: ${location.name} → ${nextLocation.name}`,
-                url: travelPath,
+                url: travelUrl,
                 order: i * 2 + 1,
                 description: `${terrain} connecting ${location.name} and ${nextLocation.name}`
             });
@@ -248,112 +308,126 @@ async function generateAllMaps(locations: Array<{ name: string; description: str
     return maps;
 }
 
-// Infer travel terrain between locations
 function inferTravelTerrain(from: { name: string }, to: { name: string }): string {
     const terrains = [];
-    const fromName = from.name.toLowerCase();
-    const toName = to.name.toLowerCase();
-
-    if (fromName.includes('forest') || toName.includes('forest')) {
-        terrains.push('forest path');
-    }
-    if (fromName.includes('mountain') || toName.includes('mountain')) {
-        terrains.push('mountain trail');
-    }
-    if (fromName.includes('city') || fromName.includes('town') || toName.includes('city') || toName.includes('town')) {
-        terrains.push('cobblestone road');
-    }
-    if (fromName.includes('desert') || toName.includes('desert')) {
-        terrains.push('sandy desert path');
-    }
-    if (fromName.includes('cave') || fromName.includes('dungeon') || toName.includes('cave') || toName.includes('dungeon')) {
-        terrains.push('stone corridor');
-    }
-    if (fromName.includes('temple') || fromName.includes('castle') || toName.includes('temple') || toName.includes('castle')) {
-        terrains.push('grand hallway');
-    }
-
+    const combined = (from.name + ' ' + to.name).toLowerCase();
+    if (combined.includes('forest') || combined.includes('wood')) terrains.push('dense forest path');
+    if (combined.includes('mountain') || combined.includes('hill')) terrains.push('mountain trail');
+    if (combined.includes('city') || combined.includes('town') || combined.includes('village')) terrains.push('cobblestone road');
+    if (combined.includes('desert') || combined.includes('dune')) terrains.push('sandy desert path');
+    if (combined.includes('cave') || combined.includes('dungeon') || combined.includes('underground')) terrains.push('stone corridor');
+    if (combined.includes('temple') || combined.includes('castle') || combined.includes('keep')) terrains.push('grand stone hallway');
+    if (combined.includes('swamp') || combined.includes('marsh')) terrains.push('boggy swampland path');
+    if (combined.includes('river') || combined.includes('lake') || combined.includes('coast')) terrains.push('riverside path');
     return terrains.length > 0 ? terrains.join(', ') : 'wilderness path';
 }
 
-// Generate a map image (placeholder - will use AI image generation)
 async function generateMapImage(title: string, description: string, campaignId: string, order: number, isTravel: boolean = false): Promise<string> {
-    // For now, create a placeholder
-    // TODO: Integrate with actual image generation AI
+    const basePrompt = isTravel ? buildTravelMapPrompt(description) : buildLocationMapPrompt(title, description);
+    const negativePrompt = 'isometric, perspective, side view, low angle, tilted, 3d rendered perspective, blurry, low quality, text, watermark, signature, ugly, distorted, characters, people, figures, monsters visible, fog of war, ui elements, logo';
 
-    const filename = `${campaignId}_${order}_${Date.now()}.png`;
-    const filepath = `/maps/${filename}`;
+    const sdAvailable = await checkSDAvailable();
 
-    // This is where you'd call the generate_image tool in a real implementation
-    // For now, return a placeholder path
-    console.log(`Would generate map: ${title} - ${description}`);
+    if (sdAvailable) {
+        try {
+            return await callStableDiffusion(basePrompt, negativePrompt, campaignId, order);
+        } catch (err) {
+            console.warn('Stable Diffusion failed, using placeholder:', err);
+        }
+    }
 
-    return filepath;
+    console.log(`[Map placeholder] ${title}: ${basePrompt}`);
+    return `/maps/placeholder_${campaignId}_${order}.png`;
 }
 
-// Add maps to campaign
+function buildLocationMapPrompt(name: string, description: string): string {
+    return [
+        'top-down view', "bird's eye view", 'looking straight down from above',
+        'orthographic top-down', 'tabletop RPG battle map', 'high detail dungeon master map',
+        name, description,
+        'dnd map style', 'fantasy map', 'grid overlay', 'vibrant colors',
+        'hand-drawn style', 'no characters', 'empty map ready for play'
+    ].join(', ');
+}
+
+function buildTravelMapPrompt(terrain: string): string {
+    return [
+        'top-down view', "bird's eye view", 'looking straight down from above',
+        'orthographic top-down', 'tabletop RPG overworld travel map',
+        terrain, 'fantasy map', 'dnd travel map', 'hand-drawn style',
+        'detailed terrain features', 'visible path or road', 'no characters'
+    ].join(', ');
+}
+
+async function checkSDAvailable(): Promise<boolean> {
+    try {
+        const res = await fetch(`${SD_URL}/sdapi/v1/sd-models`, { signal: AbortSignal.timeout(2000) });
+        return res.ok;
+    } catch {
+        return false;
+    }
+}
+
+async function callStableDiffusion(prompt: string, negativePrompt: string, campaignId: string, order: number): Promise<string> {
+    const payload = {
+        prompt,
+        negative_prompt: negativePrompt,
+        steps: 30,
+        cfg_scale: 7.5,
+        width: 768,
+        height: 768,
+        sampler_name: 'DPM++ 2M Karras',
+        batch_size: 1,
+        n_iter: 1,
+    };
+
+    const res = await fetch(`${SD_URL}/sdapi/v1/txt2img`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(120000)
+    });
+
+    if (!res.ok) throw new Error(`Stable Diffusion error: ${await res.text()}`);
+
+    const data = await res.json();
+    const base64Image = data.images?.[0];
+    if (!base64Image) throw new Error('No image returned from Stable Diffusion');
+
+    const filename = `${campaignId}/map_${order}_${Date.now()}.png`;
+    const imageBuffer = Buffer.from(base64Image, 'base64');
+
+    const { error: uploadError } = await supabase.storage
+        .from('campaign-maps')
+        .upload(filename, imageBuffer, { contentType: 'image/png', upsert: true });
+
+    if (uploadError) throw new Error(`Supabase upload failed: ${uploadError.message}`);
+
+    const { data: { publicUrl } } = supabase.storage.from('campaign-maps').getPublicUrl(filename);
+    return publicUrl;
+}
+
+// ─── Database Operations ──────────────────────────────────────────────────────
+
 async function addMapsToCampaign(campaignId: string, maps: Array<{ title: string; url: string; order: number; description?: string }>) {
-    const { data: campaignState } = await supabase
-        .from('campaign_state')
-        .select('map')
-        .eq('campaign_id', campaignId)
-        .single();
-
+    const { data: campaignState } = await supabase.from('campaign_state').select('map').eq('campaign_id', campaignId).single();
     const currentQueue = campaignState?.map?.queue || [];
-    const newQueue = [...currentQueue, ...maps];
-
-    await supabase
-        .from('campaign_state')
-        .update({
-            map: {
-                url: maps[0]?.url || '',
-                currentIndex: 0,
-                autoProgress: true,
-                queue: newQueue
-            }
-        })
-        .eq('campaign_id', campaignId);
+    await supabase.from('campaign_state').update({
+        map: { url: maps[0]?.url || '', currentIndex: 0, autoProgress: true, queue: [...currentQueue, ...maps] }
+    }).eq('campaign_id', campaignId);
 }
 
-// Create quests
 async function createQuests(campaignId: string, quests: Array<{ name: string; description: string }>) {
     if (quests.length === 0) return;
-
-    const questsToInsert = quests.map(q => ({
-        campaign_id: campaignId,
-        title: q.name,
-        description: q.description,
-        status: 'active' as const
-    }));
-
-    await supabase.from('quests').insert(questsToInsert);
+    await supabase.from('quests').insert(quests.map(q => ({ campaign_id: campaignId, title: q.name, description: q.description, status: 'active' as const })));
 }
 
-// Add items
 async function addItems(campaignId: string, items: Array<{ name: string; quantity: number }>) {
     if (items.length === 0) return;
-
-    const itemsToInsert = items.map(item => ({
-        campaign_id: campaignId,
-        name: item.name,
-        quantity: item.quantity,
-        description: `Found during session import`
-    }));
-
-    await supabase.from('items').insert(itemsToInsert);
+    await supabase.from('items').insert(items.map(item => ({ campaign_id: campaignId, name: item.name, quantity: item.quantity, description: 'Found during session import' })));
 }
 
-// Create encounters
 async function createEncounters(campaignId: string, encounters: Array<{ name: string; location: string; difficulty: number }>) {
     if (encounters.length === 0) return;
-
-    const encountersToInsert = encounters.map(enc => ({
-        campaign_id: campaignId,
-        name: enc.name,
-        description: `At ${enc.location}`,
-        difficulty: enc.difficulty,
-        status: 'pending' as const
-    }));
-
-    await supabase.from('encounters').insert(encountersToInsert);
+    await supabase.from('encounters').insert(encounters.map(enc => ({ campaign_id: campaignId, name: enc.name, description: `At ${enc.location}`, difficulty: enc.difficulty, status: 'pending' as const })));
 }

@@ -12,6 +12,7 @@ import QuestsTab from '@/components/dm/QuestsTab';
 import NPCsTab from '@/components/dm/NPCsTab';
 import ItemsTab from '@/components/dm/ItemsTab';
 import DMFeatsTab from '@/components/dm/FeatsTab';
+import SessionsTab from '@/components/dm/SessionsTab';
 import { DiceRoller } from '@/components/shared/DiceRoller';
 import { CampaignProvider, useCampaign } from '@/context/CampaignContext';
 import { Loader2 } from 'lucide-react';
@@ -91,23 +92,23 @@ export default function DMCampaignPage() {
             });
 
             if (!response.ok) {
-                throw new Error('Failed to import campaign');
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.error || 'Failed to import campaign');
             }
 
-            const result = await response.json();
-            return result;
+            return await response.json();
         })();
 
         setImporting(true);
         toast.promise(importPromise, {
-            loading: 'Importing session and generating content...',
-            success: (data) => {
+            loading: 'Importing session — parsing text, generating maps...',
+            success: () => {
                 setShowImportModal(false);
                 setImportText('');
-                setTimeout(() => window.location.reload(), 2000);
-                return 'Campaign imported successfully!';
+                setTimeout(() => window.location.reload(), 1500);
+                return '✅ Campaign imported successfully! Refreshing...';
             },
-            error: 'Failed to import campaign. Please try again.',
+            error: (err: Error) => `Import failed: ${err.message}`,
         });
 
         try {
@@ -138,21 +139,7 @@ export default function DMCampaignPage() {
             case 'feats':
                 return <DMFeatsTab campaignId={campaignId} />;
             case 'sessions':
-                return <div className="text-gray-300">
-                    <h2 className="text-2xl font-bold text-white mb-4">📚 Session History</h2>
-                    <p className="text-gray-400 mb-6">
-                        View and review all your imported sessions. Each session contains the maps, quests, items, and encounters you generated.
-                    </p>
-                    <div className="bg-gray-800 rounded-lg border border-gray-700 p-12 text-center">
-                        <p className="text-gray-400 mb-4">No sessions imported yet</p>
-                        <button
-                            onClick={() => setShowImportModal(true)}
-                            className="px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-bold rounded-lg transition-all"
-                        >
-                            📥 Import Your First Session
-                        </button>
-                    </div>
-                </div>;
+                return <SessionsTab campaignId={campaignId} onImportClick={() => setShowImportModal(true)} />;
             default:
                 return <div className="text-gray-400">Tab not found</div>;
         }
@@ -161,7 +148,13 @@ export default function DMCampaignPage() {
     if (loading) {
         return (
             <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black flex items-center justify-center">
-                <div className="text-white text-xl">Loading campaign...</div>
+                <div className="flex flex-col items-center gap-4 text-center">
+                    <Loader2 size={48} className="text-yellow-500 animate-spin" />
+                    <div>
+                        <div className="text-white text-xl font-bold">Loading Campaign</div>
+                        <div className="text-gray-400 text-sm mt-1">Preparing your dungeon...</div>
+                    </div>
+                </div>
             </div>
         );
     }
@@ -333,9 +326,22 @@ Items:
 
                             {importing && (
                                 <div className="mt-4 p-4 bg-purple-900/20 border border-purple-700 rounded-lg">
-                                    <p className="text-purple-300 text-sm font-semibold mb-2">⏳ This may take a few minutes...</p>
-                                    <p className="text-gray-400 text-xs">
-                                        Parsing campaign text, generating maps for each location and travel paths, creating quests, items, and encounters...
+                                    <p className="text-purple-300 text-sm font-semibold mb-3">⏳ Generating your campaign content...</p>
+                                    <div className="space-y-2">
+                                        {[
+                                            { step: '🧠 Parsing session text with AI', done: true },
+                                            { step: '🗺️ Generating top-down maps (SD)', done: false },
+                                            { step: '📜 Creating quests & encounters', done: false },
+                                            { step: '🎒 Adding items to campaign', done: false },
+                                        ].map((item, i) => (
+                                            <div key={i} className="flex items-center gap-2 text-xs">
+                                                <div className={`w-3 h-3 rounded-full flex-shrink-0 ${item.done ? 'bg-green-500' : 'bg-purple-500 animate-pulse'}`} />
+                                                <span className="text-gray-300">{item.step}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <p className="text-gray-500 text-xs mt-3">
+                                        Map generation may take 1-3 minutes if Stable Diffusion is running.
                                     </p>
                                 </div>
                             )}

@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Plus, Trash2, Upload, Image as ImageIcon } from 'lucide-react';
+import { Plus, Trash2, Image as ImageIcon, Wand2, Loader2, X } from 'lucide-react';
 import { SkeletonList } from '@/components/shared/ui/SkeletonList';
+import { toast } from 'sonner';
 
 interface Map {
     id: string;
@@ -23,6 +24,9 @@ export default function MapsTab({ campaignId }: MapsTabProps) {
     const [newMapUrl, setNewMapUrl] = useState('');
     const [newMapTitle, setNewMapTitle] = useState('');
     const [loading, setLoading] = useState(true);
+    const [showAIModal, setShowAIModal] = useState(false);
+    const [aiPrompt, setAIPrompt] = useState('');
+    const [aiGenerating, setAIGenerating] = useState(false);
 
     useEffect(() => {
         loadMaps();
@@ -44,6 +48,37 @@ export default function MapsTab({ campaignId }: MapsTabProps) {
             console.error('Error loading maps:', error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const generateAIMap = async () => {
+        if (!aiPrompt.trim()) return;
+        setAIGenerating(true);
+        try {
+            const res = await fetch('/api/generate-map-image', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt: aiPrompt, campaignId })
+            });
+            const data = await res.json();
+            if (!data.success || !data.imageUrl) {
+                toast.error('SD not running', { description: 'Start Stable Diffusion with --api flag.' });
+                return;
+            }
+            // Add generated map to library
+            const newMap = { id: crypto.randomUUID(), url: data.imageUrl, title: aiPrompt.substring(0, 40) };
+            const updatedMaps = [...maps, newMap];
+            const { data: currentState } = await supabase.from('campaign_state').select('map').eq('campaign_id', campaignId).single();
+            await supabase.from('campaign_state').update({ map: { ...currentState?.map, queue: updatedMaps } }).eq('campaign_id', campaignId);
+            setMaps(updatedMaps);
+            setShowAIModal(false);
+            setAIPrompt('');
+            toast.success('AI map generated!', { description: 'Map added to your library.' });
+        } catch (err) {
+            console.error('Error generating AI map:', err);
+            toast.error('Failed to generate map');
+        } finally {
+            setAIGenerating(false);
         }
     };
 
@@ -158,13 +193,22 @@ export default function MapsTab({ campaignId }: MapsTabProps) {
             <div>
                 <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-bold text-white">Map Library</h3>
-                    <button
-                        onClick={() => setShowAddModal(true)}
-                        className="flex items-center gap-2 px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors"
-                    >
-                        <Plus size={18} />
-                        Add Map
-                    </button>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => setShowAIModal(true)}
+                            className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors text-sm"
+                        >
+                            <Wand2 size={16} />
+                            AI Generate
+                        </button>
+                        <button
+                            onClick={() => setShowAddModal(true)}
+                            className="flex items-center gap-2 px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors"
+                        >
+                            <Plus size={18} />
+                            Add Map
+                        </button>
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -254,6 +298,52 @@ export default function MapsTab({ campaignId }: MapsTabProps) {
                                     setNewMapUrl('');
                                     setNewMapTitle('');
                                 }}
+                                className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded-lg transition-colors"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* AI Generate Modal */}
+            {showAIModal && (
+                <div className="fixed inset-0 bg-black/75 flex items-center justify-center p-4 z-50">
+                    <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full border border-purple-700">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                                <Wand2 size={20} className="text-purple-400" />
+                                AI Map Generator
+                            </h3>
+                            <button onClick={() => setShowAIModal(false)} className="text-gray-400 hover:text-white">
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <p className="text-gray-400 text-sm mb-4">
+                            Describe the location and SD will generate a top-down battle map.
+                        </p>
+                        <textarea
+                            value={aiPrompt}
+                            onChange={(e) => setAIPrompt(e.target.value)}
+                            placeholder="Stone dungeon with torches and a central pit trap..."
+                            rows={4}
+                            className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:border-purple-500 focus:outline-none resize-none mb-4"
+                        />
+                        <div className="flex gap-3">
+                            <button
+                                onClick={generateAIMap}
+                                disabled={aiGenerating || !aiPrompt.trim()}
+                                className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:from-gray-600 disabled:to-gray-600 text-white font-bold py-2 px-4 rounded-lg transition-all flex items-center justify-center gap-2"
+                            >
+                                {aiGenerating ? (
+                                    <><Loader2 size={16} className="animate-spin" />Generating...</>
+                                ) : (
+                                    <><Wand2 size={16} />Generate</>
+                                )}
+                            </button>
+                            <button
+                                onClick={() => { setShowAIModal(false); setAIPrompt(''); }}
                                 className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded-lg transition-colors"
                             >
                                 Cancel
