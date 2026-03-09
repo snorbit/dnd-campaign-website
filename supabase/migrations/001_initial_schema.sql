@@ -68,6 +68,8 @@ CREATE TABLE public.campaign_state (
   quests JSONB DEFAULT '[]',
   npcs JSONB DEFAULT '[]',
   items JSONB DEFAULT '[]',
+  time JSONB DEFAULT '{"day": 1, "month": 1, "year": 1492, "weather": "Clear", "timeOfDay": "Morning"}',
+  audio JSONB DEFAULT '{"url": "", "isPlaying": false, "volume": 50}',
   updated_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -114,6 +116,18 @@ CREATE TABLE public.player_inventory (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
+-- Player journals and public lore
+CREATE TABLE public.player_journals (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  campaign_id UUID REFERENCES public.campaigns(id) ON DELETE CASCADE,
+  player_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  content TEXT,
+  is_public BOOLEAN DEFAULT false,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
 -----------------------------------------------
 -- PART 2: ENABLE ROW LEVEL SECURITY ON ALL TABLES
 -----------------------------------------------
@@ -127,6 +141,7 @@ ALTER TABLE public.standard_feats ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.homebrew_feats ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.player_feats ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.player_inventory ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.player_journals ENABLE ROW LEVEL SECURITY;
 
 -----------------------------------------------
 -- PART 3: CREATE ALL RLS POLICIES
@@ -286,6 +301,39 @@ CREATE POLICY "DMs can view campaign player inventories"
       WHERE cp.id = campaign_player_id AND c.dm_id = auth.uid()
     )
   );
+
+-- Player journals policies
+CREATE POLICY "Players can view their own private journals"
+  ON public.player_journals FOR SELECT
+  USING (player_id = auth.uid());
+
+CREATE POLICY "Campaign members can view public journals"
+  ON public.player_journals FOR SELECT
+  USING (
+    is_public = true AND
+    EXISTS (
+      SELECT 1 FROM public.campaigns
+      WHERE id = campaign_id AND (
+        dm_id = auth.uid() OR
+        EXISTS (
+          SELECT 1 FROM public.campaign_players
+          WHERE campaign_id = player_journals.campaign_id AND player_id = auth.uid()
+        )
+      )
+    )
+  );
+
+CREATE POLICY "Players can insert their own journals"
+  ON public.player_journals FOR INSERT
+  WITH CHECK (player_id = auth.uid());
+
+CREATE POLICY "Players can update their own journals"
+  ON public.player_journals FOR UPDATE
+  USING (player_id = auth.uid());
+
+CREATE POLICY "Players can delete their own journals"
+  ON public.player_journals FOR DELETE
+  USING (player_id = auth.uid());
 
 -----------------------------------------------
 -- PART 4: AUTO-CREATE PROFILE ON SIGNUP

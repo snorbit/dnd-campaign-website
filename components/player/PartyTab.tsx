@@ -192,7 +192,7 @@ export default function PartyTab({ campaignId }: PartyTabProps) {
                             </div>
 
                             {/* Stats */}
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 {member.hp_max && (
                                     <div className="bg-gray-900/50 rounded p-3">
                                         <div className="flex items-center gap-2 mb-1">

@@ -86,7 +86,7 @@ export default function StatsTab({ campaignPlayerId, level, characterClass }: St
                 </div>
 
                 {/* HP and AC Skeletons */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="bg-gray-800 rounded-lg border border-gray-700 p-6 flex flex-col items-center gap-2">
                         <Skeleton width="w-20" height="h-4" />
                         <Skeleton width="w-32" height="h-8" />
@@ -135,7 +135,7 @@ export default function StatsTab({ campaignPlayerId, level, characterClass }: St
             </div>
 
             {/* HP and AC */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-gray-800 rounded-lg border border-gray-700 p-6 text-center">
                     <div className="text-gray-400 text-sm mb-2">Hit Points</div>
                     <div className="text-3xl font-bold text-red-400">
@@ -151,7 +151,7 @@ export default function StatsTab({ campaignPlayerId, level, characterClass }: St
             {/* Ability Scores */}
             <div>
                 <h3 className="text-xl font-bold text-white mb-4">Ability Scores</h3>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                     {abilities.map((ability) => {
                         const modifier = getModifier(ability.value);
                         return (

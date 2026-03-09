@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Skeleton } from '@/components/shared/ui/Skeleton';
 import { useRealtimeSubscription } from '@/components/shared/hooks/useRealtimeSubscription';
@@ -11,10 +11,21 @@ interface MapTabProps {
     campaignId: string;
 }
 
+interface MapPing {
+    id: string;
+    x: number;
+    y: number;
+    color: string;
+}
+
 export default function MapTab({ campaignId }: MapTabProps) {
     const [mapUrl, setMapUrl] = useState<string>('');
     const [loading, setLoading] = useState(true);
     const [isUpdating, setIsUpdating] = useState(false);
+    
+    // Map Pings State
+    const [pings, setPings] = useState<MapPing[]>([]);
+    const channelRef = useRef<any>(null);
 
     const handleMapUpdate = useCallback((newMap: any) => {
         setIsUpdating(true);
@@ -32,6 +43,22 @@ export default function MapTab({ campaignId }: MapTabProps) {
 
     useEffect(() => {
         loadMap();
+        
+        // Setup Map Pings channel
+        const channel = supabase.channel(`map_pings_${campaignId}`);
+        channelRef.current = channel;
+        
+        channel.on('broadcast', { event: 'ping' }, ({ payload }) => {
+            const newPing = { ...payload, id: crypto.randomUUID() };
+            setPings(prev => [...prev, newPing]);
+            setTimeout(() => {
+                setPings(prev => prev.filter(p => p.id !== newPing.id));
+            }, 3000);
+        }).subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, [campaignId]);
 
     const loadMap = async () => {
@@ -49,6 +76,27 @@ export default function MapTab({ campaignId }: MapTabProps) {
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleMapClick = (e: React.MouseEvent<HTMLImageElement>) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const x = ((e.clientX - rect.left) / rect.width) * 100;
+        const y = ((e.clientY - rect.top) / rect.height) * 100;
+        
+        const color = '#3b82f6'; // Blue for player
+        
+        channelRef.current?.send({
+            type: 'broadcast',
+            event: 'ping',
+            payload: { x, y, color }
+        });
+        
+        // Also show locally
+        const newPing = { id: crypto.randomUUID(), x, y, color };
+        setPings(prev => [...prev, newPing]);
+        setTimeout(() => {
+            setPings(prev => prev.filter(p => p.id !== newPing.id));
+        }, 3000);
     };
 
     if (loading) {
@@ -106,13 +154,33 @@ export default function MapTab({ campaignId }: MapTabProps) {
                     <RealtimeStatus status={realtimeStatus} />
                 </div>
             </div>
-            <div className="bg-gray-900 rounded-lg border border-gray-700 overflow-hidden">
-                <img
-                    src={mapUrl}
-                    alt="Campaign Map"
-                    className="w-full h-auto object-contain"
-                    style={{ maxHeight: '80vh' }}
-                />
+            
+            <div className="bg-gray-900 rounded-lg border border-gray-700 overflow-hidden flex justify-center p-4">
+                <div className="relative inline-block">
+                    <img
+                        src={mapUrl}
+                        alt="Campaign Map"
+                        onClick={handleMapClick}
+                        className="max-w-full max-h-[80vh] object-contain cursor-crosshair rounded shadow-lg"
+                    />
+                    
+                    {pings.map(ping => (
+                        <div key={`anim-${ping.id}`}>
+                            <div 
+                                className="absolute w-6 h-6 rounded-full animate-ping pointer-events-none transform -translate-x-1/2 -translate-y-1/2"
+                                style={{ left: `${ping.x}%`, top: `${ping.y}%`, backgroundColor: ping.color, opacity: 0.6 }} 
+                            />
+                            <div 
+                                className="absolute w-3 h-3 rounded-full pointer-events-none transform -translate-x-1/2 -translate-y-1/2 border-2 border-white shadow-[0_0_8px_rgba(0,0,0,0.8)]"
+                                style={{ left: `${ping.x}%`, top: `${ping.y}%`, backgroundColor: ping.color }} 
+                            />
+                        </div>
+                    ))}
+                </div>
+            </div>
+            
+            <div className="text-xs text-gray-500 text-center">
+                Click anywhere on the map to ping a location to the party
             </div>
         </div>
     );

@@ -145,7 +145,7 @@ export default function DMFeatsTab({ campaignId }: FeatsTabProps) {
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="bg-gray-800 rounded-lg border border-gray-700 p-4 text-center">
                     <div className="text-2xl font-bold text-white">{standardFeats.length}</div>
                     <div className="text-sm text-gray-400">Standard D&D Feats</div>

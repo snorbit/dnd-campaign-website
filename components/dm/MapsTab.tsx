@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Plus, Trash2, Image as ImageIcon, Wand2, Loader2, X } from 'lucide-react';
 import { SkeletonList } from '@/components/shared/ui/SkeletonList';
@@ -17,6 +17,13 @@ interface MapsTabProps {
     campaignId: string;
 }
 
+interface MapPing {
+    id: string;
+    x: number;
+    y: number;
+    color: string;
+}
+
 export default function MapsTab({ campaignId }: MapsTabProps) {
     const [maps, setMaps] = useState<Map[]>([]);
     const [currentMapUrl, setCurrentMapUrl] = useState('');
@@ -28,8 +35,28 @@ export default function MapsTab({ campaignId }: MapsTabProps) {
     const [aiPrompt, setAIPrompt] = useState('');
     const [aiGenerating, setAIGenerating] = useState(false);
 
+    // Map Pings State
+    const [pings, setPings] = useState<MapPing[]>([]);
+    const channelRef = useRef<any>(null);
+
     useEffect(() => {
         loadMaps();
+
+        // Setup Map Pings channel
+        const channel = supabase.channel(`map_pings_${campaignId}`);
+        channelRef.current = channel;
+
+        channel.on('broadcast', { event: 'ping' }, ({ payload }) => {
+            const newPing = { ...payload, id: crypto.randomUUID() };
+            setPings(prev => [...prev, newPing]);
+            setTimeout(() => {
+                setPings(prev => prev.filter(p => p.id !== newPing.id));
+            }, 3000);
+        }).subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, [campaignId]);
 
     const loadMaps = async () => {
@@ -49,6 +76,27 @@ export default function MapsTab({ campaignId }: MapsTabProps) {
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleMapClick = (e: React.MouseEvent<HTMLImageElement>) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const x = ((e.clientX - rect.left) / rect.width) * 100;
+        const y = ((e.clientY - rect.top) / rect.height) * 100;
+
+        const color = '#ef4444'; // Red for DM
+
+        channelRef.current?.send({
+            type: 'broadcast',
+            event: 'ping',
+            payload: { x, y, color }
+        });
+
+        // Also show locally
+        const newPing = { id: crypto.randomUUID(), x, y, color };
+        setPings(prev => [...prev, newPing]);
+        setTimeout(() => {
+            setPings(prev => prev.filter(p => p.id !== newPing.id));
+        }, 3000);
     };
 
     const generateAIMap = async () => {
@@ -177,10 +225,33 @@ export default function MapsTab({ campaignId }: MapsTabProps) {
         <div className="space-y-6">
             {/* Current Map Preview */}
             <div>
-                <h3 className="text-lg font-bold text-white mb-3">Currently Displayed</h3>
+                <h3 className="text-lg font-bold text-white mb-3 flex items-center justify-between">
+                    <span>Currently Displayed</span>
+                    <span className="text-xs font-normal text-gray-500">Click to ping location</span>
+                </h3>
                 {currentMapUrl ? (
-                    <div className="bg-gray-900 rounded-lg border border-yellow-600 p-2">
-                        <img src={currentMapUrl} alt="Current Map" className="w-full h-48 object-cover rounded" />
+                    <div className="bg-gray-900 rounded-lg border border-yellow-600 p-4 flex justify-center">
+                        <div className="relative inline-block">
+                            <img
+                                src={currentMapUrl}
+                                alt="Current Map"
+                                onClick={handleMapClick}
+                                className="max-w-full max-h-[60vh] object-contain cursor-crosshair rounded shadow-lg"
+                            />
+
+                            {pings.map(ping => (
+                                <div key={`anim-${ping.id}`}>
+                                    <div
+                                        className="absolute w-6 h-6 rounded-full animate-ping pointer-events-none transform -translate-x-1/2 -translate-y-1/2"
+                                        style={{ left: `${ping.x}%`, top: `${ping.y}%`, backgroundColor: ping.color, opacity: 0.6 }}
+                                    />
+                                    <div
+                                        className="absolute w-3 h-3 rounded-full pointer-events-none transform -translate-x-1/2 -translate-y-1/2 border-2 border-white shadow-[0_0_8px_rgba(0,0,0,0.8)]"
+                                        style={{ left: `${ping.x}%`, top: `${ping.y}%`, backgroundColor: ping.color }}
+                                    />
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 ) : (
                     <div className="bg-gray-800 rounded-lg border border-gray-700 p-8 text-center text-gray-400">
@@ -211,7 +282,7 @@ export default function MapsTab({ campaignId }: MapsTabProps) {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                     {maps.map((map) => (
                         <div
                             key={map.id}

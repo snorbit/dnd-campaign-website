@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { Map, Swords, Users, ScrollText, UserCircle, Package, Award, BookOpen } from 'lucide-react';
+import { Map, Swords, Users, ScrollText, UserCircle, Package, Award, BookOpen, Menu, X, Coins, Edit3, Music, Calendar } from 'lucide-react';
 import MapsTab from '@/components/dm/MapsTab';
 import EncountersTab from '@/components/dm/EncountersTab';
 import PlayersTab from '@/components/dm/PlayersTab';
@@ -13,11 +13,16 @@ import NPCsTab from '@/components/dm/NPCsTab';
 import ItemsTab from '@/components/dm/ItemsTab';
 import DMFeatsTab from '@/components/dm/FeatsTab';
 import SessionsTab from '@/components/dm/SessionsTab';
+import LootGeneratorTab from '@/components/dm/LootGeneratorTab';
+import ScratchpadTab from '@/components/dm/ScratchpadTab';
+import AudioTab from '@/components/dm/AudioTab';
+import TimeTab from '@/components/dm/TimeTab';
+import { AudioPlayer } from '@/components/shared/AudioPlayer';
 import { DiceRoller } from '@/components/shared/DiceRoller';
 import { CampaignProvider, useCampaign } from '@/context/CampaignContext';
 import { Loader2 } from 'lucide-react';
 
-type TabId = 'maps' | 'encounters' | 'players' | 'quests' | 'npcs' | 'items' | 'feats' | 'sessions';
+type TabId = 'maps' | 'encounters' | 'players' | 'quests' | 'npcs' | 'items' | 'feats' | 'sessions' | 'loot' | 'scratchpad' | 'audio' | 'time';
 
 const tabs = [
     { id: 'maps' as TabId, label: 'Maps', icon: Map },
@@ -26,6 +31,10 @@ const tabs = [
     { id: 'quests' as TabId, label: 'Quests', icon: ScrollText },
     { id: 'npcs' as TabId, label: 'NPCs', icon: UserCircle },
     { id: 'items' as TabId, label: 'Items', icon: Package },
+    { id: 'loot' as TabId, label: 'Loot Gen', icon: Coins },
+    { id: 'time' as TabId, label: 'Time & Weather', icon: Calendar },
+    { id: 'audio' as TabId, label: 'Audio', icon: Music },
+    { id: 'scratchpad' as TabId, label: 'Scratchpad', icon: Edit3 },
     { id: 'feats' as TabId, label: 'Feats', icon: Award },
     { id: 'sessions' as TabId, label: 'Sessions', icon: BookOpen },
 ];
@@ -41,6 +50,7 @@ export default function DMCampaignPage() {
     const [showImportModal, setShowImportModal] = useState(false);
     const [importText, setImportText] = useState('');
     const [importing, setImporting] = useState(false);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     useEffect(() => {
         loadCampaign();
@@ -146,6 +156,14 @@ export default function DMCampaignPage() {
                 return <NPCsTab campaignId={campaignId} />;
             case 'items':
                 return <ItemsTab campaignId={campaignId} />;
+            case 'loot':
+                return <LootGeneratorTab campaignId={campaignId} />;
+            case 'time':
+                return <TimeTab campaignId={campaignId} />;
+            case 'audio':
+                return <AudioTab campaignId={campaignId} />;
+            case 'scratchpad':
+                return <ScratchpadTab campaignId={campaignId} />;
             case 'feats':
                 return <DMFeatsTab campaignId={campaignId} />;
             case 'sessions':
@@ -175,8 +193,30 @@ export default function DMCampaignPage() {
 
     return (
         <CampaignProvider>
-            <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black flex">
-                <div className="w-64 bg-gray-800 border-r border-gray-700 flex flex-col">
+            <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black flex flex-col md:flex-row h-screen">
+                {/* Mobile Header */}
+                <div className="md:hidden bg-gray-800 border-b border-gray-700 p-4 flex justify-between items-center z-20 shrink-0">
+                    <div>
+                        <h2 className="text-lg font-bold text-white truncate">{campaign.name}</h2>
+                        <span className="text-xs text-yellow-500 font-semibold">DUNGEON MASTER</span>
+                    </div>
+                    <button
+                        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                        className="text-gray-400 hover:text-white"
+                    >
+                        {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
+                    </button>
+                </div>
+
+                <div className={`
+                    ${isSidebarOpen ? 'flex' : 'hidden'} 
+                    md:flex flex-col 
+                    w-full md:w-64 shrink-0 
+                    bg-gray-800 border-b md:border-b-0 md:border-r border-gray-700 
+                    absolute md:relative z-10 
+                    top-[73px] md:top-0 h-[calc(100vh-73px)] md:h-full
+                    overflow-y-auto
+                `}>
                     {/* Campaign Header */}
                     <div className="p-4 border-b border-gray-700">
                         <button
@@ -221,7 +261,10 @@ export default function DMCampaignPage() {
                             return (
                                 <button
                                     key={tab.id}
-                                    onClick={() => setActiveTab(tab.id)}
+                                    onClick={() => {
+                                        setActiveTab(tab.id);
+                                        setIsSidebarOpen(false);
+                                    }}
                                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
                                         ? 'bg-yellow-600 text-white font-bold'
                                         : 'text-gray-400 hover:bg-gray-700 hover:text-white'
@@ -250,10 +293,10 @@ export default function DMCampaignPage() {
                 </div>
 
                 {/* Main Content */}
-                <div className="flex-1 overflow-y-auto relative">
+                <div className={`flex-1 overflow-y-auto relative ${isSidebarOpen ? 'hidden md:block' : 'block'}`}>
                     {/* Global Sync Overlay for Context Actions */}
                     <SyncIndicator />
-                    <div className="p-8">
+                    <div className="p-4 md:p-8">
                         {renderTabContent()}
                     </div>
                 </div>
@@ -359,6 +402,7 @@ Items:
                     </div>
                 )}
                 <DiceRoller />
+                <AudioPlayer />
             </div>
         </CampaignProvider>
     );

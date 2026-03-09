@@ -1,13 +1,15 @@
 "use client";
 
 import React, { createContext, useContext, useState, ReactNode, useEffect, useRef } from 'react';
-import { CampaignState, Player, WorldState, MapData, Monster, Quest } from '@/types';
+import { CampaignState, Player, WorldState, MapData, Monster, Quest, AudioState, TimeState } from '@/types';
 import localPlayers from '@/data/players.json'; // Direct import as fallback
 import { supabase } from '@/lib/supabase';
 
 // Default / Fallback Data
 const defaultWorld: WorldState = { day: 1, time: "08:00 AM", session: 1 };
 const defaultMap: MapData = { url: "", queue: [], currentIndex: 0 };
+const defaultAudio: AudioState = { url: "", isPlaying: false, volume: 50 };
+const defaultTime: TimeState = { day: 1, month: 1, year: 1492, weather: "Clear", timeOfDay: "Morning" };
 
 const CampaignContext = createContext<CampaignState | undefined>(undefined);
 
@@ -20,6 +22,8 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
     const [map, setMap] = useState<MapData>(defaultMap);
     const [encounters, setEncounters] = useState<Monster[]>([]);
     const [quests, setQuests] = useState<Quest[]>([]);
+    const [audio, setAudio] = useState<AudioState>(defaultAudio);
+    const [time, setTime] = useState<TimeState>(defaultTime);
     const [dbId, setDbId] = useState<number>(1); // Default to row 1
     const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'error'>('connecting');
     const [lastError, setLastError] = useState<string | null>(null);
@@ -57,6 +61,8 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
                 if (data.world) setWorld(data.world);
                 if (data.encounters) setEncounters(data.encounters);
                 if (data.quests) setQuests(data.quests);
+                if (data.audio) setAudio(data.audio);
+                if (data.time) setTime(data.time);
 
                 if (data.map) {
                     setMap({
@@ -75,7 +81,9 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
                     world: defaultWorld,
                     map: defaultMap,
                     encounters: [],
-                    quests: []
+                    quests: [],
+                    audio: defaultAudio,
+                    time: defaultTime
                 }]).select().single();
 
                 if (insertError) {
@@ -89,6 +97,8 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
                     setPlayers(insertData.players);
                     setWorld(insertData.world);
                     setMap(insertData.map);
+                    setAudio(insertData.audio);
+                    setTime(insertData.time);
                 }
             }
         };
@@ -122,6 +132,8 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
                     });
                     if (newData.encounters) setEncounters(newData.encounters);
                     if (newData.quests) setQuests(newData.quests);
+                    if (newData.audio) setAudio(newData.audio);
+                    if (newData.time) setTime(newData.time);
                 }
             )
             .subscribe((status: string) => {
@@ -272,6 +284,22 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
         });
     };
 
+    const updateAudio = (updates: Partial<AudioState>) => {
+        setAudio((prev: AudioState) => {
+            const newAudio = { ...prev, ...updates };
+            pushUpdate('audio', newAudio);
+            return newAudio;
+        });
+    };
+
+    const updateTime = (updates: Partial<TimeState>) => {
+        setTime((prev: TimeState) => {
+            const newTime = { ...prev, ...updates };
+            pushUpdate('time', newTime);
+            return newTime;
+        });
+    };
+
     const seedDatabase = async () => {
         if (!initialPlayers) return;
         setPlayers(initialPlayers);
@@ -282,11 +310,12 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
     return (
         <CampaignContext.Provider value={{
             id: dbId,
-            players, world, map, encounters, quests,
+            players, world, map, encounters, quests, audio, time,
             updatePlayer, updateWorld, updateMap,
             setMapQueue, nextMap,
             addEncounter, removeEncounter, updateEncounter,
             addQuest, updateQuest, updatePlayerPosition,
+            updateAudio, updateTime,
             seedDatabase,
             connectionStatus, lastError, isSyncing,
             resetMap: () => {

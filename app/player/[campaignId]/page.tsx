@@ -3,18 +3,21 @@
 import { supabase } from '@/lib/supabase';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { Map, User, Backpack, Users, ScrollText, Award, BarChart3 } from 'lucide-react';
+import { Map, User, Backpack, Users, ScrollText, Award, BarChart3, Menu, X, Book } from 'lucide-react';
 import MapTab from '@/components/player/MapTab';
 import StatsTab from '@/components/player/StatsTab';
 import InventoryTab from '@/components/player/InventoryTab';
 import PartyTab from '@/components/player/PartyTab';
 import QuestsTab from '@/components/player/QuestsTab';
 import FeatsTab from '@/components/player/FeatsTab';
+import JournalTab from '@/components/player/JournalTab';
 import CharacterSheet from '@/components/player/CharacterSheet';
+import { AudioPlayer } from '@/components/shared/AudioPlayer';
+import TimeWidget from '@/components/shared/TimeWidget';
 import { DiceRoller } from '@/components/shared/DiceRoller';
 import { CampaignProvider } from '@/context/CampaignContext';
 
-type TabId = 'character' | 'map' | 'stats' | 'inventory' | 'party' | 'quests' | 'feats';
+type TabId = 'character' | 'map' | 'stats' | 'inventory' | 'party' | 'quests' | 'feats' | 'journal';
 
 const tabs = [
     { id: 'character' as TabId, label: 'Character', icon: User },
@@ -24,6 +27,7 @@ const tabs = [
     { id: 'party' as TabId, label: 'Party', icon: Users },
     { id: 'quests' as TabId, label: 'Quests', icon: ScrollText },
     { id: 'feats' as TabId, label: 'Feats', icon: Award },
+    { id: 'journal' as TabId, label: 'Journals', icon: Book },
 ];
 
 export default function PlayerCampaignPage() {
@@ -35,6 +39,7 @@ export default function PlayerCampaignPage() {
     const [campaign, setCampaign] = useState<any>(null);
     const [character, setCharacter] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     useEffect(() => {
         loadCampaignAndCharacter();
@@ -107,6 +112,8 @@ export default function PlayerCampaignPage() {
                 return <QuestsTab campaignId={campaignId} />;
             case 'feats':
                 return <FeatsTab campaignPlayerId={character.id} campaignId={campaignId} />;
+            case 'journal':
+                return <JournalTab campaignId={campaignId} playerId={character.player_id} />;
             default:
                 return <div className="text-gray-400">Tab not found</div>;
         }
@@ -126,9 +133,30 @@ export default function PlayerCampaignPage() {
 
     return (
         <CampaignProvider>
-            <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black flex">
+            <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black flex flex-col md:flex-row h-screen">
+                {/* Mobile Header */}
+                <div className="md:hidden bg-gray-800 border-b border-gray-700 p-4 flex justify-between items-center z-20 shrink-0">
+                    <div>
+                        <h2 className="text-lg font-bold text-white truncate">{campaign.name}</h2>
+                        <span className="text-xs text-blue-500 font-semibold">{character.character_name}</span>
+                    </div>
+                    <button
+                        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                        className="text-gray-400 hover:text-white"
+                    >
+                        {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
+                    </button>
+                </div>
+
                 {/* Sidebar */}
-                <div className="w-64 bg-gray-800 border-r border-gray-700 flex flex-col">
+                <div className={`
+                    ${isSidebarOpen ? 'flex' : 'hidden'} 
+                    md:flex flex-col 
+                    w-full md:w-64 shrink-0 
+                    bg-gray-800 border-b md:border-b-0 md:border-r border-gray-700 
+                    absolute md:relative z-10 
+                    top-[73px] md:top-0 h-[calc(100vh-73px)] md:h-full
+                `}>
                     {/* Campaign Header */}
                     <div className="p-4 border-b border-gray-700">
                         <button
@@ -150,7 +178,10 @@ export default function PlayerCampaignPage() {
                             return (
                                 <button
                                     key={tab.id}
-                                    onClick={() => setActiveTab(tab.id)}
+                                    onClick={() => {
+                                        setActiveTab(tab.id);
+                                        setIsSidebarOpen(false);
+                                    }}
                                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
                                         ? 'bg-blue-600 text-white font-bold'
                                         : 'text-gray-400 hover:bg-gray-700 hover:text-white'
@@ -165,12 +196,14 @@ export default function PlayerCampaignPage() {
                 </div>
 
                 {/* Main Content */}
-                <div className="flex-1 overflow-y-auto">
-                    <div className="p-8">
+                <div className={`flex-1 overflow-y-auto w-full ${isSidebarOpen ? 'hidden md:block' : 'block'}`}>
+                    <div className="p-4 md:p-8">
+                        <TimeWidget />
                         {renderTabContent()}
                     </div>
                 </div>
                 <DiceRoller />
+                <AudioPlayer />
             </div>
         </CampaignProvider>
     );

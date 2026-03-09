@@ -41,6 +41,8 @@ export const InitiativeTracker: React.FC<InitiativeTrackerProps> = ({
     const tracker = useInitiativeTracker(initialState || {}, onSave);
     const [showAddModal, setShowAddModal] = useState(false);
     const [showConditionModal, setShowConditionModal] = useState<string | null>(null);
+    const [selectedCondition, setSelectedCondition] = useState<Condition | null>(null);
+    const [customDuration, setCustomDuration] = useState<number>(1);
     const [newCombatant, setNewCombatant] = useState<Partial<InitiativeCombatant>>({
         name: '',
         type: 'enemy',
@@ -200,7 +202,7 @@ export const InitiativeTracker: React.FC<InitiativeTrackerProps> = ({
                                             onClick={() => tracker.removeCondition(combatant.id, c.id)}
                                         >
                                             <ConditionIcon name={c.iconName} />
-                                            {c.name}
+                                            {c.name}{c.duration > 0 ? ` (${c.duration})` : ''}
                                         </div>
                                     ))}
                                     <button
@@ -337,26 +339,73 @@ export const InitiativeTracker: React.FC<InitiativeTrackerProps> = ({
                 <div className={styles.modalOverlay}>
                     <div className={styles.modal}>
                         <div className={styles.modalHeader}>
-                            <h3>Add Condition</h3>
-                            <button className={styles.btnGhost} onClick={() => setShowConditionModal(null)}>
+                            <h3>{selectedCondition ? 'Configure Condition' : 'Add Condition'}</h3>
+                            <button className={styles.btnGhost} onClick={() => { setShowConditionModal(null); setSelectedCondition(null); }}>
                                 <X size={20} />
                             </button>
                         </div>
-                        <div className={styles.conditionGrid}>
-                            {CONDITIONS.map(c => (
-                                <div
-                                    key={c.id}
-                                    className={styles.conditionOption}
-                                    onClick={() => {
-                                        tracker.addCondition(showConditionModal, c);
-                                        setShowConditionModal(null);
-                                    }}
-                                >
-                                    <ConditionIcon name={c.iconName} size={24} />
-                                    <span className={styles.conditionOptionLabel}>{c.name}</span>
+
+                        {!selectedCondition ? (
+                            <div className={styles.conditionGrid}>
+                                {CONDITIONS.map(c => (
+                                    <div
+                                        key={c.id}
+                                        className={styles.conditionOption}
+                                        onClick={() => {
+                                            setSelectedCondition(c);
+                                            setCustomDuration(c.duration > 0 ? c.duration : 1);
+                                        }}
+                                    >
+                                        <ConditionIcon name={c.iconName} size={24} />
+                                        <span className={styles.conditionOptionLabel}>{c.name}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div style={{ display: 'grid', gap: '1rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <ConditionIcon name={selectedCondition.iconName} size={24} />
+                                    <h4 style={{ margin: 0, color: 'white' }}>{selectedCondition.name}</h4>
                                 </div>
-                            ))}
-                        </div>
+                                <p className={styles.type}>{selectedCondition.mechanicalSummary}</p>
+
+                                <div>
+                                    <label className={styles.type}>Duration (Rounds)</label>
+                                    <input
+                                        type="number"
+                                        min="-1"
+                                        value={customDuration}
+                                        onChange={e => setCustomDuration(parseInt(e.target.value) || 0)}
+                                        className={styles.btnSecondary}
+                                        style={{ width: '100%', padding: '0.5rem', marginTop: '0.25rem' }}
+                                    />
+                                    <small className={styles.type} style={{ display: 'block', marginTop: '0.25rem' }}>
+                                        Set to -1 for infinite duration. Ticks down at {selectedCondition.endTrigger === 'start_of_turn' ? 'start' : 'end'} of turn.
+                                    </small>
+                                </div>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
+                                    <button
+                                        className={`${styles.btn} ${styles.btnSecondary}`}
+                                        onClick={() => setSelectedCondition(null)}
+                                        style={{ padding: '0.75rem' }}
+                                    >
+                                        Back
+                                    </button>
+                                    <button
+                                        className={`${styles.btn} ${styles.btnPrimary}`}
+                                        onClick={() => {
+                                            tracker.addCondition(showConditionModal, { ...selectedCondition, duration: customDuration });
+                                            setShowConditionModal(null);
+                                            setSelectedCondition(null);
+                                        }}
+                                        style={{ padding: '0.75rem', justifyContent: 'center' }}
+                                    >
+                                        Apply
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
