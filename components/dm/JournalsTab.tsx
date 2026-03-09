@@ -5,23 +5,31 @@ import { supabase } from '@/lib/supabase';
 import { Book, Edit3, Plus, Trash2, Save, Globe, Lock, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
-interface JournalTabProps {
+interface JournalsTabProps {
     campaignId: string;
-    playerId: string;
+}
+
+interface PlayerInfo {
+    id: string;
+    character_name: string;
+    player_id: string;
 }
 
 interface Journal {
     id: string;
     title: string;
     content: string;
-    image_url: string | null;
     is_public: boolean;
+    image_url: string | null;
     updated_at: string;
+    player_id: string; // To know whose journal this is
 }
 
-export default function JournalTab({ campaignId, playerId }: JournalTabProps) {
+export default function JournalsTab({ campaignId }: JournalsTabProps) {
     const [journals, setJournals] = useState<Journal[]>([]);
+    const [players, setPlayers] = useState<PlayerInfo[]>([]);
     const [activeJournal, setActiveJournal] = useState<Journal | null>(null);
+    const [selectedPlayerId, setSelectedPlayerId] = useState<string>('all');
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
@@ -30,29 +38,40 @@ export default function JournalTab({ campaignId, playerId }: JournalTabProps) {
     const [editContent, setEditContent] = useState('');
     const [editImageUrl, setEditImageUrl] = useState('');
     const [isPublic, setIsPublic] = useState(false);
+    const [editPlayerId, setEditPlayerId] = useState<string>(''); // For creating new journals
 
     useEffect(() => {
-        loadJournals();
-    }, [campaignId, playerId]);
+        loadData();
+    }, [campaignId]);
 
-    const loadJournals = async () => {
+    const loadData = async () => {
         try {
-            const { data, error } = await supabase
+            setLoading(true);
+
+            // Load players
+            const { data: playersData, error: playersError } = await supabase
+                .from('campaign_players')
+                .select('id, character_name, player_id')
+                .eq('campaign_id', campaignId);
+
+            if (playersError) throw playersError;
+            setPlayers(playersData || []);
+
+            // Load journals
+            const { data: journalsData, error: journalsError } = await supabase
                 .from('player_journals')
                 .select('*')
                 .eq('campaign_id', campaignId)
-                .eq('player_id', playerId)
                 .order('updated_at', { ascending: false });
 
-            if (error) throw error;
-            setJournals(data || []);
+            if (journalsError) throw journalsError;
+            setJournals(journalsData || []);
 
-            // Auto open first journal or reset
-            if (data && data.length > 0 && !activeJournal) {
-                openJournal(data[0]);
+            if (journalsData && journalsData.length > 0 && !activeJournal) {
+                openJournal(journalsData[0]);
             }
         } catch (error) {
-            console.error('Error loading journals:', error);
+            console.error('Error loading journals data:', error);
             toast.error('Failed to load journals');
         } finally {
             setLoading(false);
@@ -65,15 +84,18 @@ export default function JournalTab({ campaignId, playerId }: JournalTabProps) {
         setEditContent(journal.content || '');
         setEditImageUrl(journal.image_url || '');
         setIsPublic(journal.is_public);
+        setEditPlayerId(journal.player_id);
     };
 
     const handleCreateNew = () => {
+        const firstPlayerId = players.length > 0 ? players[0].player_id : '';
         const newJournal: any = {
             id: 'new',
-            title: 'New Entry',
+            title: 'New DM Note',
             content: '',
             image_url: '',
-            is_public: false
+            is_public: false,
+            player_id: firstPlayerId
         };
         openJournal(newJournal);
     };
@@ -84,6 +106,11 @@ export default function JournalTab({ campaignId, playerId }: JournalTabProps) {
             return;
         }
 
+        if (!editPlayerId && !isPublic) {
+            toast.error("Private notes must be assigned to a player");
+            return;
+        }
+
         setSaving(true);
         try {
             if (activeJournal?.id === 'new') {
@@ -91,7 +118,7 @@ export default function JournalTab({ campaignId, playerId }: JournalTabProps) {
                     .from('player_journals')
                     .insert([{
                         campaign_id: campaignId,
-                        player_id: playerId,
+                        player_id: editPlayerId,
                         title: editTitle,
                         content: editContent,
                         image_url: editImageUrl || null,
@@ -112,6 +139,7 @@ export default function JournalTab({ campaignId, playerId }: JournalTabProps) {
                         content: editContent,
                         image_url: editImageUrl || null,
                         is_public: isPublic,
+                        player_id: editPlayerId, // In case DM changes who it belongs to
                         updated_at: new Date().toISOString()
                     })
                     .eq('id', activeJournal?.id)
@@ -162,6 +190,15 @@ export default function JournalTab({ campaignId, playerId }: JournalTabProps) {
         }
     };
 
+    const getPlayerName = (pid: string) => {
+        const p = players.find(p => p.player_id === pid);
+        return p ? p.character_name : 'Unknown Player';
+    };
+
+    const filteredJournals = journals.filter(j =>
+        selectedPlayerId === 'all' ? true : j.player_id === selectedPlayerId
+    );
+
     if (loading) {
         return <div className="text-gray-400">Loading journals...</div>;
     }
@@ -169,19 +206,33 @@ export default function JournalTab({ campaignId, playerId }: JournalTabProps) {
     return (
         <div className="flex h-[calc(100vh-12rem)] max-h-[800px] border border-gray-700 rounded-lg overflow-hidden bg-gray-900">
             {/* Left Sidebar - Journal List */}
-            <div className="w-1/3 min-w-[200px] max-w-[300px] border-r border-gray-700 bg-gray-800 flex flex-col">
-                <div className="p-4 border-b border-gray-700 flex justify-between items-center">
-                    <h3 className="text-white font-bold flex items-center gap-2">
-                        <Book size={18} className="text-blue-400" />
-                        Journals
-                    </h3>
-                    <button
-                        onClick={handleCreateNew}
-                        className="text-gray-400 hover:text-white p-1 hover:bg-gray-700 rounded transition"
-                        title="New Journal Entry"
+            <div className="w-1/3 min-w-[250px] max-w-[350px] border-r border-gray-700 bg-gray-800 flex flex-col">
+                <div className="p-4 border-b border-gray-700">
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-white font-bold flex items-center gap-2">
+                            <Book size={18} className="text-blue-400" />
+                            Campaign Journals
+                        </h3>
+                        <button
+                            onClick={handleCreateNew}
+                            className="bg-blue-600 hover:bg-blue-700 text-white p-1.5 rounded transition shadow-sm"
+                            title="New Journal Entry"
+                        >
+                            <Plus size={16} />
+                        </button>
+                    </div>
+                    <select
+                        value={selectedPlayerId}
+                        onChange={(e) => setSelectedPlayerId(e.target.value)}
+                        className="w-full bg-gray-900 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none focus:border-blue-500"
                     >
-                        <Plus size={20} />
-                    </button>
+                        <option value="all">All Journals (Public & Private)</option>
+                        {players.map(p => (
+                            <option key={p.player_id} value={p.player_id}>
+                                {p.character_name}'s Journals
+                            </option>
+                        ))}
+                    </select>
                 </div>
 
                 <div className="flex-1 overflow-y-auto">
@@ -192,14 +243,14 @@ export default function JournalTab({ campaignId, playerId }: JournalTabProps) {
                         </div>
                     )}
 
-                    {journals.length === 0 && activeJournal?.id !== 'new' && (
+                    {filteredJournals.length === 0 && activeJournal?.id !== 'new' && (
                         <div className="p-6 text-center text-gray-500 space-y-2">
                             <Book size={32} className="mx-auto opacity-20" />
-                            <p className="text-sm">No journal entries yet.</p>
+                            <p className="text-sm">No journal entries found.</p>
                         </div>
                     )}
 
-                    {journals.map(journal => {
+                    {filteredJournals.map(journal => {
                         const isActive = activeJournal?.id === journal.id;
                         return (
                             <div
@@ -214,10 +265,14 @@ export default function JournalTab({ campaignId, playerId }: JournalTabProps) {
                                             {journal.title}
                                             {journal.image_url && <ImageIcon size={12} className="text-purple-400 shrink-0" />}
                                         </h4>
-                                        <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-                                            {journal.is_public ? <Globe size={10} className="text-green-400" /> : <Lock size={10} className="text-gray-400" />}
-                                            {new Date(journal.updated_at).toLocaleDateString()}
-                                        </p>
+                                        <div className="text-xs text-gray-500 mt-1.5 flex items-center gap-2 flex-wrap">
+                                            {journal.is_public ? (
+                                                <span className="flex items-center gap-1 text-green-400/80 bg-green-900/30 px-1.5 py-0.5 rounded"><Globe size={10} /> Public</span>
+                                            ) : (
+                                                <span className="flex items-center gap-1 text-gray-400 bg-gray-900/50 px-1.5 py-0.5 rounded"><Lock size={10} /> Private</span>
+                                            )}
+                                            <span className="text-yellow-500/80 truncate">By {getPlayerName(journal.player_id)}</span>
+                                        </div>
                                     </div>
                                     <button
                                         onClick={(e) => handleDelete(journal.id, e)}
@@ -238,7 +293,7 @@ export default function JournalTab({ campaignId, playerId }: JournalTabProps) {
                     <>
                         {/* Editor Header */}
                         <div className="p-4 border-b border-gray-700 bg-gray-800/50 space-y-4">
-                            <div className="flex flex-wrap gap-4 justify-between items-center">
+                            <div className="flex flex-wrap gap-4 justify-between items-start">
                                 <input
                                     type="text"
                                     value={editTitle}
@@ -246,8 +301,8 @@ export default function JournalTab({ campaignId, playerId }: JournalTabProps) {
                                     className="bg-transparent text-xl font-bold text-white focus:outline-none focus:border-b border-blue-500 flex-1 min-w-[200px]"
                                     placeholder="Journal Title"
                                 />
-                                <div className="flex items-center gap-3">
-                                    <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-300 border border-gray-700 px-3 py-1 rounded bg-gray-900">
+                                <div className="flex items-center gap-4 shrink-0">
+                                    <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-300 bg-gray-900 px-3 py-1.5 rounded-lg border border-gray-600 hover:border-gray-500 transition">
                                         <input
                                             type="checkbox"
                                             checked={isPublic}
@@ -255,15 +310,15 @@ export default function JournalTab({ campaignId, playerId }: JournalTabProps) {
                                             className="rounded bg-gray-800 border-gray-600 text-blue-500 focus:ring-blue-500 focus:ring-offset-gray-900"
                                         />
                                         {isPublic ? (
-                                            <span className="flex items-center gap-1 text-green-400 font-medium"><Globe size={14} /> Public Lore</span>
+                                            <span className="flex items-center gap-1 text-green-400 font-medium"><Globe size={14} /> Global Lore</span>
                                         ) : (
-                                            <span className="flex items-center gap-1"><Lock size={14} /> Private Notes</span>
+                                            <span className="flex items-center gap-1"><Lock size={14} /> Private Note</span>
                                         )}
                                     </label>
                                     <button
                                         onClick={handleSave}
                                         disabled={saving}
-                                        className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded-lg flex items-center gap-2 text-sm font-medium transition-colors"
+                                        className="px-6 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded-lg flex items-center gap-2 text-sm font-bold shadow-md transition-colors"
                                     >
                                         <Save size={16} />
                                         {saving ? 'Saving...' : 'Save'}
@@ -272,15 +327,32 @@ export default function JournalTab({ campaignId, playerId }: JournalTabProps) {
                             </div>
 
                             {/* Options Row */}
-                            <div className="flex items-center gap-2 bg-gray-900/50 p-2 rounded border border-gray-700/50 focus-within:border-blue-500 transition">
-                                <ImageIcon size={16} className="text-purple-400 shrink-0" />
-                                <input
-                                    type="text"
-                                    value={editImageUrl}
-                                    onChange={(e) => setEditImageUrl(e.target.value)}
-                                    className="w-full bg-transparent text-sm text-gray-300 focus:outline-none placeholder-gray-600"
-                                    placeholder="Add external image URL (optional)"
-                                />
+                            <div className="flex gap-4 items-center">
+                                <div className="flex-1 flex items-center gap-2 bg-gray-900/50 p-2 rounded border border-gray-700/50">
+                                    <span className="text-xs text-gray-400 font-medium whitespace-nowrap">Owner:</span>
+                                    <select
+                                        value={editPlayerId}
+                                        onChange={(e) => setEditPlayerId(e.target.value)}
+                                        className="w-full bg-transparent text-sm text-yellow-500 font-medium focus:outline-none cursor-pointer"
+                                    >
+                                        <option value="" disabled>Select Player...</option>
+                                        {players.map(p => (
+                                            <option key={p.player_id} value={p.player_id} className="bg-gray-800 text-white">
+                                                {p.character_name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="flex-1 flex items-center gap-2 bg-gray-900/50 p-2 rounded border border-gray-700/50 focus-within:border-blue-500 transition">
+                                    <ImageIcon size={16} className="text-purple-400 shrink-0" />
+                                    <input
+                                        type="text"
+                                        value={editImageUrl}
+                                        onChange={(e) => setEditImageUrl(e.target.value)}
+                                        className="w-full bg-transparent text-sm text-gray-300 focus:outline-none placeholder-gray-600"
+                                        placeholder="Add external image URL (optional)"
+                                    />
+                                </div>
                             </div>
                         </div>
 
@@ -291,17 +363,17 @@ export default function JournalTab({ campaignId, playerId }: JournalTabProps) {
                                     value={editContent}
                                     onChange={(e) => setEditContent(e.target.value)}
                                     className="w-full h-full min-h-[300px] bg-transparent text-gray-300 resize-none focus:outline-none placeholder-gray-600 leading-relaxed font-serif text-lg"
-                                    placeholder="Write your journal entry here..."
+                                    placeholder="Write the lore, handouts, or notes here..."
                                 />
                             </div>
 
                             {/* Image Preview Panel */}
                             {editImageUrl && (
                                 <div className="w-full md:w-1/3 border-t md:border-t-0 md:border-l border-gray-700 bg-gray-800/30 p-4 overflow-y-auto flex flex-col items-center">
-                                    <span className="text-xs text-gray-500 font-medium uppercase tracking-wider mb-3 block w-full text-center">Image Attachment</span>
+                                    <span className="text-xs text-gray-500 font-medium uppercase tracking-wider mb-3 block w-full text-center">Image Handout Attached</span>
                                     <img
                                         src={editImageUrl}
-                                        alt="Journal Attachment"
+                                        alt="Journal Handout"
                                         className="max-w-full rounded border border-gray-700 shadow-xl"
                                         onError={(e) => {
                                             const target = e.target as HTMLImageElement;
@@ -316,12 +388,12 @@ export default function JournalTab({ campaignId, playerId }: JournalTabProps) {
                 ) : (
                     <div className="flex-1 flex flex-col items-center justify-center text-gray-500 space-y-4">
                         <Edit3 size={48} className="opacity-20" />
-                        <p>Select a journal entry or create a new one.</p>
+                        <p>Select a player's journal entry or create a new handout.</p>
                         <button
                             onClick={handleCreateNew}
-                            className="px-4 py-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 font-medium rounded-lg transition border border-blue-500/30"
+                            className="px-6 py-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 font-medium rounded-lg transition border border-blue-500/30"
                         >
-                            Create Journal
+                            Create Journal Entry
                         </button>
                     </div>
                 )}

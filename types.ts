@@ -98,4 +98,5 @@ export interface CampaignState {
     isSyncing?: boolean;
     resetMap: () => void;
     clearQuests: () => void;
+    state?: any; // To support dynamic states like encounters
 }

@@ -3,7 +3,7 @@
 import { supabase } from '@/lib/supabase';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { Map, User, Backpack, Users, ScrollText, Award, BarChart3, Menu, X, Book } from 'lucide-react';
+import { Map, User, Backpack, Users, ScrollText, Award, BarChart3, Menu, X, Book, Sparkles } from 'lucide-react';
 import MapTab from '@/components/player/MapTab';
 import StatsTab from '@/components/player/StatsTab';
 import InventoryTab from '@/components/player/InventoryTab';
@@ -11,19 +11,21 @@ import PartyTab from '@/components/player/PartyTab';
 import QuestsTab from '@/components/player/QuestsTab';
 import FeatsTab from '@/components/player/FeatsTab';
 import JournalTab from '@/components/player/JournalTab';
+import SpellsTab from '@/components/player/SpellsTab';
 import CharacterSheet from '@/components/player/CharacterSheet';
 import { AudioPlayer } from '@/components/shared/AudioPlayer';
 import TimeWidget from '@/components/shared/TimeWidget';
 import { DiceRoller } from '@/components/shared/DiceRoller';
 import { CampaignProvider } from '@/context/CampaignContext';
 
-type TabId = 'character' | 'map' | 'stats' | 'inventory' | 'party' | 'quests' | 'feats' | 'journal';
+type TabId = 'character' | 'map' | 'stats' | 'inventory' | 'spells' | 'party' | 'quests' | 'feats' | 'journal';
 
 const tabs = [
     { id: 'character' as TabId, label: 'Character', icon: User },
     { id: 'map' as TabId, label: 'Map', icon: Map },
     { id: 'stats' as TabId, label: 'Stats', icon: BarChart3 },
     { id: 'inventory' as TabId, label: 'Inventory', icon: Backpack },
+    { id: 'spells' as TabId, label: 'Spells', icon: Sparkles },
     { id: 'party' as TabId, label: 'Party', icon: Users },
     { id: 'quests' as TabId, label: 'Quests', icon: ScrollText },
     { id: 'feats' as TabId, label: 'Feats', icon: Award },
@@ -106,6 +108,8 @@ export default function PlayerCampaignPage() {
                 />;
             case 'inventory':
                 return <InventoryTab campaignPlayerId={character.id} />;
+            case 'spells':
+                return <SpellsTab campaignPlayerId={character.id} />;
             case 'party':
                 return <PartyTab campaignId={campaignId} />;
             case 'quests':

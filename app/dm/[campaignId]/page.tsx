@@ -17,12 +17,13 @@ import LootGeneratorTab from '@/components/dm/LootGeneratorTab';
 import ScratchpadTab from '@/components/dm/ScratchpadTab';
 import AudioTab from '@/components/dm/AudioTab';
 import TimeTab from '@/components/dm/TimeTab';
+import JournalsTab from '@/components/dm/JournalsTab';
 import { AudioPlayer } from '@/components/shared/AudioPlayer';
 import { DiceRoller } from '@/components/shared/DiceRoller';
 import { CampaignProvider, useCampaign } from '@/context/CampaignContext';
 import { Loader2 } from 'lucide-react';
 
-type TabId = 'maps' | 'encounters' | 'players' | 'quests' | 'npcs' | 'items' | 'feats' | 'sessions' | 'loot' | 'scratchpad' | 'audio' | 'time';
+type TabId = 'maps' | 'encounters' | 'players' | 'quests' | 'npcs' | 'items' | 'feats' | 'sessions' | 'loot' | 'scratchpad' | 'audio' | 'time' | 'journals';
 
 const tabs = [
     { id: 'maps' as TabId, label: 'Maps', icon: Map },
@@ -33,6 +34,7 @@ const tabs = [
     { id: 'items' as TabId, label: 'Items', icon: Package },
     { id: 'loot' as TabId, label: 'Loot Gen', icon: Coins },
     { id: 'time' as TabId, label: 'Time & Weather', icon: Calendar },
+    { id: 'journals' as TabId, label: 'Journals', icon: BookOpen },
     { id: 'audio' as TabId, label: 'Audio', icon: Music },
     { id: 'scratchpad' as TabId, label: 'Scratchpad', icon: Edit3 },
     { id: 'feats' as TabId, label: 'Feats', icon: Award },
@@ -160,6 +162,8 @@ export default function DMCampaignPage() {
                 return <LootGeneratorTab campaignId={campaignId} />;
             case 'time':
                 return <TimeTab campaignId={campaignId} />;
+            case 'journals':
+                return <JournalsTab campaignId={campaignId} />;
             case 'audio':
                 return <AudioTab campaignId={campaignId} />;
             case 'scratchpad':
