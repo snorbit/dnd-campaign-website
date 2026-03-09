@@ -14,6 +14,7 @@ export interface InitiativeCombatant {
     conditions: Condition[];
     notes?: string;
     isVisible?: boolean; // For hidden enemies
+    statBlock?: any; // To store full Open5e stat blocks
 }
 
 export interface InitiativeState {

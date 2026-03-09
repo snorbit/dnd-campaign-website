@@ -15,10 +15,13 @@ import {
     User,
     Skull,
     X,
-    Dices
+    Dices,
+    BookOpen
 } from 'lucide-react';
 import { useInitiativeTracker, InitiativeCombatant, InitiativeState } from '@/components/shared/hooks/useInitiativeTracker';
 import { CONDITIONS, Condition } from '@/lib/initiative-data/conditions';
+import { MonsterSearchModal } from './MonsterSearchModal';
+import { StatBlockModal } from './StatBlockModal';
 import styles from './InitiativeTracker.module.css';
 
 interface InitiativeTrackerProps {
@@ -40,6 +43,8 @@ export const InitiativeTracker: React.FC<InitiativeTrackerProps> = ({
 }) => {
     const tracker = useInitiativeTracker(initialState || {}, onSave);
     const [showAddModal, setShowAddModal] = useState(false);
+    const [showMonsterModal, setShowMonsterModal] = useState(false);
+    const [viewingStatBlock, setViewingStatBlock] = useState<any | null>(null);
     const [showConditionModal, setShowConditionModal] = useState<string | null>(null);
     const [selectedCondition, setSelectedCondition] = useState<Condition | null>(null);
     const [customDuration, setCustomDuration] = useState<number>(1);
@@ -87,6 +92,24 @@ export const InitiativeTracker: React.FC<InitiativeTrackerProps> = ({
         });
     };
 
+    const handleAddMonsterFromSRD = (monster: any, initiative: number) => {
+        const combatant: InitiativeCombatant = {
+            id: crypto.randomUUID(),
+            name: monster.name || 'Unknown Monster',
+            type: 'enemy',
+            initiative: initiative,
+            hpMax: monster.hit_points || 10,
+            hpCurrent: monster.hit_points || 10,
+            ac: monster.armor_class || 10,
+            dexModifier: Math.floor(((monster.dexterity || 10) - 10) / 2),
+            conditions: [],
+            isVisible: true,
+            notes: '',
+            statBlock: monster
+        };
+        tracker.addCombatant(combatant);
+    };
+
     const getHPColor = (current: number, max: number) => {
         const percent = (current / max) * 100;
         if (current <= 0) return '#4b5563';
@@ -118,8 +141,12 @@ export const InitiativeTracker: React.FC<InitiativeTrackerProps> = ({
                         <Dices size={16} /> Roll All
                     </button>
 
+                    <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={() => setShowMonsterModal(true)} style={{ backgroundColor: '#7e22ce' }}>
+                        <BookOpen size={16} /> SRD Monsters
+                    </button>
+
                     <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={() => setShowAddModal(true)}>
-                        <Plus size={16} /> Add
+                        <Plus size={16} /> Add Custom
                     </button>
 
                     {onClose && (
@@ -214,6 +241,11 @@ export const InitiativeTracker: React.FC<InitiativeTrackerProps> = ({
                                 </div>
 
                                 <div className={styles.actions}>
+                                    {combatant.statBlock && (
+                                        <button className={styles.btnGhost} onClick={() => setViewingStatBlock(combatant.statBlock)}>
+                                            <BookOpen size={16} />
+                                        </button>
+                                    )}
                                     <button className={styles.btnGhost} onClick={() => tracker.rollInitiative(combatant.id)}>
                                         <Dices size={16} />
                                     </button>
@@ -408,6 +440,20 @@ export const InitiativeTracker: React.FC<InitiativeTrackerProps> = ({
                         )}
                     </div>
                 </div>
+            )}
+
+            {showMonsterModal && (
+                <MonsterSearchModal
+                    onClose={() => setShowMonsterModal(false)}
+                    onAddMonster={handleAddMonsterFromSRD}
+                />
+            )}
+
+            {viewingStatBlock && (
+                <StatBlockModal
+                    monster={viewingStatBlock}
+                    onClose={() => setViewingStatBlock(null)}
+                />
             )}
         </div>
     );
