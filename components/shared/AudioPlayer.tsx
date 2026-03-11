@@ -1,13 +1,16 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import ReactPlayer from 'react-player';
-import { supabase } from '@/lib/supabase';
+import dynamic from 'next/dynamic';
 import { useCampaign } from '@/context/CampaignContext';
 import { Volume2, VolumeX } from 'lucide-react';
 
+// Dynamic import avoids SSR issues and resolves react-player typing conflicts
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const ReactPlayer = dynamic(() => import('react-player').then(mod => mod.default), { ssr: false }) as any;
+
 export function AudioPlayer() {
-    const { id: campaignId, audio } = useCampaign();
+    const { audio } = useCampaign();
     const [localMuted, setLocalMuted] = useState(false);
     const audioState = audio || { url: '', isPlaying: false, volume: 50 };
 
