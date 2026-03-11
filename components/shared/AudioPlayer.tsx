@@ -24,18 +24,18 @@ export function AudioPlayer() {
     return (
         <div className="fixed bottom-4 left-4 z-50">
             {/* Hidden Player */}
-            {(ReactPlayer as any)({
-                url: audioState.url,
-                playing: audioState.isPlaying && !localMuted,
-                volume: audioState.volume / 100,
-                width: "0",
-                height: "0",
-                config: {
+            <ReactPlayer
+                url={audioState.url}
+                playing={audioState.isPlaying && !localMuted}
+                volume={audioState.volume / 100}
+                width="0"
+                height="0"
+                config={{
                     youtube: {
-                        playerVars: { showinfo: 0, controls: 0 } as any
-                    } as any
-                }
-            })}
+                        playerVars: { showinfo: 0, controls: 0 }
+                    }
+                }}
+            />
 
             {/* Quick Mute Toggle UI */}
             <div className="bg-gray-800 border border-gray-700 rounded-full shadow-lg overflow-hidden flex items-center p-1 transition-all">
