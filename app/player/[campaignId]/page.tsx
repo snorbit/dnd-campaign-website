@@ -208,7 +208,7 @@ export default function PlayerCampaignPage() {
                     </div>
                 </div>
                 <DiceRoller />
-                <AudioPlayer />
+                <AudioPlayer campaignId={params.campaignId as string} />
                 <LiveChat campaignId={params.campaignId as string} currentUserId={character.player_id} currentUserName={character.character_name} />
             </div>
         </CampaignProvider>

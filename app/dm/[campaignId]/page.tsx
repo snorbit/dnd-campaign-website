@@ -407,7 +407,7 @@ Items:
                     </div>
                 )}
                 <DiceRoller />
-                <AudioPlayer />
+                <AudioPlayer campaignId={params.campaignId as string} />
                 <LiveChat campaignId={params.campaignId as string} currentUserId={campaign.dm_id} currentUserName="DUNGEON MASTER" isDm={true} />
             </div>
         </CampaignProvider>

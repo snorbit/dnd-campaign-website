@@ -1,47 +1,73 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
-import { useCampaign } from '@/context/CampaignContext';
-import { Play, Pause, Volume2, Save, Music } from 'lucide-react';
+import { Play, Pause, Volume2, Save, Music, Link } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface AudioTabProps {
     campaignId: string;
 }
 
+interface AudioState {
+    url: string;
+    isPlaying: boolean;
+    volume: number;
+}
+
+const DEFAULT_AUDIO: AudioState = { url: '', isPlaying: false, volume: 50 };
+
 export default function AudioTab({ campaignId }: AudioTabProps) {
-    const { audio, updateAudio } = useCampaign();
-    const audioState = audio || { url: '', isPlaying: false, volume: 50 };
-
-    const [url, setUrl] = useState(audioState.url);
-    const [isPlaying, setIsPlaying] = useState(audioState.isPlaying);
-    const [volume, setVolume] = useState(audioState.volume);
+    const [audioState, setAudioState] = useState<AudioState>(DEFAULT_AUDIO);
+    const [url, setUrl] = useState('');
     const [saving, setSaving] = useState(false);
+    const channelRef = useRef<any>(null);
 
-    const updateAudioState = async (updates: Partial<typeof audioState>) => {
+    // Load from campaign_state on mount
+    useEffect(() => {
+        const load = async () => {
+            const { data } = await supabase
+                .from('campaign_state')
+                .select('audio')
+                .eq('campaign_id', campaignId)
+                .single();
+            if (data?.audio) {
+                setAudioState(data.audio);
+                setUrl(data.audio.url || '');
+            }
+        };
+        load();
+
+        // Subscribe to realtime changes so the tab stays in sync
+        const channel = supabase
+            .channel(`audio_tab_${campaignId}`)
+            .on('postgres_changes', {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'campaign_state',
+                filter: `campaign_id=eq.${campaignId}`
+            }, (payload: any) => {
+                if (payload.new?.audio) {
+                    setAudioState(payload.new.audio);
+                }
+            })
+            .subscribe();
+
+        channelRef.current = channel;
+        return () => { supabase.removeChannel(channel); };
+    }, [campaignId]);
+
+    const pushAudio = async (newState: AudioState) => {
         setSaving(true);
-        const newState = { ...audioState, ...updates };
-
         try {
-            updateAudio(updates); // Optimistic UI local push
-
             const { error } = await supabase
                 .from('campaign_state')
-                .update({
-                    audio: newState
-                })
+                .update({ audio: newState })
                 .eq('campaign_id', campaignId);
-
             if (error) throw error;
-
-            // Local state updates for immediate feedback
-            if (updates.url !== undefined) setUrl(updates.url);
-            if (updates.isPlaying !== undefined) setIsPlaying(updates.isPlaying);
-            if (updates.volume !== undefined) setVolume(updates.volume);
-
-        } catch (error) {
-            console.error('Error updating audio:', error);
+            setAudioState(newState);
+        } catch (err) {
+            console.error('Error updating audio:', err);
             toast.error('Failed to sync audio');
         } finally {
             setSaving(false);
@@ -49,8 +75,21 @@ export default function AudioTab({ campaignId }: AudioTabProps) {
     };
 
     const handleSaveUrl = () => {
-        updateAudioState({ url, isPlaying: true }); // Auto-play when setting a new URL usually
+        if (!url.trim()) return;
+        pushAudio({ ...audioState, url: url.trim(), isPlaying: true });
         toast.success('Audio track synced to players');
+    };
+
+    const handleTogglePlay = () => {
+        pushAudio({ ...audioState, isPlaying: !audioState.isPlaying });
+    };
+
+    const handleVolumeChange = (newVol: number) => {
+        setAudioState(prev => ({ ...prev, volume: newVol }));
+    };
+
+    const handleVolumeCommit = () => {
+        pushAudio({ ...audioState });
     };
 
     return (
@@ -62,27 +101,29 @@ export default function AudioTab({ campaignId }: AudioTabProps) {
                         Campaign Audio
                     </h2>
                     <p className="text-gray-400 text-sm mt-1">
-                        Control music & ambiance for all connected players.
+                        Control music &amp; ambiance for all connected players.
                     </p>
                 </div>
             </div>
 
             <div className="bg-gray-800 rounded-lg p-6 border border-gray-700 space-y-6">
-
                 {/* Track URL Input */}
                 <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-300">YouTube URL</label>
+                    <label className="text-sm font-medium text-gray-300 flex items-center gap-2">
+                        <Link size={14} /> YouTube / SoundCloud URL
+                    </label>
                     <div className="flex gap-2">
                         <input
                             type="text"
                             value={url}
                             onChange={(e) => setUrl(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleSaveUrl()}
                             placeholder="https://www.youtube.com/watch?v=..."
                             className="flex-1 px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:border-purple-500 focus:outline-none"
                         />
                         <button
                             onClick={handleSaveUrl}
-                            disabled={saving || !url}
+                            disabled={saving || !url.trim()}
                             className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white font-bold rounded-lg transition-colors flex items-center gap-2"
                         >
                             <Save size={18} />
@@ -94,29 +135,29 @@ export default function AudioTab({ campaignId }: AudioTabProps) {
                 {/* Controls */}
                 <div className="flex items-center gap-6 p-4 bg-gray-900 rounded-lg border border-gray-700">
                     <button
-                        onClick={() => updateAudioState({ isPlaying: !isPlaying })}
+                        onClick={handleTogglePlay}
                         disabled={!audioState.url || saving}
-                        className={`w-14 h-14 rounded-full flex items-center justify-center transition-transform hover:scale-105 ${isPlaying
+                        className={`w-14 h-14 rounded-full flex items-center justify-center transition-transform hover:scale-105 ${audioState.isPlaying
                             ? 'bg-yellow-500/20 text-yellow-500 hover:bg-yellow-500/30'
                             : 'bg-green-500 hover:bg-green-600 text-white'
                             } disabled:opacity-50 disabled:cursor-not-allowed`}
                     >
-                        {isPlaying ? <Pause size={24} className="fill-current" /> : <Play size={24} className="fill-current ml-1" />}
+                        {audioState.isPlaying ? <Pause size={24} className="fill-current" /> : <Play size={24} className="fill-current ml-1" />}
                     </button>
 
                     <div className="flex-1 max-w-xs space-y-2">
                         <div className="flex items-center justify-between text-sm text-gray-400">
                             <Volume2 size={16} />
-                            <span>{volume}%</span>
+                            <span>{audioState.volume}%</span>
                         </div>
                         <input
                             type="range"
                             min="0"
                             max="100"
-                            value={volume}
-                            onChange={(e) => setVolume(Number(e.target.value))}
-                            onMouseUp={() => updateAudioState({ volume })}
-                            onTouchEnd={() => updateAudioState({ volume })}
+                            value={audioState.volume}
+                            onChange={(e) => handleVolumeChange(Number(e.target.value))}
+                            onMouseUp={handleVolumeCommit}
+                            onTouchEnd={handleVolumeCommit}
                             disabled={!audioState.url || saving}
                             className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-purple-500"
                         />
