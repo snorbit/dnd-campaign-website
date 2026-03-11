@@ -6,11 +6,22 @@ import { Plus, Trash2, Image as ImageIcon, Wand2, Loader2, X } from 'lucide-reac
 import { SkeletonList } from '@/components/shared/ui/SkeletonList';
 import { toast } from 'sonner';
 
+interface MapToken {
+    id: string;
+    x: number;
+    y: number;
+    label: string;
+    color: string;
+    size: number;
+    imageUrl?: string;
+}
+
 interface Map {
     id: string;
     url: string;
     title: string;
     description?: string;
+    tokens?: MapToken[];
 }
 
 interface MapsTabProps {
@@ -35,9 +46,17 @@ export default function MapsTab({ campaignId }: MapsTabProps) {
     const [aiPrompt, setAIPrompt] = useState('');
     const [aiGenerating, setAIGenerating] = useState(false);
 
-    // Map Pings State
+    // Map Pings & Tokens State
     const [pings, setPings] = useState<MapPing[]>([]);
+    const [tokens, setTokens] = useState<MapToken[]>([]);
+    const [draggingToken, setDraggingToken] = useState<string | null>(null);
+    const mapContainerRef = useRef<HTMLDivElement>(null);
     const channelRef = useRef<any>(null);
+
+    // New Token Form State
+    const [newTokenLabel, setNewTokenLabel] = useState('');
+    const [newTokenColor, setNewTokenColor] = useState('#ef4444');
+    const [newTokenSize, setNewTokenSize] = useState(1);
 
     useEffect(() => {
         loadMaps();
@@ -52,6 +71,10 @@ export default function MapsTab({ campaignId }: MapsTabProps) {
             setTimeout(() => {
                 setPings(prev => prev.filter(p => p.id !== newPing.id));
             }, 3000);
+        }).on('broadcast', { event: 'token_move' }, ({ payload }) => {
+            setTokens(prev => prev.map(t => t.id === payload.id ? { ...t, x: payload.x, y: payload.y } : t));
+        }).on('broadcast', { event: 'tokens_update' }, ({ payload }) => {
+            setTokens(payload.tokens);
         }).subscribe();
 
         return () => {
@@ -71,6 +94,7 @@ export default function MapsTab({ campaignId }: MapsTabProps) {
             const mapQueue = data?.map?.queue || [];
             setCurrentMapUrl(data?.map?.url || '');
             setMaps(mapQueue);
+            setTokens(data?.map?.tokens || []);
         } catch (error) {
             console.error('Error loading maps:', error);
         } finally {
@@ -97,6 +121,76 @@ export default function MapsTab({ campaignId }: MapsTabProps) {
         setTimeout(() => {
             setPings(prev => prev.filter(p => p.id !== newPing.id));
         }, 3000);
+    };
+
+    const handlePointerDown = (e: React.PointerEvent, tokenId: string) => {
+        e.stopPropagation(); // prevent map ping
+        (e.target as HTMLElement).setPointerCapture(e.pointerId);
+        setDraggingToken(tokenId);
+    };
+
+    const handlePointerMove = (e: React.PointerEvent) => {
+        if (!draggingToken || !mapContainerRef.current) return;
+        const rect = mapContainerRef.current.getBoundingClientRect();
+        let x = ((e.clientX - rect.left) / rect.width) * 100;
+        let y = ((e.clientY - rect.top) / rect.height) * 100;
+        x = Math.max(0, Math.min(100, x));
+        y = Math.max(0, Math.min(100, y));
+
+        setTokens(prev => prev.map(t => t.id === draggingToken ? { ...t, x, y } : t));
+
+        channelRef.current?.send({
+            type: 'broadcast',
+            event: 'token_move',
+            payload: { id: draggingToken, x, y }
+        });
+    };
+
+    const handlePointerUp = async (e: React.PointerEvent) => {
+        if (!draggingToken) return;
+        (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+        setDraggingToken(null);
+        await saveTokensToDb(tokens);
+    };
+
+    const saveTokensToDb = async (newTokens: MapToken[]) => {
+        try {
+            const { data: currentState } = await supabase.from('campaign_state').select('map').eq('campaign_id', campaignId).single();
+            await supabase.from('campaign_state').update({
+                map: { ...currentState?.map, tokens: newTokens }
+            }).eq('campaign_id', campaignId);
+
+            channelRef.current?.send({
+                type: 'broadcast',
+                event: 'tokens_update',
+                payload: { tokens: newTokens }
+            });
+        } catch (error) {
+            console.error('Error saving tokens:', error);
+        }
+    };
+
+    const handleAddToken = async () => {
+        if (!newTokenLabel) return;
+        const newToken: MapToken = {
+            id: crypto.randomUUID(),
+            x: 50,
+            y: 50,
+            label: newTokenLabel.substring(0, 10),
+            color: newTokenColor,
+            size: newTokenSize
+        };
+        const updatedTokens = [...tokens, newToken];
+        setTokens(updatedTokens);
+        setNewTokenLabel('');
+        await saveTokensToDb(updatedTokens);
+    };
+
+    const handleRemoveToken = async (id: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        const updatedTokens = tokens.filter(t => t.id !== id);
+        setTokens(updatedTokens);
+        await saveTokensToDb(updatedTokens);
     };
 
     const generateAIMap = async () => {
@@ -230,14 +324,52 @@ export default function MapsTab({ campaignId }: MapsTabProps) {
                     <span className="text-xs font-normal text-gray-500">Click to ping location</span>
                 </h3>
                 {currentMapUrl ? (
-                    <div className="bg-gray-900 rounded-lg border border-yellow-600 p-4 flex justify-center">
-                        <div className="relative inline-block">
+                    <div className="bg-gray-900 rounded-lg border border-yellow-600 p-4 flex flex-col items-center">
+                        <div
+                            className="relative inline-block select-none touch-none"
+                            ref={mapContainerRef}
+                            onPointerMove={handlePointerMove}
+                            onPointerUp={handlePointerUp}
+                            onPointerLeave={handlePointerUp}
+                        >
                             <img
                                 src={currentMapUrl}
                                 alt="Current Map"
-                                onClick={handleMapClick}
-                                className="max-w-full max-h-[60vh] object-contain cursor-crosshair rounded shadow-lg"
+                                onPointerDown={(e) => {
+                                    if (draggingToken) return;
+                                    handleMapClick(e as any);
+                                }}
+                                className="max-w-full max-h-[60vh] object-contain cursor-crosshair rounded shadow-lg pointer-events-auto"
+                                draggable={false}
                             />
+
+                            {tokens.map(token => (
+                                <div
+                                    key={token.id}
+                                    onPointerDown={(e) => handlePointerDown(e, token.id)}
+                                    className={`absolute rounded-full border-2 border-white shadow-[0_0_10px_rgba(0,0,0,0.8)] flex items-center justify-center font-bold text-white text-xs cursor-move hover:scale-110 transition-transform ${draggingToken === token.id ? 'opacity-80 scale-110' : ''}`}
+                                    style={{
+                                        left: `${token.x}%`,
+                                        top: `${token.y}%`,
+                                        backgroundColor: token.color,
+                                        width: `${token.size * 2}rem`,
+                                        height: `${token.size * 2}rem`,
+                                        transform: 'translate(-50%, -50%)',
+                                        zIndex: draggingToken === token.id ? 50 : 10,
+                                        touchAction: 'none'
+                                    }}
+                                >
+                                    <span className="pointer-events-none drop-shadow-md">{token.label.substring(0, 2).toUpperCase()}</span>
+                                    {!draggingToken && (
+                                        <button
+                                            onClick={(e) => handleRemoveToken(token.id, e)}
+                                            className="absolute -top-2 -right-2 bg-red-600 rounded-full p-0.5 opacity-0 hover:opacity-100 group-hover:opacity-100 transition-opacity"
+                                        >
+                                            <X size={10} />
+                                        </button>
+                                    )}
+                                </div>
+                            ))}
 
                             {pings.map(ping => (
                                 <div key={`anim-${ping.id}`}>
@@ -251,6 +383,42 @@ export default function MapsTab({ campaignId }: MapsTabProps) {
                                     />
                                 </div>
                             ))}
+                        </div>
+
+                        {/* Token Controls */}
+                        <div className="mt-4 flex flex-wrap gap-2 items-center bg-gray-800 p-3 rounded-lg border border-gray-700 w-full max-w-2xl">
+                            <span className="text-sm font-bold text-gray-300">Add Token:</span>
+                            <input
+                                type="text"
+                                placeholder="Label (e.g. G1)"
+                                value={newTokenLabel}
+                                onChange={e => setNewTokenLabel(e.target.value)}
+                                className="px-3 py-1.5 bg-gray-900 border border-gray-600 rounded text-sm text-white focus:outline-none w-32"
+                            />
+                            <input
+                                type="color"
+                                value={newTokenColor}
+                                onChange={e => setNewTokenColor(e.target.value)}
+                                className="w-8 h-8 rounded bg-transparent cursor-pointer"
+                                title="Token Color"
+                            />
+                            <select
+                                value={newTokenSize}
+                                onChange={e => setNewTokenSize(Number(e.target.value))}
+                                className="px-2 py-1.5 bg-gray-900 border border-gray-600 rounded text-sm text-white focus:outline-none"
+                            >
+                                <option value={0.75}>Small</option>
+                                <option value={1}>Medium</option>
+                                <option value={1.5}>Large</option>
+                                <option value={2}>Huge</option>
+                            </select>
+                            <button
+                                onClick={handleAddToken}
+                                disabled={!newTokenLabel}
+                                className="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 disabled:bg-gray-700 text-white font-bold rounded text-sm transition-colors"
+                            >
+                                Add
+                            </button>
                         </div>
                     </div>
                 ) : (

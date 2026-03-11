@@ -11,6 +11,16 @@ interface MapTabProps {
     campaignId: string;
 }
 
+interface MapToken {
+    id: string;
+    x: number;
+    y: number;
+    label: string;
+    color: string;
+    size: number;
+    imageUrl?: string;
+}
+
 interface MapPing {
     id: string;
     x: number;
@@ -22,15 +32,21 @@ export default function MapTab({ campaignId }: MapTabProps) {
     const [mapUrl, setMapUrl] = useState<string>('');
     const [loading, setLoading] = useState(true);
     const [isUpdating, setIsUpdating] = useState(false);
-    
-    // Map Pings State
+
+    // Map Pings & Tokens State
     const [pings, setPings] = useState<MapPing[]>([]);
+    const [tokens, setTokens] = useState<MapToken[]>([]);
+    const [draggingToken, setDraggingToken] = useState<string | null>(null);
+    const mapContainerRef = useRef<HTMLDivElement>(null);
     const channelRef = useRef<any>(null);
 
     const handleMapUpdate = useCallback((newMap: any) => {
         setIsUpdating(true);
         if (newMap?.url) {
             setMapUrl(newMap.url);
+        }
+        if (newMap?.tokens) {
+            setTokens(newMap.tokens);
         }
         setTimeout(() => setIsUpdating(false), 2000);
     }, []);
@@ -43,17 +59,21 @@ export default function MapTab({ campaignId }: MapTabProps) {
 
     useEffect(() => {
         loadMap();
-        
+
         // Setup Map Pings channel
         const channel = supabase.channel(`map_pings_${campaignId}`);
         channelRef.current = channel;
-        
+
         channel.on('broadcast', { event: 'ping' }, ({ payload }) => {
             const newPing = { ...payload, id: crypto.randomUUID() };
             setPings(prev => [...prev, newPing]);
             setTimeout(() => {
                 setPings(prev => prev.filter(p => p.id !== newPing.id));
             }, 3000);
+        }).on('broadcast', { event: 'token_move' }, ({ payload }) => {
+            setTokens(prev => prev.map(t => t.id === payload.id ? { ...t, x: payload.x, y: payload.y } : t));
+        }).on('broadcast', { event: 'tokens_update' }, ({ payload }) => {
+            setTokens(payload.tokens);
         }).subscribe();
 
         return () => {
@@ -71,6 +91,7 @@ export default function MapTab({ campaignId }: MapTabProps) {
                 .single();
 
             setMapUrl(data?.map?.url || '');
+            setTokens(data?.map?.tokens || []);
         } catch (error) {
             console.error('Error loading map:', error);
         } finally {
@@ -82,21 +103,68 @@ export default function MapTab({ campaignId }: MapTabProps) {
         const rect = e.currentTarget.getBoundingClientRect();
         const x = ((e.clientX - rect.left) / rect.width) * 100;
         const y = ((e.clientY - rect.top) / rect.height) * 100;
-        
+
         const color = '#3b82f6'; // Blue for player
-        
+
         channelRef.current?.send({
             type: 'broadcast',
             event: 'ping',
             payload: { x, y, color }
         });
-        
+
         // Also show locally
         const newPing = { id: crypto.randomUUID(), x, y, color };
         setPings(prev => [...prev, newPing]);
         setTimeout(() => {
             setPings(prev => prev.filter(p => p.id !== newPing.id));
         }, 3000);
+    };
+
+    const handlePointerDown = (e: React.PointerEvent, tokenId: string) => {
+        e.stopPropagation(); // prevent map ping
+        (e.target as HTMLElement).setPointerCapture(e.pointerId);
+        setDraggingToken(tokenId);
+    };
+
+    const handlePointerMove = (e: React.PointerEvent) => {
+        if (!draggingToken || !mapContainerRef.current) return;
+        const rect = mapContainerRef.current.getBoundingClientRect();
+        let x = ((e.clientX - rect.left) / rect.width) * 100;
+        let y = ((e.clientY - rect.top) / rect.height) * 100;
+        x = Math.max(0, Math.min(100, x));
+        y = Math.max(0, Math.min(100, y));
+
+        setTokens(prev => prev.map(t => t.id === draggingToken ? { ...t, x, y } : t));
+
+        channelRef.current?.send({
+            type: 'broadcast',
+            event: 'token_move',
+            payload: { id: draggingToken, x, y }
+        });
+    };
+
+    const handlePointerUp = async (e: React.PointerEvent) => {
+        if (!draggingToken) return;
+        (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+        setDraggingToken(null);
+        await saveTokensToDb(tokens);
+    };
+
+    const saveTokensToDb = async (newTokens: MapToken[]) => {
+        try {
+            const { data: currentState } = await supabase.from('campaign_state').select('map').eq('campaign_id', campaignId).single();
+            await supabase.from('campaign_state').update({
+                map: { ...currentState?.map, tokens: newTokens }
+            }).eq('campaign_id', campaignId);
+
+            channelRef.current?.send({
+                type: 'broadcast',
+                event: 'tokens_update',
+                payload: { tokens: newTokens }
+            });
+        } catch (error) {
+            console.error('Error saving tokens:', error);
+        }
     };
 
     if (loading) {
@@ -154,31 +222,61 @@ export default function MapTab({ campaignId }: MapTabProps) {
                     <RealtimeStatus status={realtimeStatus} />
                 </div>
             </div>
-            
+
             <div className="bg-gray-900 rounded-lg border border-gray-700 overflow-hidden flex justify-center p-4">
-                <div className="relative inline-block">
+                <div
+                    className="relative inline-block select-none touch-none"
+                    ref={mapContainerRef}
+                    onPointerMove={handlePointerMove}
+                    onPointerUp={handlePointerUp}
+                    onPointerLeave={handlePointerUp}
+                >
                     <img
                         src={mapUrl}
                         alt="Campaign Map"
-                        onClick={handleMapClick}
-                        className="max-w-full max-h-[80vh] object-contain cursor-crosshair rounded shadow-lg"
+                        onPointerDown={(e) => {
+                            if (draggingToken) return;
+                            handleMapClick(e as any);
+                        }}
+                        className="max-w-full max-h-[80vh] object-contain cursor-crosshair rounded shadow-lg pointer-events-auto"
+                        draggable={false}
                     />
-                    
+
+                    {tokens.map(token => (
+                        <div
+                            key={token.id}
+                            onPointerDown={(e) => handlePointerDown(e, token.id)}
+                            className={`absolute rounded-full border-2 border-white shadow-[0_0_10px_rgba(0,0,0,0.8)] flex items-center justify-center font-bold text-white text-xs cursor-move hover:scale-110 transition-transform ${draggingToken === token.id ? 'opacity-80 scale-110' : ''}`}
+                            style={{
+                                left: `${token.x}%`,
+                                top: `${token.y}%`,
+                                backgroundColor: token.color,
+                                width: `${token.size * 2}rem`,
+                                height: `${token.size * 2}rem`,
+                                transform: 'translate(-50%, -50%)',
+                                zIndex: draggingToken === token.id ? 50 : 10,
+                                touchAction: 'none'
+                            }}
+                        >
+                            <span className="pointer-events-none drop-shadow-md">{token.label.substring(0, 2).toUpperCase()}</span>
+                        </div>
+                    ))}
+
                     {pings.map(ping => (
                         <div key={`anim-${ping.id}`}>
-                            <div 
+                            <div
                                 className="absolute w-6 h-6 rounded-full animate-ping pointer-events-none transform -translate-x-1/2 -translate-y-1/2"
-                                style={{ left: `${ping.x}%`, top: `${ping.y}%`, backgroundColor: ping.color, opacity: 0.6 }} 
+                                style={{ left: `${ping.x}%`, top: `${ping.y}%`, backgroundColor: ping.color, opacity: 0.6 }}
                             />
-                            <div 
+                            <div
                                 className="absolute w-3 h-3 rounded-full pointer-events-none transform -translate-x-1/2 -translate-y-1/2 border-2 border-white shadow-[0_0_8px_rgba(0,0,0,0.8)]"
-                                style={{ left: `${ping.x}%`, top: `${ping.y}%`, backgroundColor: ping.color }} 
+                                style={{ left: `${ping.x}%`, top: `${ping.y}%`, backgroundColor: ping.color }}
                             />
                         </div>
                     ))}
                 </div>
             </div>
-            
+
             <div className="text-xs text-gray-500 text-center">
                 Click anywhere on the map to ping a location to the party
             </div>

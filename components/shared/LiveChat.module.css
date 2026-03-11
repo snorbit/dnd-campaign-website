@@ -1,0 +1,14 @@
+.scrollArea {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(59, 130, 246, 0.5) transparent;
+}
+.scrollArea::-webkit-scrollbar {
+    width: 6px;
+}
+.scrollArea::-webkit-scrollbar-track {
+    background: transparent;
+}
+.scrollArea::-webkit-scrollbar-thumb {
+    background-color: rgba(59, 130, 246, 0.5);
+    border-radius: 10px;
+}

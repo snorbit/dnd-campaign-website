@@ -16,6 +16,7 @@ import CharacterSheet from '@/components/player/CharacterSheet';
 import { AudioPlayer } from '@/components/shared/AudioPlayer';
 import TimeWidget from '@/components/shared/TimeWidget';
 import { DiceRoller } from '@/components/shared/DiceRoller';
+import { LiveChat } from '@/components/shared/LiveChat';
 import { CampaignProvider } from '@/context/CampaignContext';
 
 type TabId = 'character' | 'map' | 'stats' | 'inventory' | 'spells' | 'party' | 'quests' | 'feats' | 'journal';
@@ -208,6 +209,7 @@ export default function PlayerCampaignPage() {
                 </div>
                 <DiceRoller />
                 <AudioPlayer />
+                <LiveChat campaignId={params.campaignId as string} currentUserId={character.player_id} currentUserName={character.character_name} />
             </div>
         </CampaignProvider>
     );

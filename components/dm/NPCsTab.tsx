@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Plus, Trash2, Dices, List, Users } from 'lucide-react';
+import { Plus, Trash2, Dices, List, Users, BookOpen, Download } from 'lucide-react';
 import { SkeletonList } from '@/components/shared/ui/SkeletonList';
 import { NPCGenerator } from './NPCGenerator';
 import { toast } from 'sonner';
@@ -28,7 +28,9 @@ export default function NPCsTab({ campaignId }: NPCsTabProps) {
     const [hasInitialLoaded, setHasInitialLoaded] = useState(false);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [newNPC, setNewNPC] = useState({ name: '', race: '', role: '', notes: '' });
-    const [mode, setMode] = useState<'list' | 'generate'>('list');
+    const [mode, setMode] = useState<'list' | 'generate' | 'library'>('list');
+    const [libNpcs, setLibNpcs] = useState<any[]>([]);
+    const [loadingLib, setLoadingLib] = useState(false);
 
     const handleNPCsUpdate = useCallback((updatedNPCs: NPC[]) => {
         setNpcs(updatedNPCs);
@@ -50,6 +52,27 @@ export default function NPCsTab({ campaignId }: NPCsTabProps) {
         loadNPCs();
         setHasInitialLoaded(true);
     }, [campaignId]);
+
+    const loadLibrary = async () => {
+        if (libNpcs.length > 0) return;
+        setLoadingLib(true);
+        try {
+            const res = await fetch('/api/npcs');
+            const data = await res.json();
+            setLibNpcs(data.npcs || []);
+        } catch (e) {
+            console.error('Failed to load local NPCs', e);
+            toast.error('Failed to load local NPC library');
+        } finally {
+            setLoadingLib(false);
+        }
+    };
+
+    useEffect(() => {
+        if (mode === 'library') {
+            loadLibrary();
+        }
+    }, [mode]);
 
     const { status: realtimeStatus } = useRealtimeSubscription<NPC[]>(
         campaignId,
@@ -93,6 +116,28 @@ export default function NPCsTab({ campaignId }: NPCsTabProps) {
         }
     }, [npcs, campaignId]);
 
+    const importFromLibrary = async (npcData: any) => {
+        try {
+            const npc: NPC = {
+                id: crypto.randomUUID(),
+                name: npcData.name,
+                race: npcData.type || 'Custom',
+                role: 'Imported',
+                notes: `${npcData.description}\n\nTraits:\n${npcData.traits?.join(', ')}`,
+                inParty: false,
+            };
+            const updated = [...npcs, npc];
+            await supabase.from('campaign_state').update({ npcs: updated }).eq('campaign_id', campaignId);
+            setNpcs(updated);
+            toast.success('NPC imported!', {
+                description: `${npc.name} added to your campaign.`,
+            });
+        } catch (error) {
+            console.error('Error importing NPC:', error);
+            toast.error('Failed to import NPC');
+        }
+    };
+
     const deleteNPC = async (id: string) => {
         const updated = npcs.filter(n => n.id !== id);
         await supabase.from('campaign_state').update({ npcs: updated }).eq('campaign_id', campaignId);
@@ -132,6 +177,16 @@ export default function NPCsTab({ campaignId }: NPCsTabProps) {
                             <Dices size={16} />
                             <span className="hidden sm:inline">Generate</span>
                         </button>
+                        <button
+                            onClick={() => setMode('library')}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${mode === 'library'
+                                ? 'bg-yellow-600 text-white shadow-md'
+                                : 'text-gray-400 hover:text-white hover:bg-gray-700'
+                                }`}
+                        >
+                            <BookOpen size={16} />
+                            <span className="hidden sm:inline">Library</span>
+                        </button>
                     </div>
 
                     {/* New NPC Button (only in list mode) */}
@@ -150,6 +205,35 @@ export default function NPCsTab({ campaignId }: NPCsTabProps) {
             {/* Content based on mode */}
             {mode === 'generate' ? (
                 <NPCGenerator campaignId={campaignId} onSaveNPC={saveGeneratedNPC} />
+            ) : mode === 'library' ? (
+                <div className="space-y-4">
+                    {loadingLib ? (
+                        <SkeletonList count={3} />
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {libNpcs.map((libNpc) => (
+                                <div key={libNpc.id} className="bg-gray-800 rounded-xl border border-gray-700 p-5 flex flex-col items-start hover:border-yellow-600/50 transition-colors">
+                                    <div className="w-full flex justify-between items-start mb-2">
+                                        <h3 className="text-lg font-bold text-white truncate pr-2">{libNpc.name}</h3>
+                                        <span className="text-[10px] uppercase font-bold px-2 py-1 rounded bg-blue-900/50 text-blue-300 border border-blue-700/50 shrink-0">
+                                            {libNpc.type}
+                                        </span>
+                                    </div>
+                                    <p className="text-gray-400 text-sm whitespace-pre-wrap flex-1 mb-4 overflow-hidden" style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}>
+                                        {libNpc.description}
+                                    </p>
+                                    <button
+                                        onClick={() => importFromLibrary(libNpc)}
+                                        className="w-full mt-auto py-2 bg-yellow-600/10 hover:bg-yellow-600/20 text-yellow-500 border border-yellow-600/30 rounded-lg flex justify-center items-center gap-2 transition-colors font-medium text-sm"
+                                    >
+                                        <Download size={16} />
+                                        Import to Campaign
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
             ) : (
                 <>
                     {loading ? (

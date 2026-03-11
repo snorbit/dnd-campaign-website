@@ -20,6 +20,7 @@ import TimeTab from '@/components/dm/TimeTab';
 import JournalsTab from '@/components/dm/JournalsTab';
 import { AudioPlayer } from '@/components/shared/AudioPlayer';
 import { DiceRoller } from '@/components/shared/DiceRoller';
+import { LiveChat } from '@/components/shared/LiveChat';
 import { CampaignProvider, useCampaign } from '@/context/CampaignContext';
 import { Loader2 } from 'lucide-react';
 
@@ -407,6 +408,7 @@ Items:
                 )}
                 <DiceRoller />
                 <AudioPlayer />
+                <LiveChat campaignId={params.campaignId as string} currentUserId={campaign.dm_id} currentUserName="DUNGEON MASTER" isDm={true} />
             </div>
         </CampaignProvider>
     );
