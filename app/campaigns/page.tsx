@@ -155,83 +155,28 @@ export default function CampaignsPage() {
         setJoinError('');
 
         try {
-            // Use a server-side RPC to bypass RLS for the lookup
-            // This queries campaigns by join_code using a Postgres function
-            // Fall back: query directly and handle RLS blocks gracefully
-            const { data: campaign, error: findError } = await supabase
-                .from('campaigns')
-                .select('id, dm_id, name')
-                .eq('join_code', joinCode.toUpperCase().trim())
-                .maybeSingle();
+            // Always go through the server API which uses the service role key
+            // to bypass RLS for the join_code lookup (non-members can't query campaigns directly)
+            const { data: { session } } = await supabase.auth.getSession();
+            const res = await fetch('/api/join-campaign', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session?.access_token || ''}`
+                },
+                body: JSON.stringify({ joinCode: joinCode.toUpperCase().trim() })
+            });
+            const result = await res.json();
 
-            if (findError) {
-                // RLS may be blocking — try the service role workaround via API
-                const { data: { session } } = await supabase.auth.getSession();
-                const res = await fetch('/api/join-campaign', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${session?.access_token || ''}`
-                    },
-                    body: JSON.stringify({ joinCode: joinCode.toUpperCase().trim() })
-                });
-                const result = await res.json();
-
-                if (!res.ok) {
-                    setJoinError(result.error || 'Invalid campaign code');
-                    return;
-                }
-
-                // Successfully joined via API
-                setShowJoinModal(false);
-                setJoinCode('');
-                setJoinError('');
-                toast.success(`Joined ${result.campaignName}!`, { description: 'Redirecting...' });
-                setTimeout(() => router.push(`/player/${result.campaignId}`), 1000);
-                return;
-            }
-
-            if (!campaign) {
-                setJoinError('Invalid campaign code. Double-check and try again.');
-                return;
-            }
-
-            if (campaign.dm_id === user.id) {
-                setJoinError('You are the DM of this campaign!');
-                return;
-            }
-
-            // Check if already joined
-            const { data: existing } = await supabase
-                .from('campaign_players')
-                .select('id')
-                .eq('campaign_id', campaign.id)
-                .eq('player_id', user.id)
-                .maybeSingle();
-
-            if (existing) {
-                setJoinError('You are already in this campaign!');
-                return;
-            }
-
-            // Add player with a default character name
-            const characterName = user.user_metadata?.username || user.email?.split('@')[0] || 'Adventurer';
-            const { error: joinErr } = await supabase
-                .from('campaign_players')
-                .insert({
-                    campaign_id: campaign.id,
-                    player_id: user.id,
-                    character_name: characterName
-                });
-
-            if (joinErr) {
-                setJoinError('Failed to join: ' + joinErr.message);
+            if (!res.ok) {
+                setJoinError(result.error || 'Invalid campaign code');
                 return;
             }
 
             setShowJoinModal(false);
             setJoinCode('');
-            toast.success(`Joined ${campaign.name}!`, { description: 'You can now enter the campaign.' });
+            setJoinError('');
+            toast.success(`Joined ${result.campaignName}!`);
             loadCampaigns();
         } catch (error: any) {
             setJoinError('Error: ' + error.message);
@@ -239,6 +184,7 @@ export default function CampaignsPage() {
             setJoinLoading(false);
         }
     };
+
 
     const deleteCampaign = async (campaignId: string) => {
         try {
