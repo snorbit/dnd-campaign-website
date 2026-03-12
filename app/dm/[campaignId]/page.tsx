@@ -18,13 +18,14 @@ import ScratchpadTab from '@/components/dm/ScratchpadTab';
 import AudioTab from '@/components/dm/AudioTab';
 import TimeTab from '@/components/dm/TimeTab';
 import JournalsTab from '@/components/dm/JournalsTab';
+import HomebrewTab from '@/components/dm/HomebrewTab';
 import { AudioPlayer } from '@/components/shared/AudioPlayer';
 import { DiceRoller } from '@/components/shared/DiceRoller';
 import { LiveChat } from '@/components/shared/LiveChat';
 import { CampaignProvider, useCampaign } from '@/context/CampaignContext';
 import { Loader2 } from 'lucide-react';
 
-type TabId = 'maps' | 'encounters' | 'players' | 'quests' | 'npcs' | 'items' | 'feats' | 'sessions' | 'loot' | 'scratchpad' | 'audio' | 'time' | 'journals';
+type TabId = 'maps' | 'encounters' | 'players' | 'quests' | 'npcs' | 'items' | 'feats' | 'sessions' | 'loot' | 'scratchpad' | 'audio' | 'time' | 'journals' | 'homebrew';
 
 const tabs = [
     { id: 'maps' as TabId, label: 'Maps', icon: Map },
@@ -34,6 +35,7 @@ const tabs = [
     { id: 'npcs' as TabId, label: 'NPCs', icon: UserCircle },
     { id: 'items' as TabId, label: 'Items', icon: Package },
     { id: 'loot' as TabId, label: 'Loot Gen', icon: Coins },
+    { id: 'homebrew' as TabId, label: 'Homebrew', icon: Award },
     { id: 'time' as TabId, label: 'Time & Weather', icon: Calendar },
     { id: 'journals' as TabId, label: 'Journals', icon: BookOpen },
     { id: 'audio' as TabId, label: 'Audio', icon: Music },
@@ -173,6 +175,8 @@ export default function DMCampaignPage() {
                 return <DMFeatsTab campaignId={campaignId} />;
             case 'sessions':
                 return <SessionsTab campaignId={campaignId} onImportClick={() => setShowImportModal(true)} />;
+            case 'homebrew':
+                return <HomebrewTab campaignId={campaignId} />;
             default:
                 return <div className="text-gray-400">Tab not found</div>;
         }
