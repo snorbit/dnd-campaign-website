@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { ChevronRight, ChevronLeft, Shield, Swords, Star, Check } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Shield, Swords, Star, Check, Minus, Plus } from 'lucide-react';
 
 // ─── Standard 5e Data ────────────────────────────────────────────────────────
 const STANDARD_RACES = [
@@ -41,7 +41,29 @@ const PALADIN_SUBCLASSES = [
     { name: 'Oathbreaker', description: 'A fallen paladin who broke their sacred vows and now serves darker powers.' },
 ];
 
-type Step = 'race' | 'class' | 'subclass' | 'guardian' | 'appearance' | 'confirm';
+const CASTER_CLASSES = ['Bard', 'Cleric', 'Druid', 'Paladin', 'Ranger', 'Sorcerer', 'Warlock', 'Wizard', 'Artificer'];
+
+// Embedded spell list per class (cantrips + level 1 spells)
+const CLASS_SPELLS: Record<string, { cantrips: string[]; spells: string[]; cantripCount: number; spellCount: number }> = {
+    Bard: { cantripCount: 2, spellCount: 4, cantrips: ['Dancing Lights', 'Friends', 'Light', 'Mage Hand', 'Mending', 'Message', 'Minor Illusion', 'Prestidigitation', 'Thunderclap', 'Vicious Mockery'], spells: ['Animal Friendship', 'Bane', 'Charm Person', 'Color Spray', 'Cure Wounds', 'Detect Magic', 'Disguise Self', 'Dissonant Whispers', 'Faerie Fire', 'Feather Fall', 'Healing Word', 'Heroism', 'Hideous Laughter', 'Identify', 'Illusory Script', 'Longstrider', 'Silent Image', 'Sleep', 'Speak with Animals', 'Thunderwave', 'Unseen Servant'] },
+    Cleric: { cantripCount: 3, spellCount: 2, cantrips: ['Guidance', 'Light', 'Mending', 'Resistance', 'Sacred Flame', 'Spare the Dying', 'Thaumaturgy', 'Toll the Dead', 'Word of Radiance'], spells: ['Bane', 'Bless', 'Command', 'Create or Destroy Water', 'Cure Wounds', 'Detect Evil and Good', 'Detect Magic', 'Detect Poison and Disease', 'Guiding Bolt', 'Healing Word', 'Inflict Wounds', 'Protection from Evil and Good', 'Purify Food and Drink', 'Sanctuary', 'Shield of Faith'] },
+    Druid: { cantripCount: 2, spellCount: 2, cantrips: ['Druidcraft', 'Guidance', 'Mending', 'Poison Spray', 'Produce Flame', 'Resistance', 'Shillelagh', 'Thorn Whip'], spells: ['Animal Friendship', 'Charm Person', 'Create or Destroy Water', 'Cure Wounds', 'Detect Magic', 'Detect Poison and Disease', 'Entangle', 'Faerie Fire', 'Fog Cloud', 'Goodberry', 'Healing Word', 'Jump', 'Longstrider', 'Purify Food and Drink', 'Speak with Animals', 'Thunderwave'] },
+    Paladin: { cantripCount: 0, spellCount: 2, cantrips: [], spells: ['Bless', 'Command', 'Compelled Duel', 'Cure Wounds', 'Detect Evil and Good', 'Detect Magic', 'Detect Poison and Disease', 'Divine Favor', 'Heroism', 'Protection from Evil and Good', 'Purify Food and Drink', 'Searing Smite', 'Shield of Faith', 'Thunderous Smite', 'Wrathful Smite'] },
+    Ranger: { cantripCount: 0, spellCount: 2, cantrips: [], spells: ['Alarm', 'Animal Friendship', 'Cure Wounds', 'Detect Magic', 'Detect Poison and Disease', 'Ensnaring Strike', 'Fog Cloud', 'Goodberry', 'Hail of Thorns', 'Hunter\'s Mark', 'Jump', 'Longstrider', 'Speak with Animals', 'Zephyr Strike'] },
+    Sorcerer: { cantripCount: 4, spellCount: 2, cantrips: ['Acid Splash', 'Blade Ward', 'Chill Touch', 'Control Flames', 'Fire Bolt', 'Friends', 'Gust', 'Light', 'Mage Hand', 'Mending', 'Message', 'Minor Illusion', 'Poison Spray', 'Prestidigitation', 'Ray of Frost', 'Shocking Grasp', 'Thunderclap', 'True Strike'], spells: ['Burning Hands', 'Charm Person', 'Chromatic Orb', 'Color Spray', 'Disguise Self', 'Expeditious Retreat', 'False Life', 'Feather Fall', 'Fog Cloud', 'Jump', 'Mage Armor', 'Magic Missile', 'Ray of Sickness', 'Shield', 'Silent Image', 'Sleep', 'Thunderwave', 'Witch Bolt'] },
+    Warlock: { cantripCount: 2, spellCount: 2, cantrips: ['Blade Ward', 'Chill Touch', 'Eldritch Blast', 'Friends', 'Mage Hand', 'Minor Illusion', 'Poison Spray', 'Prestidigitation', 'True Strike'], spells: ['Armor of Agathys', 'Arms of Hadar', 'Charm Person', 'Comprehend Languages', 'Expeditious Retreat', 'Hellish Rebuke', 'Hex', 'Illusory Script', 'Protection from Evil and Good', 'Unseen Servant', 'Witch Bolt'] },
+    Wizard: { cantripCount: 3, spellCount: 6, cantrips: ['Acid Splash', 'Blade Ward', 'Chill Touch', 'Control Flames', 'Dancing Lights', 'Fire Bolt', 'Friends', 'Gust', 'Light', 'Mage Hand', 'Mending', 'Message', 'Minor Illusion', 'Poison Spray', 'Prestidigitation', 'Ray of Frost', 'Shocking Grasp', 'Thunderclap', 'True Strike'], spells: ['Absorb Elements', 'Alarm', 'Burning Hands', 'Catapult', 'Charm Person', 'Chromatic Orb', 'Color Spray', 'Comprehend Languages', 'Detect Magic', 'Disguise Self', 'Expeditious Retreat', 'False Life', 'Feather Fall', 'Find Familiar', 'Fog Cloud', 'Grease', 'Ice Knife', 'Identify', 'Illusory Script', 'Jump', 'Longstrider', 'Mage Armor', 'Magic Missile', 'Protection from Evil and Good', 'Ray of Sickness', 'Shield', 'Silent Image', 'Sleep', 'Thunderwave', 'Unseen Servant', 'Witch Bolt'] },
+    Artificer: { cantripCount: 2, spellCount: 2, cantrips: ['Fire Bolt', 'Guidance', 'Light', 'Mage Hand', 'Mending', 'Message', 'Poison Spray', 'Prestidigitation', 'Resistance', 'Shocking Grasp', 'Spare the Dying', 'Thorn Whip'], spells: ['Absorb Elements', 'Alarm', 'Catapult', 'Cure Wounds', 'Detect Magic', 'Disguise Self', 'Expeditious Retreat', 'Faerie Fire', 'False Life', 'Feather Fall', 'Grease', 'Identify', 'Jump', 'Longstrider', 'Purify Food and Drink', 'Sanctuary'] },
+};
+
+const STATS = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'] as const;
+const POINT_COST: Record<number, number> = { 8: 0, 9: 1, 10: 2, 11: 3, 12: 4, 13: 5, 14: 7, 15: 9 };
+
+const modStr = (val: number) => { const m = Math.floor((val - 10) / 2); return m >= 0 ? `+${m}` : `${m}`; };
+
+type Step = 'race' | 'class' | 'subclass' | 'guardian' | 'stats' | 'spells' | 'appearance' | 'confirm';
+
+interface AbilityScores { str: number; dex: number; con: number; int: number; wis: number; cha: number; }
 
 interface CharacterDraft {
     race: string;
@@ -52,6 +74,9 @@ interface CharacterDraft {
     guardianOath: string;
     characterName: string;
     backstory: string;
+    abilityScores: AbilityScores;
+    chosenCantrips: string[];
+    chosenSpells: string[];
     appearance: {
         skinTone: string;
         hairColor: string;
@@ -71,11 +96,15 @@ export default function CreateCharacterPage() {
         race: '', class: '', subclass: '',
         guardianName: '', guardianDeity: '', guardianOath: '',
         characterName: '', backstory: '',
+        abilityScores: { str: 8, dex: 8, con: 8, int: 8, wis: 8, cha: 8 },
+        chosenCantrips: [],
+        chosenSpells: [],
         appearance: { skinTone: '', hairColor: '', eyeColor: '', height: '', features: '' }
     });
     const [homebrewClasses, setHomebrewClasses] = useState<any[]>([]);
     const [homebrewRaces, setHomebrewRaces] = useState<any[]>([]);
     const [homebrewSubclasses, setHomebrewSubclasses] = useState<any[]>([]);
+    const [dmSettings, setDmSettings] = useState({ statMin: 8, statMax: 15, pointBuyPoints: 27 });
     const [saving, setSaving] = useState(false);
     const [animating, setAnimating] = useState(false);
 
@@ -100,6 +129,24 @@ export default function CreateCharacterPage() {
                 setDraft(prev => ({ ...prev, characterName: cp.character_name }));
             }
 
+            // Load DM campaign settings for stat rules
+            const { data: stateData } = await supabase
+                .from('campaign_state')
+                .select('settings')
+                .eq('campaign_id', campaignId)
+                .single();
+            if (stateData?.settings) {
+                const s = stateData.settings;
+                setDmSettings({
+                    statMin: s.statMin ?? 8,
+                    statMax: s.statMax ?? 15,
+                    pointBuyPoints: s.pointBuyPoints ?? 27,
+                });
+                // Reset ability scores to DM minimum
+                const min = s.statMin ?? 8;
+                setDraft(prev => ({ ...prev, abilityScores: { str: min, dex: min, con: min, int: min, wis: min, cha: min } }));
+            }
+
             // Load homebrew content
             const [{ data: hClasses }, { data: hRaces }, { data: hSubs }] = await Promise.all([
                 supabase.from('homebrew_classes').select('*').eq('campaign_id', campaignId),
@@ -119,14 +166,13 @@ export default function CreateCharacterPage() {
     };
 
     const handleClassSelected = (className: string) => {
-        setDraft(prev => ({ ...prev, class: className, subclass: '' }));
+        setDraft(prev => ({ ...prev, class: className, subclass: '', chosenCantrips: [], chosenSpells: [] }));
         if (className === 'Paladin') {
             goTo('subclass');
         } else {
-            // Check if homebrew class has subclasses
             const hSubs = homebrewSubclasses.filter(s => s.parent_class === className);
             if (hSubs.length > 0) goTo('subclass');
-            else goTo('appearance');
+            else goTo('stats');
         }
     };
 
@@ -135,8 +181,37 @@ export default function CreateCharacterPage() {
         if (subclass === 'Create Guardian') {
             goTo('guardian');
         } else {
-            goTo('appearance');
+            goTo('stats');
         }
+    };
+
+    // Point buy helpers
+    const spentPoints = () => Object.values(draft.abilityScores).reduce((sum, v) => sum + (POINT_COST[v] ?? 0), 0);
+    const remainingPoints = () => dmSettings.pointBuyPoints - spentPoints();
+    const adjustStat = (stat: keyof AbilityScores, delta: number) => {
+        const cur = draft.abilityScores[stat];
+        const next = cur + delta;
+        if (next < dmSettings.statMin || next > dmSettings.statMax) return;
+        if (delta > 0 && remainingPoints() < (POINT_COST[next] ?? 99) - (POINT_COST[cur] ?? 0)) return;
+        setDraft(prev => ({ ...prev, abilityScores: { ...prev.abilityScores, [stat]: next } }));
+    };
+
+    const isCaster = CASTER_CLASSES.includes(draft.class) || homebrewClasses.some(c => c.name === draft.class && c.is_caster);
+    const spellData = CLASS_SPELLS[draft.class];
+
+    const toggleCantrip = (name: string) => {
+        setDraft(prev => {
+            const has = prev.chosenCantrips.includes(name);
+            if (!has && prev.chosenCantrips.length >= (spellData?.cantripCount ?? 0)) return prev;
+            return { ...prev, chosenCantrips: has ? prev.chosenCantrips.filter(c => c !== name) : [...prev.chosenCantrips, name] };
+        });
+    };
+    const toggleSpell = (name: string) => {
+        setDraft(prev => {
+            const has = prev.chosenSpells.includes(name);
+            if (!has && prev.chosenSpells.length >= (spellData?.spellCount ?? 0)) return prev;
+            return { ...prev, chosenSpells: has ? prev.chosenSpells.filter(s => s !== name) : [...prev.chosenSpells, name] };
+        });
     };
 
     const handleSave = async () => {
@@ -158,6 +233,9 @@ export default function CreateCharacterPage() {
                     guardian_name: draft.guardianName || null,
                     guardian_deity: draft.guardianDeity || null,
                     guardian_oath: draft.guardianOath || null,
+                    ability_scores: draft.abilityScores,
+                    chosen_cantrips: draft.chosenCantrips,
+                    chosen_spells: draft.chosenSpells,
                 })
                 .eq('campaign_id', campaignId)
                 .eq('player_id', user.id);
@@ -207,10 +285,11 @@ export default function CreateCharacterPage() {
             name: s.name, description: s.description, homebrew: true
         }));
 
-    const steps: Step[] = ['race', 'class', 'subclass', 'guardian', 'appearance', 'confirm'];
+    const steps: Step[] = ['race', 'class', 'subclass', 'guardian', 'stats', 'spells', 'appearance', 'confirm'];
     const visibleSteps = steps.filter(s => {
         if (s === 'subclass' && currentSubclasses.length === 0 && draft.class !== 'Paladin') return false;
         if (s === 'guardian' && draft.subclass !== 'Create Guardian') return false;
+        if (s === 'spells' && (!isCaster || !spellData)) return false;
         return true;
     });
     const currentIdx = visibleSteps.indexOf(step);
@@ -259,8 +338,8 @@ export default function CreateCharacterPage() {
                                     key={race.name}
                                     onClick={() => { setDraft(prev => ({ ...prev, race: race.name })); goTo('class'); }}
                                     className={`group relative rounded-xl border-2 transition-all duration-300 overflow-hidden text-left p-5 hover:scale-105 hover:shadow-2xl ${draft.race === race.name
-                                            ? 'border-amber-400 shadow-amber-500/30 shadow-xl'
-                                            : 'border-gray-700/50 hover:border-amber-600/50'
+                                        ? 'border-amber-400 shadow-amber-500/30 shadow-xl'
+                                        : 'border-gray-700/50 hover:border-amber-600/50'
                                         }`}
                                 >
                                     <div className={`absolute inset-0 bg-gradient-to-br ${race.color} opacity-60`} />
@@ -301,8 +380,8 @@ export default function CreateCharacterPage() {
                                     key={cls.name}
                                     onClick={() => handleClassSelected(cls.name)}
                                     className={`group relative rounded-xl border-2 transition-all duration-300 text-left p-5 hover:scale-105 hover:shadow-2xl bg-gray-900/80 ${draft.class === cls.name
-                                            ? 'border-amber-400 shadow-amber-500/20 shadow-xl bg-amber-950/30'
-                                            : 'border-gray-700/50 hover:border-amber-600/50'
+                                        ? 'border-amber-400 shadow-amber-500/20 shadow-xl bg-amber-950/30'
+                                        : 'border-gray-700/50 hover:border-amber-600/50'
                                         }`}
                                 >
                                     {(cls as any).homebrew && (
@@ -348,10 +427,10 @@ export default function CreateCharacterPage() {
                                     key={sub.name}
                                     onClick={() => handleSubclassSelected(sub.name)}
                                     className={`group relative rounded-xl border-2 text-left p-6 transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl ${(sub as any).special
-                                            ? 'border-amber-500/60 bg-gradient-to-br from-amber-950/40 to-yellow-950/40 hover:border-amber-400'
-                                            : (sub as any).homebrew
-                                                ? 'border-purple-500/40 bg-purple-950/20 hover:border-purple-400'
-                                                : 'border-gray-700/50 bg-gray-900/80 hover:border-amber-600/50'
+                                        ? 'border-amber-500/60 bg-gradient-to-br from-amber-950/40 to-yellow-950/40 hover:border-amber-400'
+                                        : (sub as any).homebrew
+                                            ? 'border-purple-500/40 bg-purple-950/20 hover:border-purple-400'
+                                            : 'border-gray-700/50 bg-gray-900/80 hover:border-amber-600/50'
                                         }`}
                                 >
                                     {(sub as any).special && (
@@ -418,7 +497,7 @@ export default function CreateCharacterPage() {
                                 />
                             </div>
                             <button
-                                onClick={() => { setDraft(prev => ({ ...prev, subclass: 'Guardian' })); goTo('appearance'); }}
+                                onClick={() => { setDraft(prev => ({ ...prev, subclass: 'Guardian' })); goTo('stats'); }}
                                 disabled={!draft.guardianName}
                                 className="w-full py-3 bg-amber-600 hover:bg-amber-500 disabled:bg-gray-700 disabled:text-gray-500 text-black font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
                             >
@@ -428,6 +507,142 @@ export default function CreateCharacterPage() {
                         <button onClick={() => goTo('subclass')} className="mt-6 mx-auto flex items-center gap-2 text-gray-400 hover:text-white transition-colors">
                             <ChevronLeft size={16} /> Back
                         </button>
+                    </div>
+                )}
+
+                {/* ── STATS STEP ────────────────────────────────────────── */}
+                {step === 'stats' && (
+                    <div className="flex flex-col flex-1 px-6 py-8 max-w-2xl mx-auto w-full">
+                        <div className="mb-8 text-center">
+                            <h1 className="text-4xl font-bold text-white mb-2" style={{ fontFamily: 'Georgia, serif' }}>Assign Ability Scores</h1>
+                            <p className="text-amber-400/70">Distribute your stats using point buy. Range: {dmSettings.statMin}–{dmSettings.statMax}.</p>
+                        </div>
+
+                        <div className="bg-gray-900/80 rounded-xl border border-gray-700 p-6">
+                            {/* Points remaining banner */}
+                            <div className={`mb-6 flex items-center justify-between px-4 py-3 rounded-lg border ${remainingPoints() === 0 ? 'bg-green-900/30 border-green-600/40 text-green-400' :
+                                    remainingPoints() < 0 ? 'bg-red-900/30 border-red-600/40 text-red-400' :
+                                        'bg-gray-800 border-gray-600 text-amber-400'
+                                }`}>
+                                <span className="font-bold">Points Remaining</span>
+                                <span className="text-2xl font-black">{remainingPoints()}</span>
+                            </div>
+
+                            <div className="space-y-3">
+                                {STATS.map(stat => {
+                                    const key = stat.toLowerCase() as keyof AbilityScores;
+                                    const val = draft.abilityScores[key];
+                                    const canIncrease = val < dmSettings.statMax && remainingPoints() >= (POINT_COST[val + 1] ?? 99) - (POINT_COST[val] ?? 0);
+                                    const canDecrease = val > dmSettings.statMin;
+                                    return (
+                                        <div key={stat} className="flex items-center gap-4">
+                                            <div className="w-10 text-center text-xs font-bold text-gray-400 uppercase">{stat}</div>
+                                            <div className="flex items-center gap-2 flex-1">
+                                                <button onClick={() => adjustStat(key, -1)} disabled={!canDecrease}
+                                                    className="w-8 h-8 rounded-lg bg-gray-700 hover:bg-gray-600 disabled:opacity-30 text-white flex items-center justify-center transition-colors">
+                                                    <Minus size={14} />
+                                                </button>
+                                                <div className="flex-1 bg-gray-800 rounded-lg py-2 text-center">
+                                                    <span className="text-white font-bold text-lg">{val}</span>
+                                                    <span className="text-gray-400 text-xs ml-2">({modStr(val)})</span>
+                                                </div>
+                                                <button onClick={() => adjustStat(key, 1)} disabled={!canIncrease}
+                                                    className="w-8 h-8 rounded-lg bg-gray-700 hover:bg-gray-600 disabled:opacity-30 text-white flex items-center justify-center transition-colors">
+                                                    <Plus size={14} />
+                                                </button>
+                                            </div>
+                                            <div className="w-16">
+                                                <div className="h-2 bg-gray-700 rounded-full">
+                                                    <div className="h-full bg-amber-500 rounded-full transition-all" style={{ width: `${((val - dmSettings.statMin) / (dmSettings.statMax - dmSettings.statMin)) * 100}%` }} />
+                                                </div>
+                                                <div className="text-xs text-gray-500 text-center mt-1">{POINT_COST[val] ?? '?'} pts</div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            <button
+                                onClick={() => goTo(isCaster && spellData ? 'spells' : 'appearance')}
+                                className="w-full mt-6 py-3 bg-amber-600 hover:bg-amber-500 text-black font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
+                            >
+                                Continue <ChevronRight size={18} />
+                            </button>
+                        </div>
+                        <button onClick={() => goTo(draft.subclass === 'Create Guardian' ? 'guardian' : currentSubclasses.length > 0 || draft.class === 'Paladin' ? 'subclass' : 'class')} className="mt-6 mx-auto flex items-center gap-2 text-gray-400 hover:text-white transition-colors">
+                            <ChevronLeft size={16} /> Back
+                        </button>
+                    </div>
+                )}
+
+                {/* ── SPELLS STEP ───────────────────────────────────────── */}
+                {step === 'spells' && spellData && (
+                    <div className="flex flex-col flex-1 px-6 py-8 max-w-4xl mx-auto w-full">
+                        <div className="mb-8 text-center">
+                            <h1 className="text-4xl font-bold text-white mb-2" style={{ fontFamily: 'Georgia, serif' }}>Choose Your Spells</h1>
+                            <p className="text-amber-400/70">Select your starting {draft.class} spells and cantrips.</p>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* Cantrips */}
+                            {spellData.cantripCount > 0 && (
+                                <div className="bg-gray-900/80 rounded-xl border border-gray-700 p-5">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h3 className="font-bold text-purple-400 text-sm uppercase tracking-wider">✨ Cantrips</h3>
+                                        <span className={`text-xs font-bold px-2 py-1 rounded ${draft.chosenCantrips.length === spellData.cantripCount ? 'bg-green-900/40 text-green-400' : 'bg-gray-700 text-gray-300'
+                                            }`}>{draft.chosenCantrips.length}/{spellData.cantripCount}</span>
+                                    </div>
+                                    <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                                        {spellData.cantrips.map(c => (
+                                            <button key={c} onClick={() => toggleCantrip(c)}
+                                                className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${draft.chosenCantrips.includes(c)
+                                                        ? 'bg-purple-600/30 border border-purple-500/60 text-white'
+                                                        : 'bg-gray-800 border border-gray-700 text-gray-300 hover:border-purple-600/40'
+                                                    }`}>
+                                                {draft.chosenCantrips.includes(c) && <Check size={12} className="inline mr-2 text-purple-400" />}
+                                                {c}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Level 1 Spells */}
+                            {spellData.spellCount > 0 && (
+                                <div className="bg-gray-900/80 rounded-xl border border-gray-700 p-5">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h3 className="font-bold text-blue-400 text-sm uppercase tracking-wider">📖 Level 1 Spells</h3>
+                                        <span className={`text-xs font-bold px-2 py-1 rounded ${draft.chosenSpells.length === spellData.spellCount ? 'bg-green-900/40 text-green-400' : 'bg-gray-700 text-gray-300'
+                                            }`}>{draft.chosenSpells.length}/{spellData.spellCount}</span>
+                                    </div>
+                                    <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                                        {spellData.spells.map(s => (
+                                            <button key={s} onClick={() => toggleSpell(s)}
+                                                className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${draft.chosenSpells.includes(s)
+                                                        ? 'bg-blue-600/30 border border-blue-500/60 text-white'
+                                                        : 'bg-gray-800 border border-gray-700 text-gray-300 hover:border-blue-600/40'
+                                                    }`}>
+                                                {draft.chosenSpells.includes(s) && <Check size={12} className="inline mr-2 text-blue-400" />}
+                                                {s}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="mt-6 flex flex-col items-center gap-3">
+                            <button
+                                onClick={() => goTo('appearance')}
+                                disabled={draft.chosenCantrips.length < spellData.cantripCount || draft.chosenSpells.length < spellData.spellCount}
+                                className="px-8 py-3 bg-amber-600 hover:bg-amber-500 disabled:bg-gray-700 disabled:text-gray-500 text-black font-bold rounded-lg transition-colors flex items-center gap-2"
+                            >
+                                Continue <ChevronRight size={18} />
+                            </button>
+                            <button onClick={() => goTo('stats')} className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors">
+                                <ChevronLeft size={16} /> Back to Stats
+                            </button>
+                        </div>
                     </div>
                 )}
 
@@ -493,7 +708,7 @@ export default function CreateCharacterPage() {
                                 Review Character <ChevronRight size={18} />
                             </button>
                         </div>
-                        <button onClick={() => goTo(draft.subclass === 'Create Guardian' ? 'guardian' : draft.class === 'Paladin' ? 'subclass' : 'class')} className="mt-6 mx-auto flex items-center gap-2 text-gray-400 hover:text-white transition-colors">
+                        <button onClick={() => goTo(isCaster && spellData ? 'spells' : 'stats')} className="mt-6 mx-auto flex items-center gap-2 text-gray-400 hover:text-white transition-colors">
                             <ChevronLeft size={16} /> Back
                         </button>
                     </div>
@@ -515,6 +730,37 @@ export default function CreateCharacterPage() {
                             </div>
 
                             <div className="p-6 space-y-4">
+                                {/* Stats Summary */}
+                                <div>
+                                    <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-2">Ability Scores</h3>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {STATS.map(s => {
+                                            const k = s.toLowerCase() as keyof AbilityScores;
+                                            const v = draft.abilityScores[k];
+                                            return (
+                                                <div key={s} className="bg-gray-800 rounded-lg p-2 text-center">
+                                                    <div className="text-xs text-gray-500">{s}</div>
+                                                    <div className="text-lg font-bold text-white">{v}</div>
+                                                    <div className="text-xs text-amber-400">{modStr(v)}</div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* Spells */}
+                                {(draft.chosenCantrips.length > 0 || draft.chosenSpells.length > 0) && (
+                                    <div>
+                                        <h3 className="text-sm font-bold text-purple-400 uppercase tracking-wider mb-2">✨ Spells</h3>
+                                        {draft.chosenCantrips.length > 0 && (
+                                            <div className="mb-1"><span className="text-xs text-gray-500">Cantrips: </span><span className="text-gray-300 text-sm">{draft.chosenCantrips.join(', ')}</span></div>
+                                        )}
+                                        {draft.chosenSpells.length > 0 && (
+                                            <div><span className="text-xs text-gray-500">Spells: </span><span className="text-gray-300 text-sm">{draft.chosenSpells.join(', ')}</span></div>
+                                        )}
+                                    </div>
+                                )}
+
                                 {/* Appearance */}
                                 <div>
                                     <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-2">Appearance</h3>

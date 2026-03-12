@@ -1,8 +1,6 @@
-'use client';
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Plus, Trash2, Edit3, Check, X, FlaskConical } from 'lucide-react';
+import { Plus, Trash2, Edit3, Check, X, FlaskConical, Settings, Save } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface HomebrewTabProps {
@@ -14,24 +12,39 @@ const ROLES = ['Melee Damage', 'Ranged Damage', 'Tank', 'Healer', 'Support', 'Co
 const SIZES = ['Tiny', 'Small', 'Medium', 'Large'];
 
 export default function HomebrewTab({ campaignId }: HomebrewTabProps) {
-    const [mode, setMode] = useState<'classes' | 'races' | 'subclasses'>('classes');
+    const [mode, setMode] = useState<'classes' | 'races' | 'subclasses' | 'settings'>('classes');
     const [classes, setClasses] = useState<any[]>([]);
     const [races, setRaces] = useState<any[]>([]);
     const [subclasses, setSubclasses] = useState<any[]>([]);
     const [editing, setEditing] = useState<any | null>(null);
     const [isNew, setIsNew] = useState(false);
+    const [statSettings, setStatSettings] = useState({ statMin: 8, statMax: 15, pointBuyPoints: 27, startingLevel: 1 });
+    const [savingSettings, setSavingSettings] = useState(false);
 
     useEffect(() => { loadAll(); }, [campaignId]);
 
     const loadAll = async () => {
-        const [{ data: cls }, { data: rac }, { data: sub }] = await Promise.all([
+        const [{ data: cls }, { data: rac }, { data: sub }, { data: stateRow }] = await Promise.all([
             supabase.from('homebrew_classes').select('*').eq('campaign_id', campaignId).order('name'),
             supabase.from('homebrew_races').select('*').eq('campaign_id', campaignId).order('name'),
             supabase.from('homebrew_subclasses').select('*').eq('campaign_id', campaignId).order('name'),
+            supabase.from('campaign_state').select('settings').eq('campaign_id', campaignId).single(),
         ]);
         setClasses(cls || []);
         setRaces(rac || []);
         setSubclasses(sub || []);
+        if (stateRow?.settings) setStatSettings(prev => ({ ...prev, ...stateRow.settings }));
+    };
+
+    const saveStatSettings = async () => {
+        setSavingSettings(true);
+        const { error } = await supabase
+            .from('campaign_state')
+            .update({ settings: statSettings })
+            .eq('campaign_id', campaignId);
+        setSavingSettings(false);
+        if (error) toast.error('Save failed', { description: error.message });
+        else toast.success('Stat rules saved! Players will use these limits in character creation.');
     };
 
     const startNew = () => {
@@ -100,10 +113,10 @@ export default function HomebrewTab({ campaignId }: HomebrewTabProps) {
                 </div>
                 <button
                     onClick={startNew}
-                    disabled={!!editing}
+                    disabled={!!editing || mode === 'settings'}
                     className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white font-bold rounded-lg transition-colors"
                 >
-                    <Plus size={18} /> New {mode === 'classes' ? 'Class' : mode === 'races' ? 'Race' : 'Subclass'}
+                    <Plus size={18} /> New {mode === 'classes' ? 'Class' : mode === 'races' ? 'Race' : mode === 'subclasses' ? 'Subclass' : ''}
                 </button>
             </div>
 
@@ -118,7 +131,41 @@ export default function HomebrewTab({ campaignId }: HomebrewTabProps) {
                         {m}
                     </button>
                 ))}
+                <button
+                    onClick={() => { setMode('settings'); setEditing(null); }}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-1 ${mode === 'settings' ? 'bg-amber-600 text-white' : 'text-gray-400 hover:text-white'}`}
+                >
+                    <Settings size={14} /> Stat Rules
+                </button>
             </div>
+
+            {/* Stat Rules Panel */}
+            {mode === 'settings' && (
+                <div className="bg-gray-800 rounded-xl border border-amber-600/30 p-6 space-y-5 max-w-lg">
+                    <h3 className="text-lg font-bold text-amber-300 flex items-center gap-2"><Settings size={18} /> Character Creation Rules</h3>
+                    <p className="text-gray-400 text-sm">These limits apply to all players' point buy during character creation.</p>
+                    <div className="grid grid-cols-2 gap-4">
+                        {[{ key: 'statMin', label: 'Stat Minimum', min: 3, max: 12, hint: 'Lowest any stat can be (default 8)' },
+                        { key: 'statMax', label: 'Stat Maximum', min: 13, max: 20, hint: 'Highest any stat before racial bonuses (default 15)' },
+                        { key: 'pointBuyPoints', label: 'Point Buy Budget', min: 10, max: 50, hint: 'Total points to spend (default 27)' },
+                        { key: 'startingLevel', label: 'Starting Level', min: 1, max: 20, hint: 'Level players begin at' },
+                        ].map(f => (
+                            <div key={f.key}>
+                                <label className="block text-xs font-bold text-gray-300 mb-1">{f.label}</label>
+                                <input type="number" min={f.min} max={f.max}
+                                    value={(statSettings as any)[f.key]}
+                                    onChange={e => setStatSettings(prev => ({ ...prev, [f.key]: Number(e.target.value) }))}
+                                    className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white text-lg font-bold focus:border-amber-500 focus:outline-none" />
+                                <p className="text-xs text-gray-500 mt-1">{f.hint}</p>
+                            </div>
+                        ))}
+                    </div>
+                    <button onClick={saveStatSettings} disabled={savingSettings}
+                        className="flex items-center gap-2 px-5 py-2 bg-amber-600 hover:bg-amber-500 disabled:bg-gray-600 text-black font-bold rounded-lg transition-colors">
+                        <Save size={16} /> {savingSettings ? 'Saving...' : 'Save Rules'}
+                    </button>
+                </div>
+            )}
 
             {/* Editor */}
             {editing && (
