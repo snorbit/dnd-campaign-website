@@ -77,8 +77,8 @@ export default function PlayerCampaignPage() {
                 return;
             }
 
-            // Redirect to character creation if not completed yet
-            if (!characterData.character_created) {
+            // Redirect to character creation if not completed yet (catches NULL and false)
+            if (characterData.character_created !== true) {
                 router.push(`/player/${params.campaignId}/create-character`);
                 return;
             }
