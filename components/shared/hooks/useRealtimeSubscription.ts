@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { debugLog } from '@/lib/debug';
 
 export type RealtimeStatus = 'connecting' | 'connected' | 'error';
 
@@ -34,7 +35,7 @@ export const useRealtimeSubscription = <T>(
             return;
         }
 
-        console.log(`[Realtime] Subscribing to ${event} on ${table} for ${filterColumn}=${campaignId}`);
+        debugLog(`[Realtime] Subscribing to ${event} on ${table} for ${filterColumn}=${campaignId}`);
 
         const channel = supabase
             .channel(`realtime_${table}_${campaignId}_${column}_${event}`)
@@ -47,7 +48,7 @@ export const useRealtimeSubscription = <T>(
                     filter: filterColumn && campaignId ? `${filterColumn}=eq.${campaignId}` : undefined,
                 } as any,
                 (payload: any) => {
-                    console.log(`[Realtime] Received ${event} for ${table}:`, payload);
+                    debugLog(`[Realtime] Received ${event} for ${table}:`, payload);
 
                     // Logic depends on the table and column
                     if (table === 'campaign_state' && column !== '*') {
@@ -63,7 +64,7 @@ export const useRealtimeSubscription = <T>(
                 }
             )
             .subscribe((status) => {
-                console.log(`[Realtime] Status for ${table} (${event}):`, status);
+                debugLog(`[Realtime] Status for ${table} (${event}):`, status);
                 if (status === 'SUBSCRIBED') {
                     setStatus('connected');
                     setError(null);
@@ -76,7 +77,7 @@ export const useRealtimeSubscription = <T>(
             });
 
         return () => {
-            console.log(`[Realtime] Unsubscribing from ${table} (${event})`);
+            debugLog(`[Realtime] Unsubscribing from ${table} (${event})`);
             supabase.removeChannel(channel);
         };
     }, [campaignId, column, onUpdate, table, filterColumn, event]);

@@ -6,7 +6,6 @@ import { supabase } from '@/lib/supabase';
 import { Volume2, VolumeX } from 'lucide-react';
 
 // Dynamic import avoids SSR issues and resolves react-player typing conflicts
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const ReactPlayer = dynamic(() => import('react-player').then(mod => mod.default), { ssr: false }) as any;
 
 interface AudioPlayerProps {

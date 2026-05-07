@@ -3,9 +3,18 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCampaign } from '@/context/CampaignContext';
+import { CampaignProvider } from '@/context/CampaignContext';
 import { Lock } from 'lucide-react';
 
 export default function LoginPage() {
+    return (
+        <CampaignProvider>
+            <LegacyLoginPage />
+        </CampaignProvider>
+    );
+}
+
+function LegacyLoginPage() {
     const router = useRouter();
     const { players } = useCampaign();
     const [selectedPlayerId, setSelectedPlayerId] = useState("");

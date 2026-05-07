@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
+import { debugLog } from "@/lib/debug";
 
 export type DieType = 4 | 6 | 8 | 10 | 12 | 20 | 100;
 export type RollType = "normal" | "advantage" | "disadvantage";
@@ -17,7 +18,7 @@ export interface RollHistoryEntry {
     rolledBy?: string;
 }
 
-export const useDiceRoller = (campaignId?: number, playerName?: string) => {
+export const useDiceRoller = (campaignId?: string | number, playerName?: string) => {
     const [history, setHistory] = useState<RollHistoryEntry[]>([]);
     const [lastRoll, setLastRoll] = useState<RollHistoryEntry | null>(null);
     const channelRef = useRef<any>(null);
@@ -27,11 +28,11 @@ export const useDiceRoller = (campaignId?: number, playerName?: string) => {
         if (!campaignId) return;
 
         const channelName = `campaign:${campaignId}:dice`;
-        console.log(`Subscribing to dice channel: ${channelName}`);
+        debugLog(`Subscribing to dice channel: ${channelName}`);
 
         const channel = supabase.channel(channelName)
             .on('broadcast', { event: 'roll' }, ({ payload }) => {
-                console.log('Received remote roll:', payload);
+                debugLog('Received remote roll:', payload);
                 const entry = payload as RollHistoryEntry;
                 // Don't add if it's our own roll (though broadcast should exclude sender by default)
                 // But we handle local state immediately, so this is for others

@@ -44,18 +44,27 @@ const tabs = [
     { id: 'sessions' as TabId, label: 'Sessions', icon: BookOpen },
 ];
 
+interface DMCampaign {
+    id: string;
+    name: string;
+    dm_id: string;
+    join_code?: string;
+}
+
 export default function DMCampaignPage() {
     const params = useParams();
     const router = useRouter();
     // Using imported supabase client
 
     const [activeTab, setActiveTab] = useState<TabId>('maps');
-    const [campaign, setCampaign] = useState<any>(null);
+    const [campaign, setCampaign] = useState<DMCampaign | null>(null);
     const [loading, setLoading] = useState(true);
     const [showImportModal, setShowImportModal] = useState(false);
     const [importText, setImportText] = useState('');
     const [importing, setImporting] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [sessionRefreshKey, setSessionRefreshKey] = useState(0);
+    const [loadError, setLoadError] = useState<string | null>(null);
 
     useEffect(() => {
         loadCampaign();
@@ -78,13 +87,14 @@ export default function DMCampaignPage() {
 
             if (error || !data) {
                 console.error('Not authorized or campaign not found');
-                router.push('/campaigns');
+                setLoadError('Campaign not found, or you do not have DM access to it.');
                 return;
             }
 
             setCampaign(data);
         } catch (error) {
             console.error('Error loading campaign:', error);
+            setLoadError('Could not load this campaign. Check your connection and try again.');
         } finally {
             setLoading(false);
         }
@@ -127,10 +137,13 @@ export default function DMCampaignPage() {
         setImporting(true);
         toast.promise(importPromise, {
             loading: 'Importing session — parsing text, generating maps...',
+            description: 'Importing session: parsing text and generating maps...',
             success: () => {
                 setShowImportModal(false);
                 setImportText('');
-                setTimeout(() => window.location.reload(), 1500);
+                setActiveTab('sessions');
+                setSessionRefreshKey(prev => prev + 1);
+                return 'Campaign imported successfully.';
                 return '✅ Campaign imported successfully! Refreshing...';
             },
             error: (err: Error) => `Import failed: ${err.message}`,
@@ -174,7 +187,7 @@ export default function DMCampaignPage() {
             case 'feats':
                 return <DMFeatsTab campaignId={campaignId} />;
             case 'sessions':
-                return <SessionsTab campaignId={campaignId} onImportClick={() => setShowImportModal(true)} />;
+                return <SessionsTab campaignId={campaignId} onImportClick={() => setShowImportModal(true)} refreshKey={sessionRefreshKey} />;
             case 'homebrew':
                 return <HomebrewTab campaignId={campaignId} />;
             default:
@@ -196,12 +209,25 @@ export default function DMCampaignPage() {
         );
     }
 
-    if (!campaign) {
-        return null;
+    if (loadError || !campaign) {
+        return (
+            <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black flex items-center justify-center p-6">
+                <div className="max-w-md w-full bg-gray-800 border border-gray-700 rounded-lg p-6 text-center">
+                    <h1 className="text-xl font-bold text-white mb-2">Campaign Unavailable</h1>
+                    <p className="text-gray-400 text-sm mb-5">{loadError || 'Campaign data was not found.'}</p>
+                    <button
+                        onClick={() => router.push('/campaigns')}
+                        className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg font-semibold"
+                    >
+                        Back to Campaigns
+                    </button>
+                </div>
+            </div>
+        );
     }
 
     return (
-        <CampaignProvider>
+        <CampaignProvider campaignId={params.campaignId as string}>
             <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black flex flex-col md:flex-row h-screen">
                 {/* Mobile Header */}
                 <div className="md:hidden bg-gray-800 border-b border-gray-700 p-4 flex justify-between items-center z-20 shrink-0">
@@ -247,7 +273,7 @@ export default function DMCampaignPage() {
                                     </p>
                                     <button
                                         onClick={() => {
-                                            navigator.clipboard.writeText(campaign.join_code);
+                                            navigator.clipboard.writeText(campaign.join_code!);
                                             toast.success('Join code copied!', { icon: '📋' });
                                         }}
                                         className="px-2 py-1 bg-yellow-600 hover:bg-yellow-700 text-white text-xs rounded transition-colors shrink-0"

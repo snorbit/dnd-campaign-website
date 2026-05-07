@@ -54,6 +54,13 @@ export interface Monster {
     };
     ac?: number;
     initiative?: number;
+    isActive?: boolean;
+    combatants?: Array<{
+        id?: string;
+        name?: string;
+        refs?: { id?: string };
+        conditions?: unknown[];
+    }>;
 }
 
 export interface AudioState {
@@ -71,7 +78,7 @@ export interface TimeState {
 }
 
 export interface CampaignState {
-    id: number;
+    id: string | number;
     players: Player[];
     world: WorldState;
     map: MapData;
@@ -98,5 +105,13 @@ export interface CampaignState {
     isSyncing?: boolean;
     resetMap: () => void;
     clearQuests: () => void;
-    state?: any; // To support dynamic states like encounters
+    state?: {
+        players: Player[];
+        world: WorldState;
+        map: MapData;
+        encounters: Monster[];
+        quests: Quest[];
+        audio: AudioState;
+        time: TimeState;
+    };
 }

@@ -113,13 +113,13 @@ export const LiveChat: React.FC<LiveChatProps> = ({ campaignId, currentUserId, c
     const loadPlayers = async () => {
         const { data, error } = await supabase
             .from('campaign_players')
-            .select('player_id, character_name, user:profiles!player_id(name)')
+            .select('player_id, character_name, user:profiles!player_id(username, display_name)')
             .eq('campaign_id', campaignId);
 
         if (!error && data) {
             const parsed = data.map(d => ({
                 id: d.player_id,
-                character_name: d.character_name || (d.user as any)?.name || 'Unknown'
+                character_name: d.character_name || (d.user as any)?.display_name || (d.user as any)?.username || 'Unknown'
             }));
             setPlayers(parsed.filter(p => p.id !== currentUserId));
         }

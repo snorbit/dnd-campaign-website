@@ -1,15 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-// Use service role to bypass RLS for the join_code lookup
-// The insert still validates properly since we use the user's actual ID
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
 export async function POST(req: NextRequest) {
     try {
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+        if (!supabaseUrl || !serviceRoleKey) {
+            return NextResponse.json(
+                { error: 'Server is missing Supabase admin configuration' },
+                { status: 500 }
+            );
+        }
+
+        // Use service role to bypass RLS for the join_code lookup.
+        // The insert still validates properly because we use the authenticated user's actual ID.
+        const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
+
         const { joinCode } = await req.json();
 
         if (!joinCode || joinCode.length !== 6) {

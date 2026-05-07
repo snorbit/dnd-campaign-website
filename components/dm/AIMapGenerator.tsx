@@ -7,7 +7,8 @@ interface GenerationResult {
     success: boolean;
     imageUrl: string | null;
     error?: string;
-    prompt?: string;
+    source?: string;
+    warning?: string;
 }
 
 export default function AIMapGenerator() {
@@ -35,15 +36,19 @@ export default function AIMapGenerator() {
 
             const data = await response.json();
 
-            if (response.status === 503 || !data.success) {
+            if (!data.success) {
                 setResult({
                     success: false,
                     imageUrl: null,
                     error: data.error || 'Failed to generate map',
-                    prompt: data.prompt
                 });
             } else {
-                setResult({ success: true, imageUrl: data.imageUrl });
+                setResult({
+                    success: true,
+                    imageUrl: data.imageUrl,
+                    source: data.source,
+                    warning: data.warning,
+                });
             }
         } catch (err) {
             setResult({
@@ -73,15 +78,14 @@ export default function AIMapGenerator() {
             <div className="mb-6">
                 <div className="flex items-center gap-3 mb-2">
                     <Sparkles className="text-purple-400" size={28} />
-                    <h1 className="text-3xl font-bold text-white">AI Map Generator</h1>
+                    <h1 className="text-3xl font-bold text-white">Map Generator</h1>
                 </div>
                 <p className="text-gray-400">
-                    Create top-down D&D battle maps using Local Stable Diffusion.
-                    All maps are generated from a bird's eye perspective for tactical play.
+                    Create top-down D&D battle maps using Stable Diffusion when available,
+                    with a procedural fallback for reliable tactical maps.
                 </p>
             </div>
 
-            {/* Prompt Input */}
             <div className="bg-gray-800 rounded-lg p-6 mb-4 border border-gray-700">
                 <label className="block text-sm font-semibold text-white mb-2">
                     Map Description
@@ -100,7 +104,7 @@ export default function AIMapGenerator() {
 
                 <div className="mt-3 p-3 bg-purple-900/20 border border-purple-700/50 rounded-lg">
                     <p className="text-purple-300 text-xs">
-                        🎯 Top-down perspective is automatically enforced — no need to mention it in your prompt.
+                        Top-down perspective is automatically enforced. If Stable Diffusion is offline, a procedural map is generated instead.
                     </p>
                 </div>
 
@@ -112,7 +116,7 @@ export default function AIMapGenerator() {
                     {generating ? (
                         <>
                             <Loader2 className="animate-spin" size={20} />
-                            <span>Generating Map... (may take 30-90s)</span>
+                            <span>Generating Map...</span>
                         </>
                     ) : (
                         <>
@@ -123,13 +127,15 @@ export default function AIMapGenerator() {
                 </button>
             </div>
 
-            {/* Result Display */}
             {result && (
                 <div className={`rounded-lg p-6 mb-6 border ${result.success ? 'bg-gray-800 border-gray-700' : 'bg-red-900/20 border-red-700'}`}>
                     {result.success && result.imageUrl ? (
                         <>
                             <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-lg font-semibold text-white">Generated Map</h3>
+                                <div>
+                                    <h3 className="text-lg font-semibold text-white">Generated Map</h3>
+                                    {result.source && <p className="text-xs uppercase tracking-wide text-purple-300">{result.source}</p>}
+                                </div>
                                 <div className="flex gap-2">
                                     <button
                                         onClick={() => { setResult(null); setPrompt(''); }}
@@ -140,7 +146,7 @@ export default function AIMapGenerator() {
                                     </button>
                                     <a
                                         href={result.imageUrl}
-                                        download="battle_map.png"
+                                        download="battle_map.svg"
                                         target="_blank"
                                         rel="noreferrer"
                                         className="px-4 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg transition-colors flex items-center gap-2"
@@ -157,22 +163,16 @@ export default function AIMapGenerator() {
                                     className="w-full h-auto"
                                 />
                             </div>
-                            <p className="text-gray-400 text-sm mt-3">
-                                Tip: Right-click the image to save or copy it!
-                            </p>
+                            {result.warning && (
+                                <p className="text-yellow-300 text-xs mt-2">{result.warning}</p>
+                            )}
                         </>
                     ) : (
                         <div className="flex items-start gap-4">
                             <WifiOff className="text-red-400 mt-1 flex-shrink-0" size={24} />
                             <div>
-                                <h3 className="text-red-300 font-bold mb-1">Stable Diffusion Not Running</h3>
+                                <h3 className="text-red-300 font-bold mb-1">Map Generation Failed</h3>
                                 <p className="text-red-200 text-sm mb-3">{result.error}</p>
-                                <div className="bg-black/30 rounded p-3 text-xs text-gray-300 font-mono">
-                                    <p className="text-gray-400 mb-1"># How to start SD with the API enabled:</p>
-                                    <p>./webui.sh --api --nowebui</p>
-                                    <p className="text-gray-400 mt-1"># Windows:</p>
-                                    <p>webui-user.bat --api</p>
-                                </div>
                                 <button
                                     onClick={generateMap}
                                     className="mt-3 px-4 py-2 bg-red-700 hover:bg-red-600 text-white text-sm rounded-lg transition-colors flex items-center gap-2"
@@ -186,9 +186,8 @@ export default function AIMapGenerator() {
                 </div>
             )}
 
-            {/* Example Prompts */}
             <div className="bg-gray-800 rounded-lg p-6 mb-6 border border-gray-700">
-                <h3 className="text-lg font-semibold text-white mb-3">✨ Example Prompts</h3>
+                <h3 className="text-lg font-semibold text-white mb-3">Example Prompts</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                     {examplePrompts.map((example, index) => (
                         <button
@@ -202,15 +201,14 @@ export default function AIMapGenerator() {
                 </div>
             </div>
 
-            {/* Tips */}
             <div className="bg-blue-900/20 border border-blue-700 rounded-lg p-4">
-                <h4 className="text-blue-300 font-semibold mb-2">💡 Tips for Better Maps</h4>
+                <h4 className="text-blue-300 font-semibold mb-2">Tips for Better Maps</h4>
                 <ul className="text-blue-200 text-sm space-y-1">
-                    <li>• Be specific about the setting (tavern, dungeon, forest, etc.)</li>
-                    <li>• Mention key features (furniture, terrain, obstacles, traps)</li>
-                    <li>• Specify atmosphere (dark, misty, bright, ancient, overgrown)</li>
-                    <li>• Include materials (stone, wood, sand, ice) for realistic textures</li>
-                    <li>• All maps are generated top-down with grid overlays automatically</li>
+                    <li>- Be specific about the setting (tavern, dungeon, forest, etc.)</li>
+                    <li>- Mention key features (furniture, terrain, obstacles, traps)</li>
+                    <li>- Specify atmosphere (dark, misty, bright, ancient, overgrown)</li>
+                    <li>- Include materials (stone, wood, sand, ice) for realistic textures</li>
+                    <li>- All maps are generated top-down with grid overlays automatically</li>
                 </ul>
             </div>
         </div>

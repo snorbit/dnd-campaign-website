@@ -3,7 +3,7 @@
 
 CREATE TABLE IF NOT EXISTS public.campaign_chat (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-    campaign_id BIGINT REFERENCES public.campaigns(id) ON DELETE CASCADE,
+    campaign_id UUID REFERENCES public.campaigns(id) ON DELETE CASCADE,
     sender_id UUID REFERENCES auth.users(id) ON DELETE SET NULL, -- Can be null for system messages
     sender_name TEXT NOT NULL,
     message TEXT NOT NULL,

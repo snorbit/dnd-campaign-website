@@ -40,6 +40,23 @@ interface Open5eSpell {
     circles: string;
 }
 
+function renderFormattedText(text: string) {
+    return text.split('\n').map((line, lineIndex) => {
+        const parts = line.split(/(\*\*.*?\*\*)/g);
+
+        return (
+            <p key={`${lineIndex}-${line}`} className="mb-3 last:mb-0">
+                {parts.map((part, partIndex) => {
+                    if (part.startsWith('**') && part.endsWith('**')) {
+                        return <strong key={`${lineIndex}-${partIndex}`}>{part.slice(2, -2)}</strong>;
+                    }
+                    return <span key={`${lineIndex}-${partIndex}`}>{part}</span>;
+                })}
+            </p>
+        );
+    });
+}
+
 export default function SpellsTab({ campaignPlayerId }: SpellsTabProps) {
     // State for player's spellbook
     const [mySpells, setMySpells] = useState<PlayerSpell[]>([]);
@@ -323,14 +340,14 @@ export default function SpellsTab({ campaignPlayerId }: SpellsTabProps) {
                                 </div>
                             </div>
 
-                            <div className="prose prose-invert max-w-none prose-sm leading-relaxed"
-                                dangerouslySetInnerHTML={{ __html: selectedSpell.desc.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br/>') }}
-                            />
+                            <div className="prose prose-invert max-w-none prose-sm leading-relaxed">
+                                {renderFormattedText(selectedSpell.desc)}
+                            </div>
 
                             {selectedSpell.higher_level && (
                                 <div className="mt-4 p-4 bg-gray-800 rounded-lg border border-gray-700">
                                     <h5 className="font-bold text-white mb-2 font-serif text-base">At Higher Levels</h5>
-                                    <div dangerouslySetInnerHTML={{ __html: selectedSpell.higher_level }} />
+                                    <div>{renderFormattedText(selectedSpell.higher_level)}</div>
                                 </div>
                             )}
 

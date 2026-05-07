@@ -1,6 +1,7 @@
 import { renderHook, act } from '@testing-library/react';
 import { useDiceRoller } from './useDiceRoller';
 import { describe, it, expect, vi } from 'vitest';
+import { supabase } from '@/lib/supabase';
 
 describe('useDiceRoller', () => {
     it('should initialize with empty history', () => {
@@ -110,5 +111,26 @@ describe('useDiceRoller', () => {
 
         expect(result.current.history).toEqual([]);
         expect(result.current.lastRoll).toBeNull();
+    });
+
+    it('subscribes once per campaign and removes the channel on unmount', () => {
+        const channel = {
+            on: vi.fn().mockReturnThis(),
+            subscribe: vi.fn().mockReturnThis(),
+            send: vi.fn().mockReturnThis(),
+        };
+        vi.mocked(supabase.channel).mockReturnValue(channel as any);
+
+        const { result, unmount } = renderHook(() => useDiceRoller('campaign-1', 'Ari'));
+
+        act(() => {
+            result.current.roll(20, 1, 0, 'normal', true, [18]);
+        });
+
+        expect(supabase.channel).toHaveBeenCalledWith('campaign:campaign-1:dice');
+        expect(channel.send).toHaveBeenCalledTimes(1);
+
+        unmount();
+        expect(supabase.removeChannel).toHaveBeenCalledWith(channel);
     });
 });

@@ -33,16 +33,32 @@ const tabs = [
     { id: 'journal' as TabId, label: 'Journals', icon: Book },
 ];
 
+interface PlayerCampaign {
+    id: string;
+    name: string;
+}
+
+interface CampaignCharacter {
+    id: string;
+    campaign_id: string;
+    player_id: string;
+    character_name: string;
+    character_class?: string;
+    level?: number;
+    character_created?: boolean;
+}
+
 export default function PlayerCampaignPage() {
     const params = useParams();
     const router = useRouter();
     // Using imported supabase client
 
     const [activeTab, setActiveTab] = useState<TabId>('character');
-    const [campaign, setCampaign] = useState<any>(null);
-    const [character, setCharacter] = useState<any>(null);
+    const [campaign, setCampaign] = useState<PlayerCampaign | null>(null);
+    const [character, setCharacter] = useState<CampaignCharacter | null>(null);
     const [loading, setLoading] = useState(true);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [loadError, setLoadError] = useState<string | null>(null);
 
     useEffect(() => {
         loadCampaignAndCharacter();
@@ -73,7 +89,7 @@ export default function PlayerCampaignPage() {
 
             if (!campaignData || !characterData) {
                 console.error('Campaign or character not found');
-                router.push('/campaigns');
+                setLoadError('Campaign not found, or you are not a player in it yet.');
                 return;
             }
 
@@ -87,6 +103,7 @@ export default function PlayerCampaignPage() {
             setCharacter(characterData);
         } catch (error) {
             console.error('Error loading data:', error);
+            setLoadError('Could not load your campaign data. Check your connection and try again.');
         } finally {
             setLoading(false);
         }
@@ -138,12 +155,25 @@ export default function PlayerCampaignPage() {
         );
     }
 
-    if (!campaign || !character) {
-        return null;
+    if (loadError || !campaign || !character) {
+        return (
+            <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black flex items-center justify-center p-6">
+                <div className="max-w-md w-full bg-gray-800 border border-gray-700 rounded-lg p-6 text-center">
+                    <h1 className="text-xl font-bold text-white mb-2">Campaign Unavailable</h1>
+                    <p className="text-gray-400 text-sm mb-5">{loadError || 'Campaign or character data was not found.'}</p>
+                    <button
+                        onClick={() => router.push('/campaigns')}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold"
+                    >
+                        Back to Campaigns
+                    </button>
+                </div>
+            </div>
+        );
     }
 
     return (
-        <CampaignProvider>
+        <CampaignProvider campaignId={params.campaignId as string}>
             <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black flex flex-col md:flex-row h-screen">
                 {/* Mobile Header */}
                 <div className="md:hidden bg-gray-800 border-b border-gray-700 p-4 flex justify-between items-center z-20 shrink-0">

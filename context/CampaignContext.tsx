@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, ReactNode, useEffect, useRe
 import { CampaignState, Player, WorldState, MapData, Monster, Quest, AudioState, TimeState } from '@/types';
 import localPlayers from '@/data/players.json'; // Direct import as fallback
 import { supabase } from '@/lib/supabase';
+import { debugLog } from '@/lib/debug';
 
 // Default / Fallback Data
 const defaultWorld: WorldState = { day: 1, time: "08:00 AM", session: 1 };
@@ -13,7 +14,15 @@ const defaultTime: TimeState = { day: 1, month: 1, year: 1492, weather: "Clear",
 
 const CampaignContext = createContext<CampaignState | undefined>(undefined);
 
-export const CampaignProvider = ({ children, initialPlayers }: { children: ReactNode, initialPlayers?: Player[] }) => {
+export const CampaignProvider = ({
+    children,
+    initialPlayers,
+    campaignId
+}: {
+    children: ReactNode,
+    initialPlayers?: Player[],
+    campaignId?: string
+}) => {
     // Initialize state with defaults or props, falling back to local import
     const [players, setPlayers] = useState<Player[]>(
         (initialPlayers && initialPlayers.length > 0) ? initialPlayers : (localPlayers as unknown as Player[])
@@ -24,7 +33,7 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
     const [quests, setQuests] = useState<Quest[]>([]);
     const [audio, setAudio] = useState<AudioState>(defaultAudio);
     const [time, setTime] = useState<TimeState>(defaultTime);
-    const [dbId, setDbId] = useState<number>(1); // Default to row 1
+    const [dbId, setDbId] = useState<string | number>(campaignId || 1); // UUID for modern campaigns, row ID for legacy fallback
     const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'error'>('connecting');
     const [lastError, setLastError] = useState<string | null>(null);
     const [isSyncing, setIsSyncing] = useState<boolean>(false);
@@ -38,7 +47,41 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
 
     useEffect(() => {
         const fetchData = async () => {
-            console.log("CampaignContext: Fetching data from Supabase...");
+            debugLog("CampaignContext: Fetching data from Supabase...");
+
+            if (campaignId) {
+                const { data, error } = await supabase
+                    .from('campaign_state')
+                    .select('*')
+                    .eq('campaign_id', campaignId)
+                    .single();
+
+                if (data) {
+                    setDbId(campaignId);
+                    if (data.world) setWorld(data.world);
+                    if (data.encounters) setEncounters(data.encounters);
+                    if (data.quests) setQuests(data.quests);
+                    if (data.audio) setAudio(data.audio);
+                    if (data.time) setTime(data.time);
+                    if (data.map) {
+                        setMap({
+                            url: data.map.url || "",
+                            queue: data.map.queue || [],
+                            currentIndex: data.map.currentIndex || 0
+                        });
+                    }
+                    setConnectionStatus('connected');
+                    return;
+                }
+
+                if (error) {
+                    console.error("CampaignContext: campaign_state fetch failed:", error);
+                    setLastError(error.message);
+                    setConnectionStatus('error');
+                    return;
+                }
+            }
+
             // Fetch ANY single row (assuming single campaign app)
             const { data, error } = await supabase
                 .from('campaign')
@@ -47,14 +90,14 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
                 .single();
 
             if (data) {
-                console.log("CampaignContext: Supabase data received:", data);
+                debugLog("CampaignContext: Supabase data received:", data);
                 setDbId(data.id); // Store the actual ID
 
                 // Only overwrite if DB has valid data
                 if (data.players && data.players.length > 0) {
                     setPlayers(data.players);
                 } else {
-                    console.log("CampaignContext: Auto-seeding database from local JSON...");
+                    debugLog("CampaignContext: Auto-seeding database from local JSON...");
                     await supabase.from('campaign').update({ players: localPlayers }).eq('id', data.id);
                 }
 
@@ -91,7 +134,7 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
                     // Fallback to local only
                     if (players.length === 0) setPlayers(localPlayers as unknown as Player[]);
                 } else if (insertData) {
-                    console.log(`CampaignContext: Database initialized with new ID ${insertData.id}.`);
+                    debugLog(`CampaignContext: Database initialized with new ID ${insertData.id}.`);
                     setDbId(insertData.id);
                     // Set state from inserted data
                     setPlayers(insertData.players);
@@ -103,25 +146,28 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
             }
         };
         fetchData();
-    }, [initialPlayers]);
+    }, [campaignId, initialPlayers]);
 
     // 2. Real-Time Subscription
     useEffect(() => {
         if (!dbId) return; // Wait for ID
 
-        console.log(`CampaignContext: Subscribing to updates for info ID ${dbId}...`);
+        debugLog(`CampaignContext: Subscribing to updates for info ID ${dbId}...`);
+        const table = campaignId ? 'campaign_state' : 'campaign';
+        const filter = campaignId ? `campaign_id=eq.${campaignId}` : `id=eq.${dbId}`;
+
         const channel = supabase
-            .channel('campaign_updates')
+            .channel(`campaign_updates_${dbId}`)
             .on(
                 'postgres_changes',
                 {
                     event: 'UPDATE',
                     schema: 'public',
-                    table: 'campaign',
-                    filter: `id=eq.${dbId}`
+                    table,
+                    filter
                 },
                 (payload: any) => {
-                    console.log("CampaignContext: Realtime update received!", payload);
+                    debugLog("CampaignContext: Realtime update received!", payload);
                     const newData = payload.new;
                     if (newData.players) setPlayers(newData.players);
                     if (newData.world) setWorld(newData.world);
@@ -137,7 +183,7 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
                 }
             )
             .subscribe((status: string) => {
-                console.log("CampaignContext: Subscription status:", status);
+                debugLog("CampaignContext: Subscription status:", status);
                 if (status === 'SUBSCRIBED') setConnectionStatus('connected');
                 if (status === 'CHANNEL_ERROR') {
                     setConnectionStatus('error');
@@ -148,7 +194,7 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [dbId]);
+    }, [campaignId, dbId]);
 
     // 3. Database Updates (Optimistic UI + DB Push)
 
@@ -177,9 +223,13 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
 
     const performUpdate = async (column: string, data: any) => {
         setIsSyncing(true);
-        console.log(`[CampaignContext] Pushing update to ${column} (ID: ${dbId}):`, data);
+        debugLog(`[CampaignContext] Pushing update to ${column} (ID: ${dbId}):`, data);
 
-        const { error } = await supabase.from('campaign').update({ [column]: data }).eq('id', dbId);
+        const query = campaignId
+            ? supabase.from('campaign_state').update({ [column]: data }).eq('campaign_id', campaignId)
+            : supabase.from('campaign').update({ [column]: data }).eq('id', dbId);
+
+        const { error } = await query;
 
         setIsSyncing(false);
         if (error) {
@@ -218,7 +268,7 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
 
     const updateMap = (url: string) => {
         const newMap = { ...map, url: url }; // Use current state as base
-        console.log("Setting Map URL to:", url);
+        debugLog("Setting Map URL to:", url);
         setMap(newMap);
         pushUpdate('map', newMap);
     };
@@ -236,7 +286,7 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
         if (map.currentIndex + 1 < map.queue.length) {
             const nextIndex = map.currentIndex + 1;
             const nextUrl = map.queue[nextIndex].url;
-            console.log("Advancing to map:", nextUrl);
+            debugLog("Advancing to map:", nextUrl);
             const newMap = { ...map, currentIndex: nextIndex, url: nextUrl };
 
             setMap(newMap);
@@ -326,7 +376,8 @@ export const CampaignProvider = ({ children, initialPlayers }: { children: React
             clearQuests: () => {
                 setQuests([]);
                 pushUpdate('quests', []);
-            }
+            },
+            state: { players, world, map, encounters, quests, audio, time }
         }}>
             {children}
         </CampaignContext.Provider>

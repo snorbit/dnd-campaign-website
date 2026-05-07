@@ -39,6 +39,7 @@ export default function MapTab({ campaignId }: MapTabProps) {
     const [draggingToken, setDraggingToken] = useState<string | null>(null);
     const mapContainerRef = useRef<HTMLDivElement>(null);
     const channelRef = useRef<any>(null);
+    const tokensRef = useRef<MapToken[]>([]);
 
     const handleMapUpdate = useCallback((newMap: any) => {
         setIsUpdating(true);
@@ -56,6 +57,10 @@ export default function MapTab({ campaignId }: MapTabProps) {
         'map',
         handleMapUpdate
     );
+
+    useEffect(() => {
+        tokensRef.current = tokens;
+    }, [tokens]);
 
     useEffect(() => {
         loadMap();
@@ -147,7 +152,7 @@ export default function MapTab({ campaignId }: MapTabProps) {
         if (!draggingToken) return;
         (e.target as HTMLElement).releasePointerCapture(e.pointerId);
         setDraggingToken(null);
-        await saveTokensToDb(tokens);
+        await saveTokensToDb(tokensRef.current);
     };
 
     const saveTokensToDb = async (newTokens: MapToken[]) => {

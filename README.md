@@ -1,137 +1,101 @@
-# ⚔️ sessionforge
+# SessionForge
 
-The ultimate **virtual tabletop platform** for running D&D 5e campaigns online!
+SessionForge is a web app for running D&D 5e campaigns online. It gives the Dungeon Master a campaign control surface and gives players a live campaign view with maps, character tools, quests, journals, inventory, spells, chat, and dice.
 
-## ✨ Features
+## Features
 
-### For Dungeon Masters:
-- 📝 **Campaign Management** - Create and manage multiple campaigns
-- 🗺️ **Map Display** - Upload and show maps to players in real-time
-- ⚔️ **Encounter Builder** - Create encounters with reset functionality
-- 👥 **Player Management** - View all player stats and grant levels
-- 🎯 **Quest Tracking** - Create and manage campaign quests
-- 🧙 **NPC Database** - Keep track of all NPCs
-- 📦 **Item Library** - Manage campaign items
-- ⭐ **Homebrew Feats** - Create custom feats for your campaign
+### Dungeon Master
 
-### For Players:
-- 🗺️ **Live Map** - See the current map in real-time
-- 📊 **Character Stats** - Full character sheet with abilities and HP
-- 🎒 **Inventory** - Manage your character's items
-- 👥 **Party View** - See all party members and their status
-- 📜 **Quest Log** - Track active and completed quests  
-- ⭐ **Feats Browser** - View all D&D 5e feats + campaign homebrew
-- 🆙 **Level-Up System** - Choose between feat or ASI when leveling up
+- Campaign creation and campaign-code sharing
+- Live map library with generated maps, pings, and tokens
+- Encounter, player, quest, NPC, item, feat, session, journal, audio, and time tools
+- Session import for turning notes into maps, quests, items, and encounters
+- Map generation through local Stable Diffusion when available, with a procedural fallback
 
-## 🚀 Quick Start
+### Players
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/snorbit/dnd-campaign-website.git
-   cd dnd-campaign-website
-   ```
+- Live map view with realtime updates
+- Character sheet, stats, spells, inventory, party, quest, feat, and journal tabs
+- Shared dice roller and live chat
+- Character creation and level-up flow
 
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
+## Tech Stack
 
-3. **Set up environment variables**
-   
-   Create `.env.local` with your Supabase credentials:
-   ```env
-   NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
-   ```
+- Framework: Next.js 16
+- Language: TypeScript
+- UI: React and Tailwind CSS
+- Database/Auth/Realtime/Storage: Supabase
+- Hosting: Vercel
+- Tests: Vitest
 
-4. **Run the development server**
-   ```bash
-   npm run dev
-   ```
+## Local Setup
 
-5. Open [http://localhost:3000](http://localhost:3000)
+1. Install dependencies:
 
-## 📚 Full Deployment Guide
-
-See [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) for complete setup instructions including:
-- Supabase project creation
-- Database migration
-- Environment variables
-- Vercel deployment
-
-## 🛠️ Tech Stack
-
-- **Framework**: Next.js 14
-- **Language**: TypeScript
-- **Styling**: Tailwind CSS  
-- **Database**: Supabase (PostgreSQL)
-- **Authentication**: Supabase Auth
-- **Real-time**: Supabase Realtime
-- **Deployment**: Vercel
-
-## 📁 Project Structure
-
-```
-dnd-campaign-website/
-├── app/
-│   ├── auth/          # Authentication pages
-│   ├── campaigns/     # Campaign dashboard
-│   ├── dm/           # DM campaign view
-│   └── player/       # Player campaign view
-├── components/
-│   ├── dm/           # DM tab components
-│   └── player/       # Player tab components
-├── lib/              # Utilities and Supabase client
-├── supabase/
-│   └── migrations/   # Database schema
-└── public/           # Static assets
+```bash
+npm install
 ```
 
-## 🎮 How to Use
+2. Create `.env.local`:
 
-### Creating a Campaign (DM)
-1. Sign up for an account
-2. Click "Create New Campaign"
-3. Enter campaign name and description
-4. Share the campaign with players
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
 
-### Joining a Campaign (Player)
-1. Sign up for an account
-2. Get campaign ID from your DM
-3. Join the campaign
-4. Create your character
+# Optional local AI services
+SD_LOCAL_URL=http://127.0.0.1:7860
+OLLAMA_URL=http://127.0.0.1:11434
+OLLAMA_MODEL=llama3.2
+```
 
-### Running a Session (DM)
-1. Open your campaign
-2. Go to **Maps** tab to display a map
-3. Use **Encounters** tab to create battles
-4. Track party progress in **Players** tab
-5. Grant levels when appropriate
+3. Run the app:
 
-### Playing (Player)
-1. Open your campaign
-2. View the map your DM displays
-3. Check your stats and inventory
-4. When you level up, choose Feat or ASI!
+```bash
+npm.cmd run dev
+```
 
-## 🔒 Security
+Use `npm.cmd` on Windows if PowerShell blocks `npm.ps1`.
 
-- Row Level Security (RLS) enabled on all tables
-- Campaign-specific data isolation
-- Secure authentication with Supabase
-- Environment variables for sensitive data
+## Checks
 
-## 📝 License
+```bash
+npm.cmd test
+npm.cmd run lint
+npm.cmd exec tsc -- --noEmit
+npm.cmd run build
+```
 
-This project is open source and available under the MIT License.
+In this local Windows environment, Next.js build/dev can fail with `spawn EPERM` during worker startup. TypeScript and tests can still be checked directly.
 
-## 🤝 Contributing
+## Supabase
 
-Contributions welcome! Feel free to:
-- Report bugs
-- Suggest features
-- Submit pull requests
+Run the migrations in `supabase/migrations` for a fresh project. The app expects:
 
-## 🎲 Have Fun!
+- `campaigns`
+- `campaign_players`
+- `campaign_state`
+- `campaign_sessions`
+- `campaign_chat`
+- character, inventory, spell, feat, journal, and homebrew tables
+- a public Supabase Storage bucket named `campaign-maps`
 
-Built with ❤️ for the D&D community. May your rolls be high and your adventures epic!
+Realtime should be enabled for tables used by live session views, especially `campaign_state`, `campaign_chat`, and player-facing records.
+
+## Vercel
+
+Deploy through Vercel and configure the same environment variables there. The production app should use Supabase for database, auth, realtime, and map storage.
+
+## Project Structure
+
+```text
+app/                 Next.js app routes and API routes
+components/dm/       Dungeon Master tabs and tools
+components/player/   Player tabs and tools
+components/shared/   Shared UI, dice, chat, audio, realtime hooks
+context/             Campaign context
+lib/                 Supabase and map generation helpers
+supabase/            Schema and migrations
+public/              Static assets
+data/                Campaign notes and imported content
+```

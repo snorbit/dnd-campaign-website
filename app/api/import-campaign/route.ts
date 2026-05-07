@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { generateBattleMap } from '@/lib/mapGenerationService';
 
 const SD_URL = process.env.SD_LOCAL_URL || 'http://127.0.0.1:7860';
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://127.0.0.1:11434';
@@ -342,20 +343,17 @@ function inferTravelTerrain(from: { name: string }, to: { name: string }): strin
 
 async function generateMapImage(title: string, description: string, campaignId: string, order: number, isTravel: boolean = false): Promise<string> {
     const basePrompt = isTravel ? buildTravelMapPrompt(description) : buildLocationMapPrompt(title, description);
-    const negativePrompt = 'isometric, perspective, side view, low angle, tilted, 3d rendered perspective, blurry, low quality, text, watermark, signature, ugly, distorted, characters, people, figures, monsters visible, fog of war, ui elements, logo';
-
-    const sdAvailable = await checkSDAvailable();
-
-    if (sdAvailable) {
-        try {
-            return await callStableDiffusion(basePrompt, negativePrompt, campaignId, order);
-        } catch (err) {
-            console.warn('Stable Diffusion failed, using placeholder:', err);
-        }
-    }
-
-    console.log(`[Map placeholder] ${title}: ${basePrompt}`);
-    return `/maps/placeholder_${campaignId}_${order}.png`;
+    const result = await generateBattleMap({
+        prompt: basePrompt,
+        title,
+        campaignId,
+        mapType: isTravel ? 'road' : 'auto',
+        width: 1024,
+        height: 1024,
+        gridSize: 32,
+        includeGrid: true,
+    });
+    return result.imageUrl;
 }
 
 function buildLocationMapPrompt(name: string, description: string): string {
@@ -433,7 +431,6 @@ async function callStableDiffusion(prompt: string, negativePrompt: string, campa
 
 // ─── Database Operations ──────────────────────────────────────────────────────
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function addMapsToCampaign(supabase: any, campaignId: string, maps: Array<{ title: string; url: string; order: number; description?: string }>) {
     const { data: campaignState } = await supabase.from('campaign_state').select('map').eq('campaign_id', campaignId).single();
     const currentQueue = campaignState?.map?.queue || [];
@@ -442,7 +439,6 @@ async function addMapsToCampaign(supabase: any, campaignId: string, maps: Array<
     }).eq('campaign_id', campaignId);
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function createQuests(supabase: any, campaignId: string, quests: Array<{ name: string; description: string }>) {
     if (quests.length === 0) return;
     // QuestsTab reads from campaign_state.quests (JSONB array)
@@ -459,7 +455,6 @@ async function createQuests(supabase: any, campaignId: string, quests: Array<{ n
     await supabase.from('campaign_state').update({ quests: [...existing, ...newQuests] }).eq('campaign_id', campaignId);
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function addItems(supabase: any, campaignId: string, items: Array<{ name: string; quantity: number }>) {
     if (items.length === 0) return;
     // ItemsTab reads from campaign_state.items (JSONB array)
@@ -475,7 +470,6 @@ async function addItems(supabase: any, campaignId: string, items: Array<{ name: 
     await supabase.from('campaign_state').update({ items: [...existing, ...newItems] }).eq('campaign_id', campaignId);
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function createEncounters(supabase: any, campaignId: string, encounters: Array<{ name: string; location: string; difficulty: number }>) {
     if (encounters.length === 0) return;
     // EncountersTab reads from campaign_state.encounters (JSONB array)

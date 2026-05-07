@@ -21,16 +21,17 @@ interface CampaignSession {
 interface SessionsTabProps {
     campaignId: string;
     onImportClick: () => void;
+    refreshKey?: number;
 }
 
-export default function SessionsTab({ campaignId, onImportClick }: SessionsTabProps) {
+export default function SessionsTab({ campaignId, onImportClick, refreshKey = 0 }: SessionsTabProps) {
     const [sessions, setSessions] = useState<CampaignSession[]>([]);
     const [loading, setLoading] = useState(true);
     const [expandedId, setExpandedId] = useState<string | null>(null);
 
     useEffect(() => {
         loadSessions();
-    }, [campaignId]);
+    }, [campaignId, refreshKey]);
 
     const loadSessions = async () => {
         try {
