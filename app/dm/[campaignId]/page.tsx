@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { supabase } from '@/lib/supabase';
 import { useParams, useRouter } from 'next/navigation';
@@ -136,15 +136,14 @@ export default function DMCampaignPage() {
 
         setImporting(true);
         toast.promise(importPromise, {
-            loading: 'Importing session — parsing text, generating maps...',
-            description: 'Importing session: parsing text and generating maps...',
-            success: () => {
+            loading: 'Importing session: parsing script and generating session content...',
+            description: 'Importing session: creating maps, NPCs, monsters, quests, and items...',
+            success: (data) => {
                 setShowImportModal(false);
                 setImportText('');
                 setActiveTab('sessions');
                 setSessionRefreshKey(prev => prev + 1);
-                return 'Campaign imported successfully.';
-                return '✅ Campaign imported successfully! Refreshing...';
+                return data?.summary || 'Session imported successfully.';
             },
             error: (err: Error) => `Import failed: ${err.message}`,
         });
@@ -258,7 +257,7 @@ export default function DMCampaignPage() {
                             onClick={() => router.push('/campaigns')}
                             className="text-gray-400 hover:text-white text-sm mb-2"
                         >
-                            ← Back to Campaigns
+                            Back to Campaigns
                         </button>
                         <h2 className="text-xl font-bold text-white truncate">{campaign.name}</h2>
                         <span className="text-xs text-yellow-500 font-semibold">DUNGEON MASTER</span>
@@ -274,12 +273,12 @@ export default function DMCampaignPage() {
                                     <button
                                         onClick={() => {
                                             navigator.clipboard.writeText(campaign.join_code!);
-                                            toast.success('Join code copied!', { icon: '📋' });
+                                            toast.success('Join code copied!');
                                         }}
                                         className="px-2 py-1 bg-yellow-600 hover:bg-yellow-700 text-white text-xs rounded transition-colors shrink-0"
                                         title="Copy join code"
                                     >
-                                        📋
+                                        Copy
                                     </button>
                                 </div>
                                 <p className="text-xs text-yellow-300/70 mt-2">Share this code with players</p>
@@ -318,11 +317,10 @@ export default function DMCampaignPage() {
                             onClick={() => setShowImportModal(true)}
                             className="w-full px-4 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-bold rounded-lg transition-all transform hover:scale-105 shadow-lg flex items-center justify-center gap-2"
                         >
-                            <span className="text-xl">📥</span>
                             <span>Import Session</span>
                         </button>
                         <p className="text-xs text-gray-500 text-center mt-2">
-                            Auto-generate maps, quests & more
+                            Auto-generate maps, NPCs, monsters, quests, and items
                         </p>
                     </div>
                 </div>
@@ -340,9 +338,9 @@ export default function DMCampaignPage() {
                 {showImportModal && (
                     <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
                         <div className="bg-gray-800 rounded-lg p-6 max-w-3xl w-full border border-gray-700 max-h-[90vh] overflow-y-auto">
-                            <h2 className="text-2xl font-bold text-white mb-2">📥 Import Session</h2>
+                            <h2 className="text-2xl font-bold text-white mb-2">Import Session</h2>
                             <p className="text-gray-400 text-sm mb-4">
-                                Paste your session description and we'll automatically generate maps, quests, items, and encounters!
+                                Paste a session script and the importer will create full-session maps, NPCs, monsters, encounters, quests, and items.
                             </p>
 
                             <div className="bg-gray-900 rounded p-4 mb-4">
@@ -358,14 +356,19 @@ Locations:
 3. Grand Hall - Columns, murals, center altar
 4. Inner Sanctum - Golden chamber, sun beams
 
-Quests:
-- Retrieve the Sun Medallion
-- Decipher the ancient puzzle
+NPCs:
+- High Priestess Amara - human priest, knows the temple old rites
+- Keth - goblin scout, nervous informant who can warn about traps
+
+Monsters:
+- Sand Elemental x3
+- Temple Guardian Golem x4
+- Corrupted Sun Priest hp 70 ac 15
 
 Encounters:
-- Sand Elementals (entrance, 3 enemies)
-- Temple Guardians (grand hall, 4 golems)
-- Corrupted Sun Priest (boss, sanctum)
+- Sand Elementals (Temple Entrance, 3 enemies)
+- Temple Guardians @ Grand Hall: 4 golems
+- Corrupted Sun Priest @ Inner Sanctum: boss priest hp 70 ac 15
 
 Items:
 - Ancient Scroll
@@ -377,7 +380,7 @@ Items:
                             <textarea
                                 value={importText}
                                 onChange={(e) => setImportText(e.target.value)}
-                                placeholder="Paste your campaign session text here..."
+                                placeholder="Paste your session script here..."
                                 rows={15}
                                 className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:border-purple-500 focus:outline-none mb-4 font-mono text-sm"
                             />
@@ -390,13 +393,12 @@ Items:
                                 >
                                     {importing ? (
                                         <>
-                                            <span className="animate-spin">⚙️</span>
-                                            <span>Generating Campaign...</span>
+                                            <Loader2 size={18} className="animate-spin" />
+                                            <span>Generating Session...</span>
                                         </>
                                     ) : (
                                         <>
-                                            <span>🎨</span>
-                                            <span>Generate Campaign</span>
+                                            <span>Generate Session</span>
                                         </>
                                     )}
                                 </button>
@@ -414,13 +416,13 @@ Items:
 
                             {importing && (
                                 <div className="mt-4 p-4 bg-purple-900/20 border border-purple-700 rounded-lg">
-                                    <p className="text-purple-300 text-sm font-semibold mb-3">⏳ Generating your campaign content...</p>
+                                    <p className="text-purple-300 text-sm font-semibold mb-3">Generating your session content...</p>
                                     <div className="space-y-2">
                                         {[
-                                            { step: '🧠 Parsing session text with AI', done: true },
-                                            { step: '🗺️ Generating top-down maps (SD)', done: false },
-                                            { step: '📜 Creating quests & encounters', done: false },
-                                            { step: '🎒 Adding items to campaign', done: false },
+                                            { step: 'Parsing session script', done: true },
+                                            { step: 'Generating location, travel, and encounter maps', done: false },
+                                            { step: 'Creating NPCs, monsters, and encounters', done: false },
+                                            { step: 'Adding quests and items to the campaign', done: false },
                                         ].map((item, i) => (
                                             <div key={i} className="flex items-center gap-2 text-xs">
                                                 <div className={`w-3 h-3 rounded-full flex-shrink-0 ${item.done ? 'bg-green-500' : 'bg-purple-500 animate-pulse'}`} />

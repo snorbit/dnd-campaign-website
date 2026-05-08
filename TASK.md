@@ -132,6 +132,8 @@ This is the working backlog for the D&D campaign website. Keep completed work in
 - [x] Removed the Google Fonts build fetch blocker by using local CSS font stacks instead of `next/font/google`.
 - [x] Full map generator path added with Stable Diffusion support, procedural fallback, preview, save, display, Supabase Storage upload, and tests.
 - [x] Mobile session layout pass completed for fixed chat/dice/audio controls and map/token controls.
+- [x] Session script importer now builds full-session content: location maps, travel maps, encounter maps, NPCs, monster stat blocks, populated encounters, quests, and items.
+- [x] Added importer tests for script-to-session map jobs, NPC records, encounter enemies, monster counts, and item quantities.
 
 ## Known Verification Blockers
 
