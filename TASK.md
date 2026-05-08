@@ -134,9 +134,10 @@ This is the working backlog for the D&D campaign website. Keep completed work in
 - [x] Mobile session layout pass completed for fixed chat/dice/audio controls and map/token controls.
 - [x] Session script importer now builds full-session content: location maps, travel maps, encounter maps, NPCs, monster stat blocks, populated encounters, quests, and items.
 - [x] Added importer tests for script-to-session map jobs, NPC records, encounter enemies, monster counts, and item quantities.
+- [x] Live Supabase project verified: `campaign_state`, `campaign_sessions`, `campaign_players`, `campaigns`, and `campaign-maps` exist; missing `campaign_chat` migration was applied and re-checked.
 
 ## Known Verification Blockers
 
 - `npm.cmd run build` compiles successfully, but this local Windows environment currently fails during Next.js page-data collection with `spawn EPERM`. TypeScript passes separately with `tsc --noEmit`.
-- Supabase and Vercel connector verification is blocked because both connector auth tokens are currently expired. Sign in again to verify live migrations/deployments.
+- Supabase connector verification is working and the live `campaign_chat` migration was applied. Supabase advisor and Vercel deployment/project detail calls timed out through the connectors.
 - Mobile layout verification is blocked until the dev server can run or a Vercel preview is available.

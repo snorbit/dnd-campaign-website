@@ -2,7 +2,7 @@
 -- Creates a table to store realtime chat and dice rolls for history
 
 CREATE TABLE IF NOT EXISTS public.campaign_chat (
-    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     campaign_id UUID REFERENCES public.campaigns(id) ON DELETE CASCADE,
     sender_id UUID REFERENCES auth.users(id) ON DELETE SET NULL, -- Can be null for system messages
     sender_name TEXT NOT NULL,
@@ -18,21 +18,28 @@ CREATE TABLE IF NOT EXISTS public.campaign_chat (
 ALTER TABLE public.campaign_chat ENABLE ROW LEVEL SECURITY;
 
 -- Policies
--- 1. Anyone in the campaign can view non-whisper messages, or whispers directed at them, or if they are the DM
+-- 1. Anyone in the campaign can view non-whisper messages, their whispers, or all messages if they are the DM.
+DROP POLICY IF EXISTS "View campaign chat" ON public.campaign_chat;
 CREATE POLICY "View campaign chat"
     ON public.campaign_chat
     FOR SELECT
     USING (
-        EXISTS (
-            SELECT 1 FROM public.campaign_players cp
-            WHERE cp.campaign_id = campaign_chat.campaign_id
-            AND cp.player_id = auth.uid()
+        (
+            EXISTS (
+                SELECT 1 FROM public.campaign_players cp
+                WHERE cp.campaign_id = campaign_chat.campaign_id
+                AND cp.player_id = auth.uid()
+            )
+            OR EXISTS (
+                SELECT 1 FROM public.campaigns c
+                WHERE c.id = campaign_chat.campaign_id
+                AND c.dm_id = auth.uid()
+            )
         )
         AND (
             is_whisper = false
             OR sender_id = auth.uid()
             OR target_player_id = auth.uid()
-            -- DM can see all
             OR EXISTS (
                 SELECT 1 FROM public.campaigns c
                 WHERE c.id = campaign_chat.campaign_id
@@ -42,6 +49,7 @@ CREATE POLICY "View campaign chat"
     );
 
 -- 2. Anyone in the campaign can insert messages
+DROP POLICY IF EXISTS "Insert campaign chat" ON public.campaign_chat;
 CREATE POLICY "Insert campaign chat"
     ON public.campaign_chat
     FOR INSERT
@@ -58,3 +66,6 @@ CREATE POLICY "Insert campaign chat"
             AND c.dm_id = auth.uid()
         )
     );
+
+CREATE INDEX IF NOT EXISTS idx_campaign_chat_campaign_created
+    ON public.campaign_chat(campaign_id, created_at);

@@ -121,4 +121,4 @@ This plan orders the backlog by risk. The goal is to make the app reliable first
 - [ ] Chat works for public messages and whispers.
 - [x] Dice roller appears once and does not duplicate events.
 
-Connector status: Supabase and Vercel live verification is currently blocked by expired connector auth tokens.
+Connector status: Supabase live schema checks work and the missing `campaign_chat` migration was applied. Supabase advisor and Vercel deployment/project detail calls timed out through the connectors.
