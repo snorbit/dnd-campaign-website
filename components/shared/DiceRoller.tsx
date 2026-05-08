@@ -115,7 +115,7 @@ export const DiceRoller = () => {
         return (
             <button
                 onClick={() => setIsOpen(true)}
-                className="fixed bottom-6 right-6 z-50 rounded-full bg-black/80 p-2 border-2 border-fantasy-gold/50 shadow-[0_0_20px_rgba(212,175,55,0.4)] hover:scale-110 hover:shadow-[0_0_30px_rgba(212,175,55,0.7)] transition-all duration-300 group overflow-hidden"
+                className="fixed bottom-4 right-4 z-50 rounded-full bg-black/80 p-2 border-2 border-fantasy-gold/50 shadow-[0_0_20px_rgba(212,175,55,0.4)] hover:scale-110 hover:shadow-[0_0_30px_rgba(212,175,55,0.7)] transition-all duration-300 group overflow-hidden sm:bottom-6 sm:right-6"
                 aria-label="Open Dice Roller"
             >
                 <img
@@ -128,9 +128,9 @@ export const DiceRoller = () => {
     }
 
     return (
-        <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-4 animate-in slide-in-from-bottom-10 fade-in duration-300">
+        <div className="fixed inset-x-3 bottom-4 z-50 flex flex-col items-end gap-4 animate-in slide-in-from-bottom-10 fade-in duration-300 sm:inset-x-auto sm:bottom-6 sm:right-6">
             {/* Main Container */}
-            <div className="w-80 glass rounded-2xl border border-fantasy-gold/30 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="flex max-h-[92vh] w-full flex-col overflow-hidden rounded-2xl border border-fantasy-gold/30 shadow-2xl glass sm:w-80 sm:max-h-[85vh]">
 
                 {/* Header */}
                 <div className="flex items-center justify-between p-4 border-b border-white/10 bg-black/60">
@@ -151,10 +151,10 @@ export const DiceRoller = () => {
                 </div>
 
                 {/* Unified Controls Tray */}
-                <div className="p-6 space-y-8">
+                <div className="space-y-6 p-4 sm:space-y-8 sm:p-6">
 
                     {/* Top Controls Row */}
-                    <div className="grid grid-cols-2 gap-6">
+                    <div className="grid grid-cols-2 gap-3 sm:gap-6">
                         {/* Quantity Control */}
                         <div className="space-y-2">
                             <label className="text-[10px] uppercase tracking-widest text-fantasy-muted font-bold block ml-1">Quantity</label>
@@ -259,8 +259,8 @@ export const DiceRoller = () => {
                     </div>
                 </div>
 
-                <div className="mx-5 mb-5 min-h-[280px] flex items-center justify-center relative">
-                    <div className="w-full h-full min-h-[280px] absolute inset-0">
+                <div className="relative mx-4 mb-4 flex min-h-[220px] items-center justify-center sm:mx-5 sm:mb-5 sm:min-h-[280px]">
+                    <div className="absolute inset-0 h-full min-h-[220px] w-full sm:min-h-[280px]">
                         {/* Use DiceBox for standard dice d4-d100 */}
                         <DiceBoxComponent
                             rolling={isRolling}

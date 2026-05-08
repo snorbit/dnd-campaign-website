@@ -206,8 +206,8 @@ export default function MapTab({ campaignId }: MapTabProps) {
 
     return (
         <div className="space-y-4">
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-wrap items-center gap-3 sm:gap-4">
                     <h2 className="text-2xl font-bold text-white">Current Map</h2>
                     {isUpdating && (
                         <div className="flex items-center gap-2 text-yellow-500 text-xs animate-pulse">
@@ -216,7 +216,7 @@ export default function MapTab({ campaignId }: MapTabProps) {
                         </div>
                     )}
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center justify-between gap-3 sm:justify-end">
                     <button
                         onClick={() => loadMap()}
                         className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-md transition-all"
@@ -228,9 +228,9 @@ export default function MapTab({ campaignId }: MapTabProps) {
                 </div>
             </div>
 
-            <div className="bg-gray-900 rounded-lg border border-gray-700 overflow-hidden flex justify-center p-4">
+            <div className="flex justify-center overflow-auto rounded-lg border border-gray-700 bg-gray-900 p-3 sm:p-4">
                 <div
-                    className="relative inline-block select-none touch-none"
+                    className="relative inline-block max-w-full select-none touch-none"
                     ref={mapContainerRef}
                     onPointerMove={handlePointerMove}
                     onPointerUp={handlePointerUp}

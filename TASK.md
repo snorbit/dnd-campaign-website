@@ -75,8 +75,9 @@ This is the working backlog for the D&D campaign website. Keep completed work in
   - Make "not authorized", "missing campaign", and "missing character" states distinct.
   - Done: DM and player campaign pages now show a visible unavailable state with a Back to Campaigns action.
 
-- [ ] Make mobile layouts easier to use during sessions.
+- [x] Make mobile layouts easier to use during sessions.
   - Check sidebar overlays, fixed chat/dice controls, and map/token controls on phone-sized screens.
+  - Done: fixed chat, dice, and audio controls now avoid bottom-corner overlap on small screens; DM/player map headers, token controls, and map modals now stack and scroll on phone-sized screens.
 
 ## Code Quality
 
@@ -125,11 +126,12 @@ This is the working backlog for the D&D campaign website. Keep completed work in
 ## Completed
 
 - [x] Initial repo assessment completed.
-- [x] Test suite checked with `npm.cmd test`; current result: 1 test file passed, 7 tests passed.
+- [x] Test suite checked with `npm.cmd test`; current result: 4 test files passed, 15 tests passed.
 - [x] Root `TASK.md` created.
 - [x] `npm.cmd exec tsc -- --noEmit` passes.
 - [x] Removed the Google Fonts build fetch blocker by using local CSS font stacks instead of `next/font/google`.
 - [x] Full map generator path added with Stable Diffusion support, procedural fallback, preview, save, display, Supabase Storage upload, and tests.
+- [x] Mobile session layout pass completed for fixed chat/dice/audio controls and map/token controls.
 
 ## Known Verification Blockers
 

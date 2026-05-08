@@ -384,14 +384,14 @@ export default function MapsTab({ campaignId }: MapsTabProps) {
         <div className="space-y-6">
             {/* Current Map Preview */}
             <div>
-                <h3 className="text-lg font-bold text-white mb-3 flex items-center justify-between">
+                <h3 className="mb-3 flex flex-col gap-1 text-lg font-bold text-white sm:flex-row sm:items-center sm:justify-between">
                     <span>Currently Displayed</span>
                     <span className="text-xs font-normal text-gray-500">Click to ping location</span>
                 </h3>
                 {currentMapUrl ? (
-                    <div className="bg-gray-900 rounded-lg border border-yellow-600 p-4 flex flex-col items-center">
+                    <div className="flex flex-col items-center rounded-lg border border-yellow-600 bg-gray-900 p-3 sm:p-4">
                         <div
-                            className="relative inline-block select-none touch-none"
+                            className="relative inline-block max-w-full select-none touch-none"
                             ref={mapContainerRef}
                             onPointerMove={handlePointerMove}
                             onPointerUp={handlePointerUp}
@@ -412,7 +412,7 @@ export default function MapsTab({ campaignId }: MapsTabProps) {
                                 <div
                                     key={token.id}
                                     onPointerDown={(e) => handlePointerDown(e, token.id)}
-                                    className={`absolute rounded-full border-2 border-white shadow-[0_0_10px_rgba(0,0,0,0.8)] flex items-center justify-center font-bold text-white text-xs cursor-move hover:scale-110 transition-transform ${draggingToken === token.id ? 'opacity-80 scale-110' : ''}`}
+                                    className={`group absolute rounded-full border-2 border-white shadow-[0_0_10px_rgba(0,0,0,0.8)] flex items-center justify-center font-bold text-white text-xs cursor-move hover:scale-110 transition-transform ${draggingToken === token.id ? 'opacity-80 scale-110' : ''}`}
                                     style={{
                                         left: `${token.x}%`,
                                         top: `${token.y}%`,
@@ -428,7 +428,8 @@ export default function MapsTab({ campaignId }: MapsTabProps) {
                                     {!draggingToken && (
                                         <button
                                             onClick={(e) => handleRemoveToken(token.id, e)}
-                                            className="absolute -top-2 -right-2 bg-red-600 rounded-full p-0.5 opacity-0 hover:opacity-100 group-hover:opacity-100 transition-opacity"
+                                            className="absolute -right-2 -top-2 rounded-full bg-red-600 p-0.5 opacity-100 transition-opacity sm:opacity-0 sm:hover:opacity-100 sm:group-hover:opacity-100"
+                                            aria-label={`Remove ${token.label} token`}
                                         >
                                             <X size={10} />
                                         </button>
@@ -451,26 +452,26 @@ export default function MapsTab({ campaignId }: MapsTabProps) {
                         </div>
 
                         {/* Token Controls */}
-                        <div className="mt-4 flex flex-wrap gap-2 items-center bg-gray-800 p-3 rounded-lg border border-gray-700 w-full max-w-2xl">
-                            <span className="text-sm font-bold text-gray-300">Add Token:</span>
+                        <div className="mt-4 grid w-full max-w-2xl grid-cols-[1fr_auto] items-center gap-2 rounded-lg border border-gray-700 bg-gray-800 p-3 sm:flex sm:flex-wrap">
+                            <span className="col-span-2 text-sm font-bold text-gray-300 sm:col-span-1">Add Token:</span>
                             <input
                                 type="text"
                                 placeholder="Label (e.g. G1)"
                                 value={newTokenLabel}
                                 onChange={e => setNewTokenLabel(e.target.value)}
-                                className="px-3 py-1.5 bg-gray-900 border border-gray-600 rounded text-sm text-white focus:outline-none w-32"
+                                className="min-w-0 rounded border border-gray-600 bg-gray-900 px-3 py-1.5 text-sm text-white focus:outline-none sm:w-32"
                             />
                             <input
                                 type="color"
                                 value={newTokenColor}
                                 onChange={e => setNewTokenColor(e.target.value)}
-                                className="w-8 h-8 rounded bg-transparent cursor-pointer"
+                                className="h-9 w-10 cursor-pointer rounded bg-transparent"
                                 title="Token Color"
                             />
                             <select
                                 value={newTokenSize}
                                 onChange={e => setNewTokenSize(Number(e.target.value))}
-                                className="px-2 py-1.5 bg-gray-900 border border-gray-600 rounded text-sm text-white focus:outline-none"
+                                className="rounded border border-gray-600 bg-gray-900 px-2 py-1.5 text-sm text-white focus:outline-none"
                             >
                                 <option value={0.75}>Small</option>
                                 <option value={1}>Medium</option>
@@ -480,7 +481,7 @@ export default function MapsTab({ campaignId }: MapsTabProps) {
                             <button
                                 onClick={handleAddToken}
                                 disabled={!newTokenLabel}
-                                className="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 disabled:bg-gray-700 text-white font-bold rounded text-sm transition-colors"
+                                className="rounded bg-yellow-600 px-3 py-1.5 text-sm font-bold text-white transition-colors hover:bg-yellow-700 disabled:bg-gray-700"
                             >
                                 Add
                             </button>
@@ -495,9 +496,9 @@ export default function MapsTab({ campaignId }: MapsTabProps) {
 
             {/* Map Library */}
             <div>
-                <div className="flex items-center justify-between mb-4">
+                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <h3 className="text-lg font-bold text-white">Map Library</h3>
-                    <div className="flex gap-2">
+                    <div className="grid grid-cols-2 gap-2 sm:flex">
                         <button
                             onClick={() => setShowAIModal(true)}
                             className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors text-sm"
@@ -554,8 +555,8 @@ export default function MapsTab({ campaignId }: MapsTabProps) {
 
             {/* Add Map Modal */}
             {showAddModal && (
-                <div className="fixed inset-0 bg-black/75 flex items-center justify-center p-4 z-50">
-                    <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full border border-gray-700">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-3 sm:p-4">
+                    <div className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-lg border border-gray-700 bg-gray-800 p-4 sm:p-6">
                         <h3 className="text-xl font-bold text-white mb-4">Add New Map</h3>
 
                         <div className="space-y-4">
@@ -588,7 +589,7 @@ export default function MapsTab({ campaignId }: MapsTabProps) {
                             )}
                         </div>
 
-                        <div className="flex gap-3 mt-6">
+                        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
                             <button
                                 onClick={addMap}
                                 disabled={!newMapUrl || !newMapTitle}
@@ -613,8 +614,8 @@ export default function MapsTab({ campaignId }: MapsTabProps) {
 
             {/* AI Generate Modal */}
             {showAIModal && (
-                <div className="fixed inset-0 bg-black/75 flex items-center justify-center p-4 z-50">
-                    <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full border border-purple-700">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-3 sm:p-4">
+                    <div className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-lg border border-purple-700 bg-gray-800 p-4 sm:p-6">
                         <div className="flex items-center justify-between mb-4">
                             <h3 className="text-xl font-bold text-white flex items-center gap-2">
                                 <Wand2 size={20} className="text-purple-400" />
@@ -634,7 +635,7 @@ export default function MapsTab({ campaignId }: MapsTabProps) {
                             rows={4}
                             className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:border-purple-500 focus:outline-none resize-none mb-4"
                         />
-                        <div className="grid grid-cols-2 gap-3 mb-4">
+                        <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                             <label className="text-xs text-gray-300">
                                 Map Type
                                 <select
@@ -701,7 +702,7 @@ export default function MapsTab({ campaignId }: MapsTabProps) {
                                 )}
                             </div>
                         )}
-                        <div className="flex gap-3">
+                        <div className="flex flex-col gap-3 sm:flex-row">
                             <button
                                 onClick={generateAIMap}
                                 disabled={aiGenerating || !aiPrompt.trim()}

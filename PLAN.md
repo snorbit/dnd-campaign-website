@@ -67,9 +67,10 @@ This plan orders the backlog by risk. The goal is to make the app reliable first
    - Split "not signed in", "not in campaign", "campaign missing", and "character missing".
    - Add clear navigation buttons for recovery.
 
-5. Verify mobile layouts.
+5. Verify mobile layouts. Done locally.
    - Check DM sidebar, player sidebar, chat bubble, dice roller, map pings, and token controls.
    - Fix overlapping fixed UI elements.
+   - Chat, dice, and audio fixed controls now avoid bottom-corner overlap on phone-sized screens; map controls and generator modals now stack and scroll.
 
 ## Phase 4: Security And Data Safety
 

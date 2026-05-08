@@ -63,7 +63,7 @@ export function AudioPlayer({ campaignId }: AudioPlayerProps) {
     }
 
     return (
-        <div className="fixed bottom-4 left-4 z-50">
+        <div className="fixed bottom-20 left-4 z-40 sm:bottom-6 sm:left-[27rem]">
             {/* Hidden Player */}
             <ReactPlayer
                 url={audioState.url}

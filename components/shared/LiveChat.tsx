@@ -187,7 +187,8 @@ export const LiveChat: React.FC<LiveChatProps> = ({ campaignId, currentUserId, c
         return (
             <button
                 onClick={() => setIsOpen(true)}
-                className="fixed bottom-6 left-6 z-50 rounded-full bg-black/80 p-3 border-2 border-blue-500/50 shadow-[0_0_20px_rgba(59,130,246,0.4)] hover:scale-105 transition-all"
+                className="fixed bottom-4 left-4 z-50 rounded-full bg-black/80 p-3 border-2 border-blue-500/50 shadow-[0_0_20px_rgba(59,130,246,0.4)] hover:scale-105 transition-all sm:bottom-6 sm:left-6"
+                aria-label="Open live chat"
             >
                 <MessageSquare className="text-blue-400" size={24} />
                 {unread > 0 && (
@@ -200,7 +201,7 @@ export const LiveChat: React.FC<LiveChatProps> = ({ campaignId, currentUserId, c
     }
 
     return (
-        <div className="fixed bottom-6 left-6 z-50 flex flex-col w-80 sm:w-96 glass rounded-2xl border border-blue-500/30 shadow-2xl overflow-hidden max-h-[70vh] animate-in slide-in-from-bottom-10 fade-in duration-300">
+        <div className="fixed inset-x-3 bottom-20 z-50 flex max-h-[68vh] flex-col overflow-hidden rounded-2xl border border-blue-500/30 shadow-2xl glass animate-in slide-in-from-bottom-10 fade-in duration-300 sm:inset-x-auto sm:bottom-6 sm:left-6 sm:w-96 sm:max-h-[70vh]">
             {/* Header */}
             <div className="flex items-center justify-between p-3 border-b border-white/10 bg-black/60">
                 <div className="flex items-center gap-2">
