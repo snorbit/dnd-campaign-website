@@ -150,7 +150,7 @@ Return only raw JSON with this exact shape:
     "monsters": [{"name": "Monster name", "count": 1, "hp": 7, "ac": 15}]
   }]
 }
-Difficulty scale: 1 easy, 3 moderate, 5 hard, 8 boss. Extract every useful NPC, monster, encounter, and location.`;
+Difficulty scale: 1 easy, 3 moderate, 5 hard, 8 boss. Extract every useful NPC, monster, encounter, quest, item, and every place that could need a map, including towns, shops, taverns, inns, blacksmiths, forests, caves, roads, camps, temples, castles, warehouses, docks, and encounter spaces.`;
 
     const response = await fetch(`${OLLAMA_URL}/v1/chat/completions`, {
         method: 'POST',
@@ -248,12 +248,17 @@ async function appendGeneratedContent(
         encounters: [...asArray(data?.encounters), ...content.encounters],
     };
 
-    const { error: updateError } = await supabase
+    const { data: updatedState, error: updateError } = await supabase
         .from('campaign_state')
         .update(update)
-        .eq('campaign_id', campaignId);
+        .eq('campaign_id', campaignId)
+        .select('quests, items, npcs, encounters, map')
+        .single();
 
     if (updateError) throw updateError;
+    if (!updatedState) {
+        throw new Error('Campaign state update did not return data. Check campaign_state RLS policies.');
+    }
 }
 
 function asArray(value: unknown) {

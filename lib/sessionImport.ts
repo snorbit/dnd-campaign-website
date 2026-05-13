@@ -54,7 +54,7 @@ export interface SessionMapJob {
     prompt: string;
     order: number;
     mapType: ProceduralMapType;
-    kind: 'location' | 'travel' | 'encounter';
+    kind: 'location' | 'travel' | 'encounter' | 'venue';
 }
 
 export interface EncounterEnemyRecord {
@@ -82,7 +82,7 @@ export interface QuestRecord {
     title: string;
     description: string;
     status: 'active';
-    objectives: string[];
+    objectives: Array<{ id: string; text: string; completed: boolean }>;
     reward: string;
 }
 
@@ -129,6 +129,34 @@ const MONSTER_STATS: Record<string, { hp: number; ac: number }> = {
 type IdFactory = () => string;
 
 const defaultIdFactory: IdFactory = () => crypto.randomUUID();
+
+const MAPPABLE_PLACE_PATTERNS: Array<{ keyword: string; mapType: ProceduralMapType; label: string; description: string }> = [
+    { keyword: 'town', mapType: 'town', label: 'Town', description: 'town square with streets, homes, market stalls, and alleys' },
+    { keyword: 'village', mapType: 'town', label: 'Village', description: 'village center with cottages, paths, and gathering space' },
+    { keyword: 'city', mapType: 'town', label: 'City District', description: 'city district with roads, buildings, alleys, and plaza space' },
+    { keyword: 'market', mapType: 'town', label: 'Market', description: 'market square with stalls, carts, crates, and alleys' },
+    { keyword: 'shop', mapType: 'shop', label: 'Shop', description: 'fantasy shop interior with counters, shelves, crates, and clear walking lanes' },
+    { keyword: 'store', mapType: 'shop', label: 'Store', description: 'fantasy store interior with shelves, counter, stockroom, and playable aisles' },
+    { keyword: 'tavern', mapType: 'tavern', label: 'Tavern', description: 'tavern interior with bar, tables, fireplace, stage, and storage room' },
+    { keyword: 'inn', mapType: 'tavern', label: 'Inn', description: 'inn common room with tables, bar, stairs, hearth, and guest rooms' },
+    { keyword: 'blacksmith', mapType: 'blacksmith', label: 'Blacksmith', description: 'blacksmith workshop with forge, anvil, weapon racks, coal, and workbenches' },
+    { keyword: 'forge', mapType: 'blacksmith', label: 'Forge', description: 'forge workshop with furnace, anvils, cooling troughs, racks, and worktables' },
+    { keyword: 'forest', mapType: 'forest', label: 'Forest', description: 'forest clearing with trees, brush, trail, rocks, and tactical cover' },
+    { keyword: 'woods', mapType: 'forest', label: 'Woods', description: 'woodland path with dense trees, brush, rocks, and clearings' },
+    { keyword: 'cave', mapType: 'cave', label: 'Cave', description: 'cave chamber with tunnels, rocks, crystals, ledges, and pools' },
+    { keyword: 'cavern', mapType: 'cave', label: 'Cavern', description: 'large cavern with tunnels, rocks, stalagmites, and elevation changes' },
+    { keyword: 'mine', mapType: 'cave', label: 'Mine', description: 'mine tunnels with rails, supports, ore piles, carts, and side passages' },
+    { keyword: 'dungeon', mapType: 'dungeon', label: 'Dungeon', description: 'dungeon rooms with corridors, doors, pillars, traps, and cover' },
+    { keyword: 'crypt', mapType: 'dungeon', label: 'Crypt', description: 'crypt chambers with tombs, columns, corridors, and ritual space' },
+    { keyword: 'temple', mapType: 'castle', label: 'Temple', description: 'temple hall with altar, pillars, side chambers, stairs, and ritual markings' },
+    { keyword: 'castle', mapType: 'castle', label: 'Castle', description: 'castle room with stone walls, banners, doors, pillars, and central aisle' },
+    { keyword: 'keep', mapType: 'castle', label: 'Keep', description: 'fortified keep interior with stone walls, doors, stairs, and cover' },
+    { keyword: 'road', mapType: 'road', label: 'Road', description: 'wilderness road with ditches, rocks, trees, carts, and ambush cover' },
+    { keyword: 'trail', mapType: 'road', label: 'Trail', description: 'winding trail with terrain features, cover, and clear path' },
+    { keyword: 'camp', mapType: 'road', label: 'Camp', description: 'camp site with tents, fire pit, wagons, crates, and nearby cover' },
+    { keyword: 'warehouse', mapType: 'shop', label: 'Warehouse', description: 'warehouse interior with crates, shelves, loading doors, and aisles' },
+    { keyword: 'dock', mapType: 'town', label: 'Docks', description: 'dockside map with piers, crates, boats, alleys, and water edge' },
+];
 
 export function normalizeParsedSession(input: unknown, sourceText = ''): ParsedSession {
     const raw = (input || {}) as Partial<ParsedSession>;
@@ -221,12 +249,17 @@ export function parseSessionWithSmartRegex(text: string): ParsedSession {
 
         if (section === 'description') {
             descLines.push(cleanLine);
+            addInferredQuest(cleanLine, quests);
+            addInferredItems(cleanLine, items);
             continue;
         }
 
         if (cleanLine.length > 20) {
             descLines.push(cleanLine);
         }
+
+        addInferredQuest(cleanLine, quests);
+        addInferredItems(cleanLine, items);
 
         const detectedEnemy = ENEMY_KEYWORDS.find(keyword => lower.includes(keyword));
         if (detectedEnemy && !encounters.some(enc => enc.name.toLowerCase().includes(detectedEnemy))) {
@@ -240,7 +273,17 @@ export function parseSessionWithSmartRegex(text: string): ParsedSession {
         }
     }
 
-    const inferredLocations = locations.length > 0 ? locations : inferLocationsFromEncounters(encounters);
+    if (quests.length === 0) {
+        lines.forEach(line => addInferredQuest(line, quests));
+    }
+    if (items.length === 0) {
+        lines.forEach(line => addInferredItems(line, items));
+    }
+
+    const inferredPlaces = inferMappablePlaces(lines, locations, encounters);
+    const inferredLocations = dedupeLocations(
+        locations.length > 0 ? [...locations, ...inferredPlaces] : [...inferLocationsFromEncounters(encounters), ...inferredPlaces]
+    );
 
     return {
         title,
@@ -263,8 +306,8 @@ export function buildSessionMapJobs(parsed: ParsedSession): SessionMapJob[] {
             description: location.description,
             prompt: buildLocationPrompt(location.name, location.description),
             order: jobs.length,
-            mapType: inferMapType(`${location.name} ${location.description}`),
-            kind: 'location',
+            mapType: inferLocationMapType(location),
+            kind: inferVenueMapType(`${location.name} ${location.description}`) ? 'venue' : 'location',
         });
 
         const nextLocation = sortedLocations[index + 1];
@@ -318,7 +361,7 @@ export function buildQuestRecords(quests: ParsedQuest[], idFactory: IdFactory = 
         title: quest.name,
         description: quest.description,
         status: 'active',
-        objectives: [],
+        objectives: buildObjectives(quest, idFactory),
         reward: '',
     }));
 }
@@ -481,9 +524,9 @@ function normalizeMonsters(input: unknown): ParsedMonster[] {
 }
 
 function detectSection(lower: string) {
-    if (/^(locations?|places?|areas?|scenes?)\s*:?$/.test(lower)) return 'locations';
-    if (/^(quests?|objectives?|missions?)\s*:?$/.test(lower)) return 'quests';
-    if (/^(items?|loot|treasure|rewards?|inventory)\s*:?$/.test(lower)) return 'items';
+    if (/^(locations?|places?|areas?|scenes?|shops?|stores?|taverns?|inns?|blacksmiths?|buildings?|venues?)\s*:?$/.test(lower)) return 'locations';
+    if (/^(quests?|objectives?|missions?|goals?|hooks?)\s*:?$/.test(lower)) return 'quests';
+    if (/^(items?|loot|treasure|rewards?|inventory|gear)\s*:?$/.test(lower)) return 'items';
     if (/^(npcs?|characters?|allies|villains?|merchants?)\s*:?$/.test(lower)) return 'npcs';
     if (/^(monsters?|creatures?|enemies)\s*:?$/.test(lower)) return 'monsters';
     if (/^(encounters?|combat)\s*:?$/.test(lower)) return 'encounters';
@@ -504,6 +547,15 @@ function parseNamedDescription(line: string) {
     };
 }
 
+function buildObjectives(quest: ParsedQuest, idFactory: IdFactory) {
+    const objectiveText = quest.description || quest.name;
+    return [{
+        id: idFactory(),
+        text: objectiveText,
+        completed: false,
+    }];
+}
+
 function parseItemLine(line: string): ParsedItem {
     const countFirst = line.match(/^(\d+)\s+(.+)$/);
     if (countFirst) {
@@ -516,6 +568,104 @@ function parseItemLine(line: string): ParsedItem {
     }
 
     return { name: cleanText(line), quantity: 1 };
+}
+
+function addInferredQuest(line: string, quests: ParsedQuest[]) {
+    const lower = line.toLowerCase();
+    if (!/\b(seek|retrieve|find|recover|rescue|deliver|defeat|protect|investigate|discover|stop|destroy|escort|solve|decipher)\b/.test(lower)) {
+        return;
+    }
+
+    const target = line.match(/\b(?:seek|retrieve|find|recover|rescue|deliver|defeat|protect|investigate|discover|stop|destroy|escort|solve|decipher)\s+(?:the\s+|a\s+|an\s+)?([^.,;]+)/i)?.[1];
+    const name = target ? `${toTitleCase(line.match(/\b(seek|retrieve|find|recover|rescue|deliver|defeat|protect|investigate|discover|stop|destroy|escort|solve|decipher)\b/i)?.[1] || 'Complete')} ${cleanText(target)}` : line;
+    const title = cleanText(name).slice(0, 80);
+
+    if (title && !quests.some(quest => quest.name.toLowerCase() === title.toLowerCase())) {
+        quests.push({ name: title, description: line });
+    }
+}
+
+function addInferredItems(line: string, items: ParsedItem[]) {
+    const lower = line.toLowerCase();
+    if (!/\b(item|loot|treasure|reward|rewards|contains|finds|found|receives|chest|cache)\b/.test(lower)) {
+        return;
+    }
+
+    const source = line
+        .replace(/^.*\b(?:contains|finds|found|receives|rewards?|loot|treasure|items?|chest|cache)\b\s*[:,-]?\s*/i, '')
+        .trim();
+
+    if (!source || source.length > 160) return;
+
+    source
+        .split(/\s*,\s*|\s+and\s+/i)
+        .map(part => part.replace(/\(.*?\)/g, '').replace(/^(and|or)\s+/i, '').replace(/[.。]+$/g, '').trim())
+        .filter(Boolean)
+        .map(parseItemLine)
+        .forEach(item => {
+            if (item.name && !items.some(existing => existing.name.toLowerCase() === item.name.toLowerCase())) {
+                items.push(item);
+            }
+        });
+}
+
+function inferMappablePlaces(lines: string[], explicitLocations: ParsedLocation[], encounters: ParsedEncounter[]): ParsedLocation[] {
+    const existingNames = new Set(explicitLocations.map(location => location.name.toLowerCase()));
+    const locationNames = new Set<string>();
+    const inferred: ParsedLocation[] = [];
+    let order = explicitLocations.length;
+
+    for (const encounter of encounters) {
+        if (encounter.location && encounter.location !== 'Unknown') {
+            locationNames.add(encounter.location.toLowerCase());
+        }
+    }
+
+    for (const line of lines) {
+        const lower = line.toLowerCase();
+        for (const pattern of MAPPABLE_PLACE_PATTERNS) {
+            if (!lower.includes(pattern.keyword)) continue;
+
+            const name = inferPlaceName(line, pattern.keyword, pattern.label);
+            const key = name.toLowerCase();
+            if (hasSimilarPlace(existingNames, key) || hasSimilarPlace(locationNames, key)) continue;
+
+            inferred.push({
+                name,
+                description: `${pattern.description}. Source note: ${line}`,
+                order: order++,
+            });
+            existingNames.add(key);
+        }
+    }
+
+    return inferred;
+}
+
+function inferPlaceName(line: string, keyword: string, fallback: string) {
+    const segment = line.split(/[.;,]/).map(part => part.trim()).find(part => part.toLowerCase().includes(keyword)) || line;
+    const keywordIndex = segment.toLowerCase().indexOf(keyword);
+    const beforeText = keywordIndex >= 0 ? segment.slice(0, keywordIndex).replace(/\b(the|a|an|party|heroes|adventurers|visits?|visit|goes?|travel|travels|follows?|follow|into|to|at|in|and|then)\b/ig, ' ').trim() : '';
+    const afterText = keywordIndex >= 0 ? segment.slice(keywordIndex + keyword.length).trim() : '';
+    const before = beforeText.match(/([A-Z][A-Za-z']+(?:\s+[A-Z][A-Za-z']+){0,2})$/)?.[1];
+    const after = afterText.match(/^(?:called|named|of|at|in)?\s*([A-Z][A-Za-z']+(?:\s+[A-Z][A-Za-z']+){0,2})/)?.[1];
+    const name = cleanText(before || after || fallback);
+    return name.toLowerCase().includes(keyword) ? toTitleCase(name) : `${toTitleCase(name)} ${toTitleCase(keyword)}`;
+}
+
+function hasSimilarPlace(names: Set<string>, key: string) {
+    if (names.has(key)) return true;
+    return Array.from(names).some(name => name.includes(key) || key.includes(name));
+}
+
+function dedupeLocations(locations: ParsedLocation[]) {
+    const seen = new Set<string>();
+    return locations.filter(location => {
+        const key = location.name.toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    }).map((location, order) => ({ ...location, order }));
 }
 
 function parseNPCLine(line: string): ParsedNPC {
@@ -667,6 +817,8 @@ function inferTravelTerrain(from: ParsedLocation, to: ParsedLocation): string {
 
 function inferMapType(text: string): ProceduralMapType {
     const lower = text.toLowerCase();
+    if (lower.includes('blacksmith') || lower.includes('forge')) return 'blacksmith';
+    if (lower.includes('shop') || lower.includes('store') || lower.includes('warehouse')) return 'shop';
     if (lower.includes('tavern') || lower.includes('inn')) return 'tavern';
     if (lower.includes('forest') || lower.includes('wood')) return 'forest';
     if (lower.includes('dungeon') || lower.includes('crypt')) return 'dungeon';
@@ -679,6 +831,16 @@ function inferMapType(text: string): ProceduralMapType {
     return 'auto';
 }
 
+function inferLocationMapType(location: ParsedLocation): ProceduralMapType {
+    const fromName = inferMapType(location.name);
+    return fromName === 'auto' ? inferMapType(`${location.name} ${location.description}`) : fromName;
+}
+
+function inferVenueMapType(text: string) {
+    const type = inferMapType(text);
+    return type === 'shop' || type === 'blacksmith' || type === 'tavern' || type === 'town';
+}
+
 function cleanText(value: unknown) {
     return String(value || '').replace(/\s+/g, ' ').trim();
 }
@@ -686,7 +848,9 @@ function cleanText(value: unknown) {
 function toTitleCase(value: string) {
     return cleanText(value)
         .toLowerCase()
-        .replace(/\b\w/g, char => char.toUpperCase());
+        .split(' ')
+        .map(word => word ? `${word.charAt(0).toUpperCase()}${word.slice(1)}` : word)
+        .join(' ');
 }
 
 function singularize(value: string) {

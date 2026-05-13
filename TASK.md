@@ -135,6 +135,9 @@ This is the working backlog for the D&D campaign website. Keep completed work in
 - [x] Session script importer now builds full-session content: location maps, travel maps, encounter maps, NPCs, monster stat blocks, populated encounters, quests, and items.
 - [x] Added importer tests for script-to-session map jobs, NPC records, encounter enemies, monster counts, and item quantities.
 - [x] Live Supabase project verified: `campaign_state`, `campaign_sessions`, `campaign_players`, `campaigns`, and `campaign-maps` exist; missing `campaign_chat` migration was applied and re-checked.
+- [x] Expanded session map detection so scripts can create maps for towns, shops, taverns, inns, blacksmiths, forests, caves, roads, camps, temples, castles, warehouses, docks, travel routes, and encounter spaces.
+- [x] Improved fallback map quality with dedicated shop and blacksmith map types, richer dungeon/cave/forest/tavern layouts, stronger terrain props, and higher-detail Stable Diffusion prompts.
+- [x] Fixed quest/item generation from loose prose by inferring quest goals and loot/reward items even when the script does not use formal `Quests:` or `Items:` sections.
 
 ## Known Verification Blockers
 

@@ -55,6 +55,8 @@ This plan orders the backlog by risk. The goal is to make the app reliable first
    - Verify the full flow: generate map, save to library, display to players, move tokens, and reload the campaign.
    - Session import now also creates full-session map sets from a script: location maps, travel maps, and encounter maps.
    - Session import now extracts NPCs and monsters from a session script and saves playable NPC records plus encounter enemies with HP and AC.
+   - Session import now infers mappable venues from prose, including shops, taverns, blacksmiths, towns, forests, caves, roads, camps, temples, castles, warehouses, and docks.
+   - Procedural fallback maps now include dedicated shop and blacksmith layouts plus richer terrain/floor details so fallback maps are still playable.
 
 2. Replace reload-based refresh. Done locally.
    - After session import, refresh map, quest, encounter, item, and session state directly.

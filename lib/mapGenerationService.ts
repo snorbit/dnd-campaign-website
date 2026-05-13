@@ -29,7 +29,12 @@ export async function generateBattleMap(input: GenerateMapRequest): Promise<Gene
 
     if (preferStableDiffusion && await checkSDAvailable()) {
         try {
-            const imageBuffer = await generateWithStableDiffusion(input.prompt);
+            const imageBuffer = await generateWithStableDiffusion(
+                input.prompt,
+                input.width,
+                input.height,
+                input.includeGrid !== false
+            );
             const imageUrl = await storeMapAsset({
                 campaignId: input.campaignId,
                 title,
@@ -82,7 +87,9 @@ export async function generateBattleMap(input: GenerateMapRequest): Promise<Gene
     };
 }
 
-async function generateWithStableDiffusion(prompt: string): Promise<Buffer> {
+async function generateWithStableDiffusion(prompt: string, width = 1024, height = 1024, includeGrid = true): Promise<Buffer> {
+    const sdWidth = clampStableDiffusionSize(width);
+    const sdHeight = clampStableDiffusionSize(height);
     const fullPrompt = [
         'top-down view',
         "bird's eye view",
@@ -92,8 +99,13 @@ async function generateWithStableDiffusion(prompt: string): Promise<Buffer> {
         'dnd map style',
         prompt,
         'high detail',
+        'sharp inked terrain',
+        'painted fantasy cartography',
+        'clear room boundaries',
+        'tactical cover',
+        'props and terrain features',
         'fantasy setting',
-        'grid overlay',
+        includeGrid ? 'subtle square grid overlay' : 'no grid overlay',
         'clear paths',
         'empty map ready for play',
         'no characters',
@@ -112,10 +124,10 @@ async function generateWithStableDiffusion(prompt: string): Promise<Buffer> {
         body: JSON.stringify({
             prompt: fullPrompt,
             negative_prompt: negativePrompt,
-            steps: 30,
-            cfg_scale: 7.5,
-            width: 768,
-            height: 768,
+            steps: 40,
+            cfg_scale: 8,
+            width: sdWidth,
+            height: sdHeight,
             sampler_name: 'DPM++ 2M Karras',
             batch_size: 1,
             n_iter: 1,
@@ -132,6 +144,10 @@ async function generateWithStableDiffusion(prompt: string): Promise<Buffer> {
     if (!base64Image) throw new Error('No image returned from Stable Diffusion');
 
     return Buffer.from(base64Image, 'base64');
+}
+
+function clampStableDiffusionSize(size: number) {
+    return Math.min(1024, Math.max(512, Math.round(size / 64) * 64));
 }
 
 async function checkSDAvailable(): Promise<boolean> {

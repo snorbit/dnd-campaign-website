@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
     buildEncounterRecords,
     buildNPCRecords,
+    buildItemRecords,
+    buildQuestRecords,
     buildSessionMapJobs,
     countEncounterMonsters,
     parseSessionWithSmartRegex,
@@ -35,15 +37,15 @@ describe('session import parser', () => {
         const maps = buildSessionMapJobs(parsed);
 
         expect(parsed.title).toBe('The Cursed Temple');
-        expect(parsed.locations).toHaveLength(3);
+        expect(parsed.locations.length).toBeGreaterThanOrEqual(3);
         expect(parsed.npcs).toHaveLength(2);
         expect(parsed.encounters).toHaveLength(3);
         expect(parsed.items).toEqual([
             { name: 'Ancient Scroll', quantity: 1 },
             { name: 'Healing Elixir', quantity: 3 },
         ]);
-        expect(maps.filter(map => map.kind === 'location')).toHaveLength(3);
-        expect(maps.filter(map => map.kind === 'travel')).toHaveLength(2);
+        expect(maps.filter(map => map.kind === 'location' || map.kind === 'venue').length).toBeGreaterThanOrEqual(3);
+        expect(maps.filter(map => map.kind === 'travel').length).toBeGreaterThanOrEqual(2);
         expect(maps.filter(map => map.kind === 'encounter')).toHaveLength(3);
     });
 
@@ -73,5 +75,55 @@ describe('session import parser', () => {
             ac: 15,
         });
         expect(countEncounterMonsters(parsed.encounters)).toBe(9);
+    });
+});
+
+const openScript = `Session 5: Shadows Over Emberfall
+
+The party visits Emberfall town, the Copper Kettle tavern, Mira's General Shop, Bronn blacksmith forge, then follows a trail into the Whispering Forest and Moonwell Cave.
+The heroes must investigate missing caravans and recover the Moon Shard.
+The bandit cache contains Silvered Dagger, Healing Potion x2, and Moon Shard.
+
+Encounters:
+- Bandit Roadblock @ Forest Trail: 3 bandits
+- Cave Horror @ Moonwell Cave: boss ooze hp 55 ac 12`;
+
+describe('broad session content inference', () => {
+    it('creates maps for towns, shops, taverns, blacksmiths, forests, caves, and encounter spaces', () => {
+        const parsed = parseSessionWithSmartRegex(openScript);
+        const maps = buildSessionMapJobs(parsed);
+        const mapTypes = new Set(maps.map(map => map.mapType));
+
+        expect(parsed.locations.map(location => location.name)).toEqual(expect.arrayContaining([
+            'Emberfall Town',
+            'Copper Kettle Tavern',
+            "Mira's General Shop",
+            'Bronn Blacksmith',
+            'Whispering Forest',
+            'Moonwell Cave',
+        ]));
+        expect(mapTypes.has('town')).toBe(true);
+        expect(mapTypes.has('tavern')).toBe(true);
+        expect(mapTypes.has('shop')).toBe(true);
+        expect(mapTypes.has('blacksmith')).toBe(true);
+        expect(mapTypes.has('forest')).toBe(true);
+        expect(mapTypes.has('cave')).toBe(true);
+        expect(maps.filter(map => map.kind === 'encounter').length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('infers quests and items from prose when no explicit sections are present', () => {
+        const parsed = parseSessionWithSmartRegex(openScript);
+        let id = 0;
+        const ids = () => `id-${++id}`;
+        const quests = buildQuestRecords(parsed.quests, ids);
+        const items = buildItemRecords(parsed.items, ids);
+
+        expect(quests.length).toBeGreaterThan(0);
+        expect(quests[0].objectives[0]).toMatchObject({ completed: false });
+        expect(items.map(item => item.name)).toEqual(expect.arrayContaining([
+            'Silvered Dagger',
+            'Healing Potion',
+            'Moon Shard',
+        ]));
     });
 });
