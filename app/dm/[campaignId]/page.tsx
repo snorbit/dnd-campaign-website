@@ -3,6 +3,7 @@
 import { supabase } from '@/lib/supabase';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
 import { toast } from 'sonner';
 import { Map, Swords, Users, ScrollText, UserCircle, Package, Award, BookOpen, Menu, X, Coins, Edit3, Music, Calendar } from 'lucide-react';
 import MapsTab from '@/components/dm/MapsTab';
@@ -51,6 +52,62 @@ interface DMCampaign {
     join_code?: string;
 }
 
+interface ReviewLocation {
+    name: string;
+    description: string;
+    order: number;
+    selected?: boolean;
+}
+
+interface ReviewQuest {
+    name: string;
+    description: string;
+    reward?: string;
+    selected?: boolean;
+}
+
+interface ReviewItem {
+    name: string;
+    quantity: number;
+    selected?: boolean;
+}
+
+interface ReviewNPC {
+    name: string;
+    race: string;
+    role: string;
+    notes: string;
+    selected?: boolean;
+}
+
+interface ReviewMonster {
+    name: string;
+    count: number;
+    hp?: number;
+    ac?: number;
+    difficulty?: number;
+}
+
+interface ReviewEncounter {
+    name: string;
+    location: string;
+    difficulty: number;
+    monsters: ReviewMonster[];
+    selected?: boolean;
+}
+
+interface SessionImportReview {
+    title: string;
+    description: string;
+    locations: ReviewLocation[];
+    quests: ReviewQuest[];
+    items: ReviewItem[];
+    npcs: ReviewNPC[];
+    encounters: ReviewEncounter[];
+}
+
+type ReviewListKey = 'locations' | 'quests' | 'items' | 'npcs' | 'encounters';
+
 export default function DMCampaignPage() {
     const params = useParams();
     const router = useRouter();
@@ -62,6 +119,10 @@ export default function DMCampaignPage() {
     const [showImportModal, setShowImportModal] = useState(false);
     const [importText, setImportText] = useState('');
     const [importing, setImporting] = useState(false);
+    const [previewingImport, setPreviewingImport] = useState(false);
+    const [importStep, setImportStep] = useState<'paste' | 'review'>('paste');
+    const [importReview, setImportReview] = useState<SessionImportReview | null>(null);
+    const [importCounts, setImportCounts] = useState<{ maps: number; quests: number; items: number; npcs: number; encounters: number; monsters: number } | null>(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [sessionRefreshKey, setSessionRefreshKey] = useState(0);
     const [loadError, setLoadError] = useState<string | null>(null);
@@ -100,27 +161,31 @@ export default function DMCampaignPage() {
         }
     };
 
-    const handleImportCampaign = async () => {
+    const getAccessToken = async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) {
+            throw new Error('Not authenticated. Please log in again.');
+        }
+        return session.access_token;
+    };
+
+    const handlePreviewImport = async () => {
         if (!importText.trim()) {
             toast.warning('Please enter campaign text');
             return;
         }
 
         const importPromise = (async () => {
-            // Get the user's current session JWT so the server-side route
-            // can satisfy RLS policies (auth.uid() requires a valid token)
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session?.access_token) {
-                throw new Error('Not authenticated. Please log in again.');
-            }
+            const token = await getAccessToken();
 
             const response = await fetch('/api/import-campaign', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${session.access_token}`
+                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({
+                    action: 'preview',
                     campaignId: params.campaignId,
                     campaignText: importText
                 })
@@ -134,13 +199,67 @@ export default function DMCampaignPage() {
             return await response.json();
         })();
 
+        setPreviewingImport(true);
+        toast.promise(importPromise, {
+            loading: 'Reading session script...',
+            description: 'Sorting quests, NPCs, items, encounters, and locations into a review draft.',
+            success: (data) => {
+                setImportReview(markReviewSelected(data.review));
+                setImportCounts(data.generated || null);
+                setImportStep('review');
+                return 'Review draft ready. Check it before saving.';
+            },
+            error: (err: Error) => `Review failed: ${err.message}`,
+        });
+
+        try {
+            await importPromise;
+        } catch (error) {
+            console.error('Error previewing session import:', error);
+        } finally {
+            setPreviewingImport(false);
+        }
+    };
+
+    const handleImportCampaign = async () => {
+        if (!importReview) {
+            toast.warning('Generate a review first');
+            return;
+        }
+
+        const reviewedContent = stripUnselectedReview(importReview);
+
+        const importPromise = (async () => {
+            const token = await getAccessToken();
+
+            const response = await fetch('/api/import-campaign', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    action: 'save-reviewed',
+                    campaignId: params.campaignId,
+                    campaignText: importText,
+                    review: reviewedContent,
+                })
+            });
+
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.error || 'Failed to import campaign');
+            }
+
+            return await response.json();
+        })();
+
         setImporting(true);
         toast.promise(importPromise, {
-            loading: 'Importing session: parsing script and generating session content...',
-            description: 'Importing session: creating maps, NPCs, monsters, quests, and items...',
+            loading: 'Saving reviewed session...',
+            description: 'Only the checked content is being added to the campaign.',
             success: (data) => {
-                setShowImportModal(false);
-                setImportText('');
+                resetImportModal();
                 setActiveTab('sessions');
                 setSessionRefreshKey(prev => prev + 1);
                 return data?.summary || 'Session imported successfully.';
@@ -151,10 +270,38 @@ export default function DMCampaignPage() {
         try {
             await importPromise;
         } catch (error) {
-            console.error('Error importing campaign:', error);
+            console.error('Error importing reviewed campaign:', error);
         } finally {
             setImporting(false);
         }
+    };
+
+    const resetImportModal = () => {
+        setShowImportModal(false);
+        setImportText('');
+        setImportStep('paste');
+        setImportReview(null);
+        setImportCounts(null);
+    };
+
+    const updateReviewItem = <K extends ReviewListKey>(
+        section: K,
+        index: number,
+        updates: Partial<SessionImportReview[K][number]>
+    ) => {
+        setImportReview(prev => {
+            if (!prev) return prev;
+            const list = prev[section];
+            if (!Array.isArray(list)) return prev;
+            return {
+                ...prev,
+                [section]: list.map((item, itemIndex) => itemIndex === index ? { ...item, ...updates } : item),
+            };
+        });
+    };
+
+    const updateReviewField = (field: 'title' | 'description', value: string) => {
+        setImportReview(prev => prev ? { ...prev, [field]: value } : prev);
     };
 
     const renderTabContent = () => {
@@ -320,7 +467,7 @@ export default function DMCampaignPage() {
                             <span>Import Session</span>
                         </button>
                         <p className="text-xs text-gray-500 text-center mt-2">
-                            Auto-generate maps, NPCs, monsters, quests, and items
+                            Review quests, NPCs, items, encounters, and locations before saving
                         </p>
                     </div>
                 </div>
@@ -337,104 +484,211 @@ export default function DMCampaignPage() {
                 {/* Import Campaign Modal */}
                 {showImportModal && (
                     <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
-                        <div className="bg-gray-800 rounded-lg p-6 max-w-3xl w-full border border-gray-700 max-h-[90vh] overflow-y-auto">
-                            <h2 className="text-2xl font-bold text-white mb-2">Import Session</h2>
-                            <p className="text-gray-400 text-sm mb-4">
-                                Paste a session script and the importer will create full-session maps, NPCs, monsters, encounters, quests, and items.
-                            </p>
-
-                            <div className="bg-gray-900 rounded p-4 mb-4">
-                                <p className="text-xs text-gray-500 mb-2">Example format:</p>
-                                <pre className="text-xs text-gray-400 whitespace-pre-wrap">
-                                    {`Session 3: The Cursed Temple
-
-The adventurers seek the Sun Medallion in the Temple of Solara.
-
-Locations:
-1. Desert Approach - Sandy dunes, ancient statues
-2. Temple Entrance - Stone pillars, hieroglyphs
-3. Grand Hall - Columns, murals, center altar
-4. Inner Sanctum - Golden chamber, sun beams
-
-NPCs:
-- High Priestess Amara - human priest, knows the temple old rites
-- Keth - goblin scout, nervous informant who can warn about traps
-
-Monsters:
-- Sand Elemental x3
-- Temple Guardian Golem x4
-- Corrupted Sun Priest hp 70 ac 15
-
-Encounters:
-- Sand Elementals (Temple Entrance, 3 enemies)
-- Temple Guardians @ Grand Hall: 4 golems
-- Corrupted Sun Priest @ Inner Sanctum: boss priest hp 70 ac 15
-
-Items:
-- Ancient Scroll
-- Sun Medallion (quest item)
-- Healing Elixir x3`}
-                                </pre>
-                            </div>
-
-                            <textarea
-                                value={importText}
-                                onChange={(e) => setImportText(e.target.value)}
-                                placeholder="Paste your session script here..."
-                                rows={15}
-                                className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:border-purple-500 focus:outline-none mb-4 font-mono text-sm"
-                            />
-
-                            <div className="flex gap-3">
-                                <button
-                                    onClick={handleImportCampaign}
-                                    disabled={importing || !importText.trim()}
-                                    className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:from-gray-600 disabled:to-gray-600 text-white font-bold py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2"
-                                >
-                                    {importing ? (
-                                        <>
-                                            <Loader2 size={18} className="animate-spin" />
-                                            <span>Generating Session...</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <span>Generate Session</span>
-                                        </>
-                                    )}
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        setShowImportModal(false);
-                                        setImportText('');
-                                    }}
-                                    disabled={importing}
-                                    className="px-6 py-3 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-700 text-white rounded-lg transition-colors"
-                                >
-                                    Cancel
-                                </button>
-                            </div>
-
-                            {importing && (
-                                <div className="mt-4 p-4 bg-purple-900/20 border border-purple-700 rounded-lg">
-                                    <p className="text-purple-300 text-sm font-semibold mb-3">Generating your session content...</p>
-                                    <div className="space-y-2">
-                                        {[
-                                            { step: 'Parsing session script', done: true },
-                                            { step: 'Generating location, travel, and encounter maps', done: false },
-                                            { step: 'Creating NPCs, monsters, and encounters', done: false },
-                                            { step: 'Adding quests and items to the campaign', done: false },
-                                        ].map((item, i) => (
-                                            <div key={i} className="flex items-center gap-2 text-xs">
-                                                <div className={`w-3 h-3 rounded-full flex-shrink-0 ${item.done ? 'bg-green-500' : 'bg-purple-500 animate-pulse'}`} />
-                                                <span className="text-gray-300">{item.step}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <p className="text-gray-500 text-xs mt-3">
-                                        Map generation may take 1-3 minutes if Stable Diffusion is running.
+                        <div className="bg-gray-800 rounded-lg p-6 max-w-5xl w-full border border-gray-700 max-h-[90vh] overflow-y-auto">
+                            <div className="flex items-start justify-between gap-4 mb-4">
+                                <div>
+                                    <h2 className="text-2xl font-bold text-white mb-2">Import Session</h2>
+                                    <p className="text-gray-400 text-sm">
+                                        First the website makes a review draft. Then you approve what should be saved.
                                     </p>
                                 </div>
-                            )}
+                                <div className="flex rounded-lg border border-gray-700 bg-gray-900 p-1 text-xs">
+                                    <span className={`rounded px-3 py-1 ${importStep === 'paste' ? 'bg-purple-600 text-white' : 'text-gray-400'}`}>1. Paste</span>
+                                    <span className={`rounded px-3 py-1 ${importStep === 'review' ? 'bg-purple-600 text-white' : 'text-gray-400'}`}>2. Review</span>
+                                </div>
+                            </div>
+
+                            {importStep === 'paste' ? (
+                                <>
+                                    <div className="bg-gray-900 rounded p-4 mb-4">
+                                        <p className="text-xs text-gray-500 mb-2">Best format for your sessions:</p>
+                                        <pre className="text-xs text-gray-400 whitespace-pre-wrap">
+                                            {`### QUEST HOOK: REVIEW THE LEDGER
+**DM**: Quest Card
+- **Name**: Review the Ledger
+- **Hook**: Death keeps strict accounts.
+- **Objective**: Find the Audit records.
+- **Reward**: A lead to the archive.
+
+### INTERACTION: MAYOR ELDRIN
+
+## ENCOUNTER: THE RUSHING RIVER AMBUSH
+### COMBAT NOTES
+- **Goblins (4)**: Longbows
+- **Hulking Worg**: Knocks players into the river
+
+## THE AUDITOR'S TREASURY
+**DM**: Loot Cache
+- **Coin**: 120 gp, 180 sp
+- **Potions**: 2 potions of healing`}
+                                        </pre>
+                                    </div>
+
+                                    <textarea
+                                        value={importText}
+                                        onChange={(e) => setImportText(e.target.value)}
+                                        placeholder="Paste your session script here..."
+                                        rows={16}
+                                        className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:border-purple-500 focus:outline-none mb-4 font-mono text-sm"
+                                    />
+
+                                    <div className="flex flex-col gap-3 sm:flex-row">
+                                        <button
+                                            onClick={handlePreviewImport}
+                                            disabled={previewingImport || !importText.trim()}
+                                            className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:from-gray-600 disabled:to-gray-600 text-white font-bold py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2"
+                                        >
+                                            {previewingImport ? (
+                                                <>
+                                                    <Loader2 size={18} className="animate-spin" />
+                                                    <span>Building Review...</span>
+                                                </>
+                                            ) : (
+                                                <span>Review Session</span>
+                                            )}
+                                        </button>
+                                        <button
+                                            onClick={resetImportModal}
+                                            disabled={previewingImport}
+                                            className="px-6 py-3 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-700 text-white rounded-lg transition-colors"
+                                        >
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </>
+                            ) : importReview ? (
+                                <>
+                                    {importCounts && (
+                                        <div className="mb-4 grid grid-cols-2 gap-2 text-xs sm:grid-cols-6">
+                                            <ReviewCount label="Maps" value={importCounts.maps} />
+                                            <ReviewCount label="Quests" value={importCounts.quests} />
+                                            <ReviewCount label="NPCs" value={importCounts.npcs} />
+                                            <ReviewCount label="Items" value={importCounts.items} />
+                                            <ReviewCount label="Encounters" value={importCounts.encounters} />
+                                            <ReviewCount label="Monsters" value={importCounts.monsters} />
+                                        </div>
+                                    )}
+
+                                    <div className="mb-4 grid gap-3 sm:grid-cols-2">
+                                        <label className="text-xs text-gray-300">
+                                            Session Title
+                                            <input
+                                                value={importReview.title}
+                                                onChange={(e) => updateReviewField('title', e.target.value)}
+                                                className="mt-1 w-full rounded border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white focus:border-purple-500 focus:outline-none"
+                                            />
+                                        </label>
+                                        <label className="text-xs text-gray-300">
+                                            Short Summary
+                                            <input
+                                                value={importReview.description}
+                                                onChange={(e) => updateReviewField('description', e.target.value)}
+                                                className="mt-1 w-full rounded border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white focus:border-purple-500 focus:outline-none"
+                                            />
+                                        </label>
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        <ReviewSection title="Locations / Maps" helper="Checked locations will be used for session map jobs.">
+                                            {importReview.locations.map((location, index) => (
+                                                <ReviewRow key={`location-${index}`} checked={!!location.selected} onToggle={(checked) => updateReviewItem('locations', index, { selected: checked })}>
+                                                    <input value={location.name} onChange={(e) => updateReviewItem('locations', index, { name: e.target.value })} className="w-full rounded border border-gray-600 bg-gray-700 px-3 py-2 text-sm font-semibold text-white focus:border-purple-500 focus:outline-none" />
+                                                    <textarea value={location.description} onChange={(e) => updateReviewItem('locations', index, { description: e.target.value })} rows={2} className="w-full rounded border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white focus:border-purple-500 focus:outline-none" />
+                                                </ReviewRow>
+                                            ))}
+                                        </ReviewSection>
+
+                                        <ReviewSection title="Quests" helper="Checked quests become active quest cards.">
+                                            {importReview.quests.map((quest, index) => (
+                                                <ReviewRow key={`quest-${index}`} checked={!!quest.selected} onToggle={(checked) => updateReviewItem('quests', index, { selected: checked })}>
+                                                    <input value={quest.name} onChange={(e) => updateReviewItem('quests', index, { name: e.target.value })} className="w-full rounded border border-gray-600 bg-gray-700 px-3 py-2 text-sm font-semibold text-white focus:border-purple-500 focus:outline-none" />
+                                                    <textarea value={quest.description} onChange={(e) => updateReviewItem('quests', index, { description: e.target.value })} rows={2} className="w-full rounded border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white focus:border-purple-500 focus:outline-none" />
+                                                    <input value={quest.reward || ''} onChange={(e) => updateReviewItem('quests', index, { reward: e.target.value })} placeholder="Reward" className="w-full rounded border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white focus:border-purple-500 focus:outline-none" />
+                                                </ReviewRow>
+                                            ))}
+                                        </ReviewSection>
+
+                                        <ReviewSection title="NPCs" helper="Checked NPCs are added to the NPC tab.">
+                                            {importReview.npcs.map((npc, index) => (
+                                                <ReviewRow key={`npc-${index}`} checked={!!npc.selected} onToggle={(checked) => updateReviewItem('npcs', index, { selected: checked })}>
+                                                    <div className="grid gap-2 sm:grid-cols-3">
+                                                        <input value={npc.name} onChange={(e) => updateReviewItem('npcs', index, { name: e.target.value })} className="w-full rounded border border-gray-600 bg-gray-700 px-3 py-2 text-sm font-semibold text-white focus:border-purple-500 focus:outline-none" />
+                                                        <input value={npc.race} onChange={(e) => updateReviewItem('npcs', index, { race: e.target.value })} className="w-full rounded border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white focus:border-purple-500 focus:outline-none" />
+                                                        <input value={npc.role} onChange={(e) => updateReviewItem('npcs', index, { role: e.target.value })} className="w-full rounded border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white focus:border-purple-500 focus:outline-none" />
+                                                    </div>
+                                                    <textarea value={npc.notes} onChange={(e) => updateReviewItem('npcs', index, { notes: e.target.value })} rows={2} className="w-full rounded border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white focus:border-purple-500 focus:outline-none" />
+                                                </ReviewRow>
+                                            ))}
+                                        </ReviewSection>
+
+                                        <ReviewSection title="Items" helper="Checked items are added to the item list.">
+                                            {importReview.items.map((item, index) => (
+                                                <ReviewRow key={`item-${index}`} checked={!!item.selected} onToggle={(checked) => updateReviewItem('items', index, { selected: checked })}>
+                                                    <div className="grid gap-2 sm:grid-cols-[1fr_120px]">
+                                                        <input value={item.name} onChange={(e) => updateReviewItem('items', index, { name: e.target.value })} className="w-full rounded border border-gray-600 bg-gray-700 px-3 py-2 text-sm font-semibold text-white focus:border-purple-500 focus:outline-none" />
+                                                        <input type="number" min={1} value={item.quantity} onChange={(e) => updateReviewItem('items', index, { quantity: Math.max(1, Number(e.target.value) || 1) })} className="w-full rounded border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white focus:border-purple-500 focus:outline-none" />
+                                                    </div>
+                                                </ReviewRow>
+                                            ))}
+                                        </ReviewSection>
+
+                                        <ReviewSection title="Encounters" helper="Checked encounters are added as planned encounters.">
+                                            {importReview.encounters.map((encounter, index) => (
+                                                <ReviewRow key={`encounter-${index}`} checked={!!encounter.selected} onToggle={(checked) => updateReviewItem('encounters', index, { selected: checked })}>
+                                                    <div className="grid gap-2 sm:grid-cols-[1fr_1fr_100px]">
+                                                        <input value={encounter.name} onChange={(e) => updateReviewItem('encounters', index, { name: e.target.value })} className="w-full rounded border border-gray-600 bg-gray-700 px-3 py-2 text-sm font-semibold text-white focus:border-purple-500 focus:outline-none" />
+                                                        <input value={encounter.location} onChange={(e) => updateReviewItem('encounters', index, { location: e.target.value })} className="w-full rounded border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white focus:border-purple-500 focus:outline-none" />
+                                                        <input type="number" min={1} value={encounter.difficulty} onChange={(e) => updateReviewItem('encounters', index, { difficulty: Math.max(1, Number(e.target.value) || 1) })} className="w-full rounded border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white focus:border-purple-500 focus:outline-none" />
+                                                    </div>
+                                                    <p className="text-xs text-gray-500">
+                                                        Monsters: {encounter.monsters.map(monster => `${monster.count} ${monster.name}${monster.hp ? ` HP ${monster.hp}` : ''}${monster.ac ? ` AC ${monster.ac}` : ''}`).join(', ') || 'None'}
+                                                    </p>
+                                                </ReviewRow>
+                                            ))}
+                                        </ReviewSection>
+                                    </div>
+
+                                    <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+                                        <button
+                                            onClick={handleImportCampaign}
+                                            disabled={importing}
+                                            className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:from-gray-600 disabled:to-gray-600 text-white font-bold py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2"
+                                        >
+                                            {importing ? (
+                                                <>
+                                                    <Loader2 size={18} className="animate-spin" />
+                                                    <span>Saving Session...</span>
+                                                </>
+                                            ) : (
+                                                <span>Save Checked Content</span>
+                                            )}
+                                        </button>
+                                        <button
+                                            onClick={() => setImportStep('paste')}
+                                            disabled={importing}
+                                            className="px-6 py-3 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-700 text-white rounded-lg transition-colors"
+                                        >
+                                            Back
+                                        </button>
+                                        <button
+                                            onClick={resetImportModal}
+                                            disabled={importing}
+                                            className="px-6 py-3 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-700 text-white rounded-lg transition-colors"
+                                        >
+                                            Cancel
+                                        </button>
+                                    </div>
+
+                                    {importing && (
+                                        <div className="mt-4 p-4 bg-purple-900/20 border border-purple-700 rounded-lg">
+                                            <p className="text-purple-300 text-sm font-semibold mb-2">Saving your approved session content...</p>
+                                            <p className="text-gray-500 text-xs">
+                                                The checked locations and encounters may still create map jobs, so this can take a little while.
+                                            </p>
+                                        </div>
+                                    )}
+                                </>
+                            ) : null}
                         </div>
                     </div>
                 )}
@@ -466,4 +720,69 @@ function SyncIndicator() {
             ) : null}
         </div>
     );
+}
+
+function ReviewCount({ label, value }: { label: string; value: number }) {
+    return (
+        <div className="rounded-lg border border-gray-700 bg-gray-900 p-3 text-center">
+            <div className="text-lg font-bold text-white">{value}</div>
+            <div className="text-gray-500">{label}</div>
+        </div>
+    );
+}
+
+function ReviewSection({ title, helper, children }: { title: string; helper: string; children: ReactNode }) {
+    return (
+        <section className="rounded-lg border border-gray-700 bg-gray-900 p-4">
+            <div className="mb-3">
+                <h3 className="text-lg font-bold text-white">{title}</h3>
+                <p className="text-xs text-gray-500">{helper}</p>
+            </div>
+            <div className="space-y-3">
+                {children}
+            </div>
+        </section>
+    );
+}
+
+function ReviewRow({ checked, onToggle, children }: { checked: boolean; onToggle: (checked: boolean) => void; children: ReactNode }) {
+    return (
+        <div className={`rounded-lg border p-3 transition-colors ${checked ? 'border-gray-700 bg-gray-800' : 'border-gray-800 bg-gray-950 opacity-60'}`}>
+            <label className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-300">
+                <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={(event) => onToggle(event.target.checked)}
+                    className="h-4 w-4"
+                />
+                Save this
+            </label>
+            <div className="space-y-2">
+                {children}
+            </div>
+        </div>
+    );
+}
+
+function markReviewSelected(review: SessionImportReview): SessionImportReview {
+    return {
+        ...review,
+        locations: review.locations.map(item => ({ ...item, selected: true })),
+        quests: review.quests.map(item => ({ ...item, selected: true })),
+        items: review.items.map(item => ({ ...item, selected: true })),
+        npcs: review.npcs.map(item => ({ ...item, selected: true })),
+        encounters: review.encounters.map(item => ({ ...item, selected: true })),
+    };
+}
+
+function stripUnselectedReview(review: SessionImportReview): SessionImportReview {
+    return {
+        title: review.title,
+        description: review.description,
+        locations: review.locations.filter(item => item.selected).map(({ selected, ...item }) => item),
+        quests: review.quests.filter(item => item.selected).map(({ selected, ...item }) => item),
+        items: review.items.filter(item => item.selected).map(({ selected, ...item }) => item),
+        npcs: review.npcs.filter(item => item.selected).map(({ selected, ...item }) => item),
+        encounters: review.encounters.filter(item => item.selected).map(({ selected, ...item }) => item),
+    };
 }

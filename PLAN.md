@@ -57,6 +57,8 @@ This plan orders the backlog by risk. The goal is to make the app reliable first
    - Session import now extracts NPCs and monsters from a session script and saves playable NPC records plus encounter enemies with HP and AC.
    - Session import now infers mappable venues from prose, including shops, taverns, blacksmiths, towns, forests, caves, roads, camps, temples, castles, warehouses, and docks.
    - Procedural fallback maps now include dedicated shop and blacksmith layouts plus richer terrain/floor details so fallback maps are still playable.
+   - Session import now understands the user's Session 1 prep structure, including Quest Card blocks, interaction NPCs, shopkeeper Name fields, Combat Notes, boss HP/AC bullets, and loot cache sections.
+   - Session import now has a review step: the DM can inspect, edit, uncheck, and then save parsed locations, quests, NPCs, items, and encounters instead of saving every parser guess immediately.
 
 2. Replace reload-based refresh. Done locally.
    - After session import, refresh map, quest, encounter, item, and session state directly.

@@ -141,6 +141,8 @@ This is the working backlog for the D&D campaign website. Keep completed work in
 - [x] Expanded session map detection so scripts can create maps for towns, shops, taverns, inns, blacksmiths, forests, caves, roads, camps, temples, castles, warehouses, docks, travel routes, and encounter spaces.
 - [x] Improved fallback map quality with dedicated shop and blacksmith map types, richer dungeon/cave/forest/tavern layouts, stronger terrain props, and higher-detail Stable Diffusion prompts.
 - [x] Fixed quest/item generation from loose prose by inferring quest goals and loot/reward items even when the script does not use formal `Quests:` or `Items:` sections.
+- [x] Tuned session import for the Session 1 script structure: Quest Card blocks, named interaction NPCs, shopkeeper Name blocks, Combat Notes, boss stat bullets, and loot cache sections are now picked up more reliably.
+- [x] Added a two-step session import review flow: pasted sessions are parsed into a draft first, then the DM can edit or uncheck locations, quests, NPCs, items, and encounters before saving them.
 
 ## Known Verification Blockers
 

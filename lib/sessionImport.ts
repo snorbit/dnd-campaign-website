@@ -9,6 +9,7 @@ export interface ParsedLocation {
 export interface ParsedQuest {
     name: string;
     description: string;
+    reward?: string;
 }
 
 export interface ParsedItem {
@@ -177,10 +178,10 @@ export function parseSessionWithSmartRegex(text: string): ParsedSession {
     const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
     const title = inferTitle(lines);
     const locations: ParsedLocation[] = [];
-    const quests: ParsedQuest[] = [];
-    const items: ParsedItem[] = [];
-    const npcs: ParsedNPC[] = [];
-    const encounters: ParsedEncounter[] = [];
+    const quests: ParsedQuest[] = extractQuestCards(text);
+    const items: ParsedItem[] = extractLootCacheItems(text);
+    const npcs: ParsedNPC[] = extractScriptNPCs(text);
+    const encounters: ParsedEncounter[] = extractStructuredEncounters(text);
     const descLines: string[] = [];
 
     let section = '';
@@ -201,7 +202,7 @@ export function parseSessionWithSmartRegex(text: string): ParsedSession {
             continue;
         }
 
-        const cleanLine = line.replace(/^[-*]+|\d+[.)]\s*/g, '').trim();
+        const cleanLine = stripMarkdownLine(line);
         if (!cleanLine) continue;
 
         if (section === 'locations') {
@@ -289,10 +290,10 @@ export function parseSessionWithSmartRegex(text: string): ParsedSession {
         title,
         description: descLines.slice(0, 3).join(' ') || text.slice(0, 240),
         locations: inferredLocations,
-        quests,
-        items,
-        npcs,
-        encounters,
+        quests: dedupeQuests(quests),
+        items: dedupeItems(items),
+        npcs: dedupeNPCs(npcs),
+        encounters: dedupeEncounters(encounters),
     };
 }
 
@@ -362,7 +363,7 @@ export function buildQuestRecords(quests: ParsedQuest[], idFactory: IdFactory = 
         description: quest.description,
         status: 'active',
         objectives: buildObjectives(quest, idFactory),
-        reward: '',
+        reward: quest.reward || '',
     }));
 }
 
@@ -449,7 +450,7 @@ function normalizeQuests(input: unknown, fallback: ParsedQuest[]): ParsedQuest[]
             const raw = item as Partial<ParsedQuest>;
             const name = cleanText(raw.name);
             if (!name) return null;
-            return { name, description: cleanText(raw.description) || name };
+            return { name, description: cleanText(raw.description) || name, reward: cleanText(raw.reward) };
         })
         .filter(Boolean) as ParsedQuest[];
     return quests.length > 0 ? quests : fallback;
@@ -570,6 +571,224 @@ function parseItemLine(line: string): ParsedItem {
     return { name: cleanText(line), quantity: 1 };
 }
 
+function extractQuestCards(text: string): ParsedQuest[] {
+    const quests: ParsedQuest[] = [];
+    const blocks = splitByQuestCard(text);
+
+    blocks.forEach(block => {
+        const name = readMarkdownField(block, 'Name');
+        const hook = readMarkdownField(block, 'Hook');
+        const objective = readMarkdownField(block, 'Objective');
+        const reward = readMarkdownField(block, 'Reward') || readMarkdownField(block, 'Reward (Later)');
+
+        if (!name) return;
+
+        quests.push({
+            name,
+            description: [hook, objective].filter(Boolean).join(' '),
+            reward,
+        });
+    });
+
+    return quests;
+}
+
+function splitByQuestCard(text: string) {
+    const lines = text.split(/\r?\n/);
+    const blocks: string[] = [];
+    let active: string[] = [];
+
+    for (const line of lines) {
+        if (/^#{2,4}\s+quest hook/i.test(line) || /\*\*DM\*\*:\s*Quest Card/i.test(line)) {
+            if (active.length > 0) blocks.push(active.join('\n'));
+            active = [line];
+            continue;
+        }
+
+        if (active.length > 0 && /^#{1,3}\s+/.test(line) && !/^#{2,4}\s+quest hook/i.test(line)) {
+            blocks.push(active.join('\n'));
+            active = [];
+            continue;
+        }
+
+        if (active.length > 0) active.push(line);
+    }
+
+    if (active.length > 0) blocks.push(active.join('\n'));
+    return blocks.filter(block => /\*\*Name\*\*\s*:/i.test(block));
+}
+
+function extractLootCacheItems(text: string): ParsedItem[] {
+    const items: ParsedItem[] = [];
+    const lines = text.split(/\r?\n/);
+    let inLootBlock = false;
+
+    for (const line of lines) {
+        const lower = line.toLowerCase();
+        if (/^#{2,4}\s+/.test(line)) {
+            inLootBlock = /\b(treasury|loot cache|reward cache|treasure)\b/.test(lower);
+            continue;
+        }
+
+        if (!inLootBlock) continue;
+
+        const fieldMatch = line.match(/^-\s*\*\*(.+?)\*\*\s*:\s*(.+)$/);
+        if (!fieldMatch) continue;
+
+        const label = fieldMatch[1].toLowerCase();
+        const value = fieldMatch[2];
+        if (label.includes('coin') || label.includes('gem')) {
+            items.push(...splitTreasureItems(value));
+            continue;
+        }
+
+        if (/\b(potions?|weapons?|armor|tools?|items?|gear)\b/.test(label)) {
+            items.push(...splitTreasureItems(value));
+        }
+    }
+
+    return dedupeItems(items);
+}
+
+function splitTreasureItems(value: string) {
+    return value
+        .split(/\s*,\s*|\s+or\s+/i)
+        .map(part => part.replace(/\([^)]*\)/g, '').replace(/\byour choice\b/ig, '').replace(/[.]+$/g, '').trim())
+        .filter(Boolean)
+        .map(parseItemLine);
+}
+
+function extractScriptNPCs(text: string): ParsedNPC[] {
+    const npcs: ParsedNPC[] = [];
+    const lines = text.split(/\r?\n/);
+    let pendingRole = '';
+
+    for (let index = 0; index < lines.length; index++) {
+        const line = lines[index].trim();
+
+        const interaction = line.match(/^#{2,4}\s+INTERACTION:\s*(.+)$/i);
+        if (interaction) {
+            npcs.push({
+                name: cleanText(interaction[1]),
+                race: 'Unknown',
+                role: 'Interaction NPC',
+                notes: collectNearbyNotes(lines, index + 1, 5),
+            });
+            pendingRole = '';
+            continue;
+        }
+
+        const dmRole = line.match(/^\*\*DM\*\*:\s*(Shopkeeper|Blacksmith|Chapel|Mayor|Guide|Villain|Boss|Merchant)\s*$/i);
+        if (dmRole) {
+            pendingRole = toTitleCase(dmRole[1]);
+            continue;
+        }
+
+        const name = line.match(/^-\s*\*\*Name\*\*\s*:\s*(.+)$/i);
+        if (name && pendingRole) {
+            npcs.push({
+                name: cleanText(name[1].replace(/\(.+?\)/g, '')),
+                race: 'Unknown',
+                role: pendingRole,
+                notes: collectNearbyNotes(lines, index + 1, 6),
+            });
+            continue;
+        }
+
+        const spokenName = line.match(/^"?([A-Z][A-Za-z']+(?:\s+[A-Z][A-Za-z']+){0,2})\s+is\s+(?:standing|at|the only|handing|staring|suspended)\b/i);
+        if (spokenName && !isLikelyPlayerName(spokenName[1])) {
+            npcs.push({
+                name: cleanText(spokenName[1]),
+                race: 'Unknown',
+                role: 'Story NPC',
+                notes: stripMarkdownLine(line),
+            });
+        }
+    }
+
+    return dedupeNPCs(npcs);
+}
+
+function extractStructuredEncounters(text: string): ParsedEncounter[] {
+    const encounters: ParsedEncounter[] = [];
+    const lines = text.split(/\r?\n/);
+    let activeEncounter: ParsedEncounter | null = null;
+    let inCombatNotes = false;
+
+    for (const rawLine of lines) {
+        const line = rawLine.trim();
+        const encounterHeading = line.match(/^#{2,3}\s+(?:ENCOUNTER|COMBAT WITH):\s*(.+)$/i) || line.match(/^#{2,3}\s+COMBAT WITH\s+(.+)$/i);
+
+        if (encounterHeading) {
+            if (activeEncounter) encounters.push(activeEncounter);
+            const name = cleanText(encounterHeading[1]);
+            activeEncounter = {
+                name,
+                location: inferEncounterLocation(name),
+                difficulty: extractDifficulty(name),
+                monsters: [],
+            };
+            inCombatNotes = false;
+            continue;
+        }
+
+        if (!activeEncounter) continue;
+
+        if (/^#{2,3}\s+/.test(line) && !/^#{2,3}\s+COMBAT NOTES/i.test(line)) {
+            encounters.push(activeEncounter);
+            activeEncounter = null;
+            inCombatNotes = false;
+            continue;
+        }
+
+        if (/^#{2,4}\s+COMBAT NOTES/i.test(line)) {
+            inCombatNotes = true;
+            continue;
+        }
+
+        const bullet = line.match(/^-\s*\*\*(.+?)\*\*\s*:\s*(.+)$/);
+        if (bullet && inCombatNotes) {
+            const monster = parseMonsterFromCombatNote(bullet[1], bullet[2]);
+            if (monster) activeEncounter.monsters.push(monster);
+            continue;
+        }
+
+        if (/Red Eye is a hobgoblin warlord/i.test(line)) {
+            activeEncounter.monsters.push({
+                name: 'Red Eye',
+                count: 1,
+                difficulty: 8,
+            });
+        }
+
+        const ac = line.match(/^-\s*\*\*AC\*\*\s*:\s*(\d+)/i);
+        const hp = line.match(/^-\s*\*\*HP\*\*\s*:\s*(\d+)/i);
+        const lastMonster = activeEncounter.monsters[activeEncounter.monsters.length - 1];
+        if (ac && lastMonster) lastMonster.ac = Number(ac[1]);
+        if (hp && lastMonster) lastMonster.hp = Number(hp[1]);
+    }
+
+    if (activeEncounter) encounters.push(activeEncounter);
+
+    return dedupeEncounters(encounters.map(encounter => ({
+        ...encounter,
+        monsters: encounter.monsters.length > 0 ? encounter.monsters : [parseMonsterLine(encounter.name)],
+    })));
+}
+
+function parseMonsterFromCombatNote(nameText: string, details: string): ParsedMonster | null {
+    const label = cleanText(nameText);
+    if (/environment|hazard|terrain|tactics?/i.test(label)) return null;
+
+    const count = Number(label.match(/\((\d+)\)/)?.[1]) || Number(details.match(/\b(\d+)\b/)?.[1]) || 1;
+    const name = label.replace(/\(\d+\)/g, '').trim();
+
+    return {
+        ...parseMonsterLine(`${count} ${name}`),
+        difficulty: extractDifficulty(`${label} ${details}`),
+    };
+}
+
 function addInferredQuest(line: string, quests: ParsedQuest[]) {
     const lower = line.toLowerCase();
     if (!/\b(seek|retrieve|find|recover|rescue|deliver|defeat|protect|investigate|discover|stop|destroy|escort|solve|decipher)\b/.test(lower)) {
@@ -583,6 +802,91 @@ function addInferredQuest(line: string, quests: ParsedQuest[]) {
     if (title && !quests.some(quest => quest.name.toLowerCase() === title.toLowerCase())) {
         quests.push({ name: title, description: line });
     }
+}
+
+function readMarkdownField(block: string, field: string) {
+    const escaped = field.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const pattern = new RegExp(`^-\\s*\\*\\*${escaped}\\*\\*\\s*:\\s*(.+)$`, 'im');
+    return cleanText(block.match(pattern)?.[1] || '');
+}
+
+function stripMarkdownLine(line: string) {
+    return cleanText(line
+        .replace(/^#{1,6}\s*/, '')
+        .replace(/^[-*]+|\d+[.)]\s*/g, '')
+        .replace(/\*\*/g, '')
+        .replace(/^DM\s*:\s*/i, '')
+        .replace(/^Read Aloud(?:\s*\(.+?\))?\s*:\s*/i, '')
+        .replace(/^["']|["']$/g, ''));
+}
+
+function collectNearbyNotes(lines: string[], startIndex: number, maxLines: number) {
+    const notes: string[] = [];
+
+    for (let index = startIndex; index < Math.min(lines.length, startIndex + maxLines); index++) {
+        const line = lines[index].trim();
+        if (/^#{1,4}\s+/.test(line)) break;
+        const cleaned = stripMarkdownLine(line);
+        if (cleaned && !/^Name\s*:/i.test(cleaned)) notes.push(cleaned);
+    }
+
+    return notes.join(' ').slice(0, 500);
+}
+
+function isLikelyPlayerName(name: string) {
+    return /^(Troy|Zachery|Guts|Calilac|Wimbie)$/i.test(name);
+}
+
+function inferEncounterLocation(name: string) {
+    const cleanName = cleanText(name);
+    const afterThe = cleanName.match(/\b(?:the|at)\s+(.+)$/i)?.[1];
+    return toTitleCase(afterThe || cleanName.replace(/\b(ambush|fight|combat|encounter|battle)\b/ig, '').trim() || cleanName);
+}
+
+function dedupeQuests(quests: ParsedQuest[]) {
+    const seen = new Set<string>();
+    return quests.filter(quest => {
+        const key = quest.name.toLowerCase();
+        if (!quest.name || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
+}
+
+function dedupeItems(items: ParsedItem[]) {
+    const merged = new Map<string, ParsedItem>();
+
+    items.forEach(item => {
+        if (!item.name) return;
+        const key = item.name.toLowerCase();
+        const existing = merged.get(key);
+        merged.set(key, {
+            name: item.name,
+            quantity: (existing?.quantity || 0) + Math.max(1, item.quantity || 1),
+        });
+    });
+
+    return Array.from(merged.values());
+}
+
+function dedupeNPCs(npcs: ParsedNPC[]) {
+    const seen = new Set<string>();
+    return npcs.filter(npc => {
+        const key = npc.name.toLowerCase();
+        if (!npc.name || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
+}
+
+function dedupeEncounters(encounters: ParsedEncounter[]) {
+    const seen = new Set<string>();
+    return encounters.filter(encounter => {
+        const key = `${encounter.name.toLowerCase()}|${encounter.location.toLowerCase()}`;
+        if (!encounter.name || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
 }
 
 function addInferredItems(line: string, items: ParsedItem[]) {

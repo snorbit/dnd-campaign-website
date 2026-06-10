@@ -127,3 +127,89 @@ describe('broad session content inference', () => {
         ]));
     });
 });
+
+const oakhavenStyleScript = `**DM GUIDE**: This is your complete script for Session 1.
+
+# ACT 1: THE OAKHAVEN AFTERMATH
+
+## MAYOR ELDRIN'S ORATION
+
+### INTERACTION: MAYOR ELDRIN
+**DM**: If players ask about "The Audit": "They took Elara. My girl."
+
+### QUEST HOOK (Random): REVIEW THE LEDGER
+**DM**: Quest Card
+- **Name**: Review the Ledger
+- **Hook**: "Death keeps strict accounts. Someone cooked the books."
+- **Objective**: Track down where the Audit records are being made and steal or destroy the ledger pages.
+- **Reward (Later)**: A lead to an archive of Audit records.
+
+### THE SHOP: HAWTHORN & WICK
+**DM**: Shopkeeper
+- **Name**: Willa Hawthorn
+- **Vibe**: Practical, exhausted, alert.
+
+## ENCOUNTER: THE RUSHING RIVER AMBUSH
+### COMBAT NOTES
+- **Goblins (4)**: Using longbows with Tracer Arrows
+- **Hulking Worg**: Focuses on Tactical Displacement
+- **Environmental**: Every 2 rounds, a massive log sweeps through the stones
+
+## COMBAT WITH RED EYE
+**DM**: Red Eye is a hobgoblin warlord with enhanced abilities:
+- **AC**: 18
+- **HP**: 67
+
+## THE AUDITOR'S TREASURY (Gold + Decent Gear)
+**DM**: Loot Cache
+- **Coin**: 120 gp, 180 sp
+- **Potions**: 2 potions of healing
+- **Weapons (decent, mundane)**: 1 longsword, 1 battleaxe, 1 longbow, 40 arrows
+- **Armor (decent, mundane)**: 1 chain shirt, 1 shield, 1 set of studded leather`;
+
+describe('Oakhaven session script structure', () => {
+    it('extracts Quest Card blocks, interaction NPCs, combat notes, and loot cache items', () => {
+        const parsed = parseSessionWithSmartRegex(oakhavenStyleScript);
+
+        expect(parsed.quests).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                name: 'Review the Ledger',
+                reward: 'A lead to an archive of Audit records.',
+            }),
+        ]));
+
+        expect(parsed.npcs).toEqual(expect.arrayContaining([
+            expect.objectContaining({ name: 'MAYOR ELDRIN', role: 'Interaction NPC' }),
+            expect.objectContaining({ name: 'Willa Hawthorn', role: 'Shopkeeper' }),
+        ]));
+
+        expect(parsed.encounters).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                name: 'THE RUSHING RIVER AMBUSH',
+                monsters: expect.arrayContaining([
+                    expect.objectContaining({ name: 'Goblin', count: 4 }),
+                    expect.objectContaining({ name: 'Hulking Worg', count: 1 }),
+                ]),
+            }),
+            expect.objectContaining({
+                name: 'RED EYE',
+                monsters: expect.arrayContaining([
+                    expect.objectContaining({ name: 'Red Eye', hp: 67, ac: 18 }),
+                ]),
+            }),
+        ]));
+
+        expect(parsed.items.map(item => item.name)).toEqual(expect.arrayContaining([
+            'gp',
+            'sp',
+            'potions of healing',
+            'longsword',
+            'battleaxe',
+            'longbow',
+            'arrows',
+            'chain shirt',
+            'shield',
+            'set of studded leather',
+        ]));
+    });
+});

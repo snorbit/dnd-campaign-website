@@ -37,13 +37,32 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized - missing auth token' }, { status: 401 });
         }
 
-        const { campaignId, campaignText } = await request.json();
+        const { campaignId, campaignText, action = 'save', review } = await request.json();
         if (!campaignId || !campaignText?.trim()) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
         const supabase = createAuthClient(token);
-        const parsed = await parseSessionText(campaignText);
+        const parsed = action === 'save-reviewed'
+            ? normalizeParsedSession(review, campaignText)
+            : await parseSessionText(campaignText);
+
+        if (action === 'preview') {
+            const mapJobs = buildSessionMapJobs(parsed);
+            return NextResponse.json({
+                success: true,
+                review: parsed,
+                generated: {
+                    maps: mapJobs.length,
+                    quests: parsed.quests.length,
+                    items: parsed.items.length,
+                    npcs: parsed.npcs.length,
+                    encounters: parsed.encounters.length,
+                    monsters: countEncounterMonsters(parsed.encounters),
+                },
+            });
+        }
+
         const mapJobs = buildSessionMapJobs(parsed);
         const maps = await generateSessionMaps(mapJobs, campaignId);
         const npcs = buildNPCRecords(parsed.npcs);

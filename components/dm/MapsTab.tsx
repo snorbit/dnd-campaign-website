@@ -798,13 +798,6 @@ export default function MapsTab({ campaignId }: MapsTabProps) {
                             />
                         </label>
                         <button
-                            onClick={() => setShowAIModal(true)}
-                            className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors text-sm"
-                        >
-                            <Wand2 size={16} />
-                            AI Generate
-                        </button>
-                        <button
                             onClick={() => setShowAddModal(true)}
                             className="flex items-center gap-2 px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors"
                         >
