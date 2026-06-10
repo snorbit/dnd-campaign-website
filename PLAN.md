@@ -66,6 +66,9 @@ This plan orders the backlog by risk. The goal is to make the app reliable first
    - Ensure map tokens save the final dragged position reliably.
    - Add clearer feedback when Stable Diffusion is unavailable.
    - Remove or merge the placeholder map API route.
+   - ZIP map import is now the primary map workflow: the browser opens a ZIP, reads named image maps, uploads them through a safe server route, creates a scrollable atlas, and saves every imported map as a quick-switch option.
+   - DM map controls now include search, type filters, grouped map cards, breadcrumbs, active-map highlighting, and previous/next switching.
+   - Map tokens now support per-map storage with `tokensByMapId`, which keeps tavern, cave, town, forest, and battle-map tokens separate.
 
 4. Improve player and DM error states.
    - Split "not signed in", "not in campaign", "campaign missing", and "character missing".
@@ -113,7 +116,7 @@ This plan orders the backlog by risk. The goal is to make the app reliable first
 
 ## Verification Checklist
 
-- [x] `npm.cmd test` passes.
+- [ ] `npm.cmd test` passes.
 - [x] Lint command runs and reports actionable issues.
 - [x] `npm.cmd run build` passes without external font fetches.
 - [ ] Fresh Supabase migration path works.
@@ -124,3 +127,5 @@ This plan orders the backlog by risk. The goal is to make the app reliable first
 - [x] Dice roller appears once and does not duplicate events.
 
 Connector status: Supabase live schema checks work and the missing `campaign_chat` migration was applied. Supabase advisor and Vercel deployment/project detail calls timed out through the connectors.
+
+Current local note: `npm.cmd run build`, lint, and `npm.cmd exec tsc -- --noEmit` pass. `npm.cmd test` is blocked before tests run by a local Vitest/esbuild permission error while loading `vitest.config.ts`.

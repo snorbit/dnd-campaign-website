@@ -30,6 +30,7 @@ interface MapPing {
 
 export default function MapTab({ campaignId }: MapTabProps) {
     const [mapUrl, setMapUrl] = useState<string>('');
+    const [currentMapId, setCurrentMapId] = useState<string>('');
     const [loading, setLoading] = useState(true);
     const [isUpdating, setIsUpdating] = useState(false);
 
@@ -40,15 +41,16 @@ export default function MapTab({ campaignId }: MapTabProps) {
     const mapContainerRef = useRef<HTMLDivElement>(null);
     const channelRef = useRef<any>(null);
     const tokensRef = useRef<MapToken[]>([]);
+    const currentMapIdRef = useRef('');
 
     const handleMapUpdate = useCallback((newMap: any) => {
         setIsUpdating(true);
+        const nextMapId = getActiveMapId(newMap);
         if (newMap?.url) {
             setMapUrl(newMap.url);
         }
-        if (newMap?.tokens) {
-            setTokens(newMap.tokens);
-        }
+        setCurrentMapId(nextMapId);
+        setTokens(getTokensForMap(newMap, nextMapId));
         setTimeout(() => setIsUpdating(false), 2000);
     }, []);
 
@@ -61,6 +63,10 @@ export default function MapTab({ campaignId }: MapTabProps) {
     useEffect(() => {
         tokensRef.current = tokens;
     }, [tokens]);
+
+    useEffect(() => {
+        currentMapIdRef.current = currentMapId;
+    }, [currentMapId]);
 
     useEffect(() => {
         loadMap();
@@ -76,8 +82,10 @@ export default function MapTab({ campaignId }: MapTabProps) {
                 setPings(prev => prev.filter(p => p.id !== newPing.id));
             }, 3000);
         }).on('broadcast', { event: 'token_move' }, ({ payload }) => {
+            if (payload.mapId && payload.mapId !== currentMapIdRef.current) return;
             setTokens(prev => prev.map(t => t.id === payload.id ? { ...t, x: payload.x, y: payload.y } : t));
         }).on('broadcast', { event: 'tokens_update' }, ({ payload }) => {
+            if (payload.mapId && payload.mapId !== currentMapIdRef.current) return;
             setTokens(payload.tokens);
         }).subscribe();
 
@@ -95,8 +103,11 @@ export default function MapTab({ campaignId }: MapTabProps) {
                 .eq('campaign_id', campaignId)
                 .single();
 
-            setMapUrl(data?.map?.url || '');
-            setTokens(data?.map?.tokens || []);
+            const mapState = data?.map || {};
+            const activeMapId = getActiveMapId(mapState);
+            setMapUrl(mapState.url || '');
+            setCurrentMapId(activeMapId);
+            setTokens(getTokensForMap(mapState, activeMapId));
         } catch (error) {
             console.error('Error loading map:', error);
         } finally {
@@ -144,7 +155,7 @@ export default function MapTab({ campaignId }: MapTabProps) {
         channelRef.current?.send({
             type: 'broadcast',
             event: 'token_move',
-            payload: { id: draggingToken, x, y }
+            payload: { id: draggingToken, x, y, mapId: currentMapIdRef.current }
         });
     };
 
@@ -158,14 +169,21 @@ export default function MapTab({ campaignId }: MapTabProps) {
     const saveTokensToDb = async (newTokens: MapToken[]) => {
         try {
             const { data: currentState } = await supabase.from('campaign_state').select('map').eq('campaign_id', campaignId).single();
+            const mapState = currentState?.map || {};
+            const activeMapId = currentMapIdRef.current || getActiveMapId(mapState);
+            const tokensByMapId = {
+                ...(mapState.tokensByMapId || {}),
+                ...(activeMapId ? { [activeMapId]: newTokens } : {}),
+            };
+
             await supabase.from('campaign_state').update({
-                map: { ...currentState?.map, tokens: newTokens }
+                map: { ...mapState, tokens: newTokens, tokensByMapId }
             }).eq('campaign_id', campaignId);
 
             channelRef.current?.send({
                 type: 'broadcast',
                 event: 'tokens_update',
-                payload: { tokens: newTokens }
+                payload: { tokens: newTokens, mapId: activeMapId }
             });
         } catch (error) {
             console.error('Error saving tokens:', error);
@@ -228,9 +246,9 @@ export default function MapTab({ campaignId }: MapTabProps) {
                 </div>
             </div>
 
-            <div className="flex justify-center overflow-auto rounded-lg border border-gray-700 bg-gray-900 p-3 sm:p-4">
+            <div className="flex max-h-[82vh] justify-start overflow-auto rounded-lg border border-gray-700 bg-gray-900 p-3 sm:justify-center sm:p-4">
                 <div
-                    className="relative inline-block max-w-full select-none touch-none"
+                    className="relative inline-block select-none touch-none"
                     ref={mapContainerRef}
                     onPointerMove={handlePointerMove}
                     onPointerUp={handlePointerUp}
@@ -243,7 +261,8 @@ export default function MapTab({ campaignId }: MapTabProps) {
                             if (draggingToken) return;
                             handleMapClick(e as any);
                         }}
-                        className="max-w-full max-h-[80vh] object-contain cursor-crosshair rounded shadow-lg pointer-events-auto"
+                        className="max-w-none object-contain cursor-crosshair rounded shadow-lg pointer-events-auto"
+                        style={{ maxHeight: '80vh', maxWidth: 'none' }}
                         draggable={false}
                     />
 
@@ -287,4 +306,15 @@ export default function MapTab({ campaignId }: MapTabProps) {
             </div>
         </div>
     );
+}
+
+function getActiveMapId(mapState: any) {
+    return typeof mapState?.currentMapId === 'string' ? mapState.currentMapId : '';
+}
+
+function getTokensForMap(mapState: any, mapId: string) {
+    const tokensByMapId = mapState?.tokensByMapId || {};
+    if (mapId && Array.isArray(tokensByMapId[mapId])) return tokensByMapId[mapId] as MapToken[];
+    if (Array.isArray(mapState?.tokens)) return mapState.tokens as MapToken[];
+    return [];
 }

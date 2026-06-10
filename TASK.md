@@ -131,6 +131,9 @@ This is the working backlog for the D&D campaign website. Keep completed work in
 - [x] `npm.cmd exec tsc -- --noEmit` passes.
 - [x] Removed the Google Fonts build fetch blocker by using local CSS font stacks instead of `next/font/google`.
 - [x] Full map generator path added with Stable Diffusion support, procedural fallback, preview, save, display, Supabase Storage upload, and tests.
+- [x] ZIP map import added as the primary map workflow: the DM can import a ZIP of named map images, upload them to Supabase Storage, build a scrollable atlas, and save individual switchable maps.
+- [x] DM map library now has quick switching, previous/next controls, search, type filters, grouped map cards, breadcrumbs, active-map highlighting, and plain progress/error messages for imports.
+- [x] Map state now tracks `currentMapId` and `tokensByMapId`, so tokens can stay with the tavern, cave, forest, or other specific map instead of leaking across every displayed map.
 - [x] Mobile session layout pass completed for fixed chat/dice/audio controls and map/token controls.
 - [x] Session script importer now builds full-session content: location maps, travel maps, encounter maps, NPCs, monster stat blocks, populated encounters, quests, and items.
 - [x] Added importer tests for script-to-session map jobs, NPC records, encounter enemies, monster counts, and item quantities.
@@ -141,6 +144,7 @@ This is the working backlog for the D&D campaign website. Keep completed work in
 
 ## Known Verification Blockers
 
-- `npm.cmd run build` compiles successfully, but this local Windows environment currently fails during Next.js page-data collection with `spawn EPERM`. TypeScript passes separately with `tsc --noEmit`.
+- `npm.cmd test` is currently blocked before tests run because Vitest/esbuild cannot read a parent directory in this Windows sandbox while loading `vitest.config.ts`.
+- `npm.cmd run build` now completes successfully in this environment.
 - Supabase connector verification is working and the live `campaign_chat` migration was applied. Supabase advisor and Vercel deployment/project detail calls timed out through the connectors.
-- Mobile layout verification is blocked until the dev server can run or a Vercel preview is available.
+- Local browser verification is blocked because this shell cannot keep `next dev` alive after the background job exits.
