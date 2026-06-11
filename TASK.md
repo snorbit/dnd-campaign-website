@@ -103,6 +103,24 @@ This is the working backlog for the D&D campaign website. Keep completed work in
 
 ## Tests And Verification
 
+- [ ] Apply beta database migration before inviting players.
+  - Run `supabase/migrations/012_beta_audio_and_legacy_security.sql` against the live Supabase project.
+  - This adds the missing `campaign_state.audio` column if needed, locks down the old legacy `campaign` table, and hardens the signup profile trigger.
+
+- [ ] Complete a live two-browser beta rehearsal.
+  - Use one browser as DM and one as player.
+  - Import a real ZIP map pack, switch maps, move tokens, import Session 1, update quests/items/NPCs/encounters, test chat, whispers, dice, and pings.
+  - Treat this like a dress rehearsal before bringing friends in.
+
+- [ ] Re-run Supabase security advisor after the beta migration.
+  - Confirm the old `campaign` table RLS warning is gone.
+  - Confirm the signup trigger warnings are gone.
+  - Decide whether GraphQL exposure warnings need a follow-up migration or can wait because the app uses REST/RLS.
+
+- [ ] Fix local test runner access issue.
+  - `npm.cmd test` is blocked before tests run because Vitest/esbuild cannot read a Windows parent directory while loading `vitest.config.ts`.
+  - This is a local tooling problem, but beta is safer once tests run again.
+
 - [x] Add tests for realtime subscription cleanup.
   - Cover `components/shared/hooks/useRealtimeSubscription.ts`.
   - Verify channels are removed on unmount.
@@ -145,10 +163,14 @@ This is the working backlog for the D&D campaign website. Keep completed work in
 - [x] Added a two-step session import review flow: pasted sessions are parsed into a draft first, then the DM can edit or uncheck locations, quests, NPCs, items, and encounters before saving them.
 - [x] Session import no longer generates maps from script text. It only shows detected locations for review; playable maps should come from ZIP map imports.
 - [x] Tightened item extraction so shop stock, price lists, and gear tier options are not imported as loot.
+- [x] Beta readiness pass started: local type check, lint, and production build pass; Vercel production is ready; Supabase project is active healthy; ZIP map storage responses were verified from Supabase logs.
+- [x] Removed the legacy `/login` page behavior that touched the old single-row `campaign` table; `/login` now redirects to the real Supabase auth login.
+- [x] Added `012_beta_audio_and_legacy_security.sql` to align live Supabase with the app before beta.
 
 ## Known Verification Blockers
 
 - `npm.cmd test` is currently blocked before tests run because Vitest/esbuild cannot read a parent directory in this Windows sandbox while loading `vitest.config.ts`.
 - `npm.cmd run build` now completes successfully in this environment.
-- Supabase connector verification is working and the live `campaign_chat` migration was applied. Supabase advisor and Vercel deployment/project detail calls timed out through the connectors.
+- Supabase connector verification is working. The project is `ACTIVE_HEALTHY`, but the security advisor flagged the old `campaign` table, signup trigger hardening, and GraphQL exposure warnings.
+- Vercel connector verification is working. The latest production deployment is `READY`, and production runtime logs showed no `error` or `fatal` entries in the last 24 hours.
 - Local browser verification is blocked because this shell cannot keep `next dev` alive after the background job exits.
