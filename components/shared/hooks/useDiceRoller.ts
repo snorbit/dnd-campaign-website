@@ -57,11 +57,12 @@ export const useDiceRoller = (campaignId?: string | number, playerName?: string)
         manualRolls?: number[]
     ) => {
         let rolls: number[] = [];
+        const safeQuantity = Math.min(Math.max(quantity, 1), 100);
 
         if (manualRolls && manualRolls.length > 0) {
             rolls = [...manualRolls];
         } else {
-            const actualQuantity = type !== "normal" && sides === 20 ? 2 : quantity;
+            const actualQuantity = type !== "normal" && sides === 20 ? 2 : safeQuantity;
             for (let i = 0; i < actualQuantity; i++) {
                 rolls.push(Math.floor(Math.random() * sides) + 1);
             }
@@ -83,7 +84,7 @@ export const useDiceRoller = (campaignId?: string | number, playerName?: string)
         const total = resultBase + modifier;
 
         // Create formula string
-        let formula = `${quantity}d${sides}`;
+        let formula = `${safeQuantity}d${sides}`;
         if (sides === 20 && type !== "normal") {
             formula = `d20 (${type})`;
         }
@@ -133,7 +134,7 @@ export const useDiceRoller = (campaignId?: string | number, playerName?: string)
 
         if (![4, 6, 8, 10, 12, 20, 100].includes(sides)) return null;
 
-        return roll(sides, Math.min(Math.max(quantity, 1), 20), modifierValue, "normal", isPublic);
+        return roll(sides, Math.min(Math.max(quantity, 1), 100), modifierValue, "normal", isPublic);
     }, [roll]);
 
     const clearHistory = useCallback(() => {

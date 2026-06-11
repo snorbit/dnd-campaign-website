@@ -104,7 +104,7 @@ export default function LevelUpModal({
         try {
             if (choice === 'feat') {
                 // Save feat selection
-                await supabase
+                const { error } = await supabase
                     .from('player_feats')
                     .insert({
                         campaign_player_id: campaignPlayerId,
@@ -112,6 +112,8 @@ export default function LevelUpModal({
                         feat_type: availableFeats.find(f => f.id === selectedFeatId)?.source || 'standard',
                         level_acquired: currentLevel,
                     });
+
+                if (error) throw error;
             } else if (choice === 'asi') {
                 // Update character stats
                 const { stat1, points1, stat2, points2 } = asiStats;
@@ -119,7 +121,7 @@ export default function LevelUpModal({
                 if (stat1) newStats[stat1] += points1;
                 if (stat2) newStats[stat2] += points2;
 
-                await supabase
+                const { error } = await supabase
                     .from('character_stats')
                     .update({
                         str: newStats.str,
@@ -130,7 +132,16 @@ export default function LevelUpModal({
                         cha: newStats.cha,
                     })
                     .eq('campaign_player_id', campaignPlayerId);
+
+                if (error) throw error;
             }
+
+            const { error: levelError } = await supabase
+                .from('campaign_players')
+                .update({ level: currentLevel })
+                .eq('id', campaignPlayerId);
+
+            if (levelError) throw levelError;
 
             onComplete();
         } catch (error) {

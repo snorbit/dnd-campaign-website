@@ -23,6 +23,7 @@ const DEFAULT_AUDIO: AudioState = { url: '', isPlaying: false, volume: 50 };
 export function AudioPlayer({ campaignId }: AudioPlayerProps) {
     const [audioState, setAudioState] = useState<AudioState>(DEFAULT_AUDIO);
     const [localMuted, setLocalMuted] = useState(false);
+    const [localEnabled, setLocalEnabled] = useState(false);
     const [mounted, setMounted] = useState(false);
     const channelRef = useRef<any>(null);
 
@@ -67,10 +68,10 @@ export function AudioPlayer({ campaignId }: AudioPlayerProps) {
             {/* Hidden Player */}
             <ReactPlayer
                 url={audioState.url}
-                playing={audioState.isPlaying && !localMuted}
+                playing={localEnabled && audioState.isPlaying && !localMuted}
                 volume={audioState.volume / 100}
-                width="0"
-                height="0"
+                width="1px"
+                height="1px"
                 config={{
                     youtube: {
                         playerVars: { showinfo: 0, controls: 0 }
@@ -80,13 +81,26 @@ export function AudioPlayer({ campaignId }: AudioPlayerProps) {
 
             {/* Quick Mute Toggle UI */}
             <div className="bg-gray-800 border border-gray-700 rounded-full shadow-lg overflow-hidden flex items-center p-1 transition-all">
-                <button
-                    onClick={() => setLocalMuted(!localMuted)}
-                    className={`p-2 rounded-full transition-colors ${localMuted ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30' : 'hover:bg-gray-700 text-gray-300'}`}
-                    title={localMuted ? "Unmute local audio" : "Mute local audio"}
-                >
-                    {localMuted || !audioState.isPlaying ? <VolumeX size={18} /> : <Volume2 size={18} className="animate-pulse" />}
-                </button>
+                {!localEnabled ? (
+                    <button
+                        onClick={() => {
+                            setLocalEnabled(true);
+                            setLocalMuted(false);
+                        }}
+                        className="px-3 py-2 text-xs font-bold text-purple-200 hover:bg-gray-700 rounded-full transition-colors"
+                        title="Enable synced campaign audio on this device"
+                    >
+                        Enable Audio
+                    </button>
+                ) : (
+                    <button
+                        onClick={() => setLocalMuted(!localMuted)}
+                        className={`p-2 rounded-full transition-colors ${localMuted ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30' : 'hover:bg-gray-700 text-gray-300'}`}
+                        title={localMuted ? "Unmute local audio" : "Mute local audio"}
+                    >
+                        {localMuted || !audioState.isPlaying ? <VolumeX size={18} /> : <Volume2 size={18} className="animate-pulse" />}
+                    </button>
+                )}
             </div>
         </div>
     );

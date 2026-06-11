@@ -60,6 +60,12 @@ export default function ItemsTab({ campaignId }: ItemsTabProps) {
         setNewItem({ name: '', description: '', category: 'misc', weight: 0 });
     };
 
+    const explainCurrency = (text: string) => {
+        return text
+            .replace(/\bgp\b/gi, 'Gold Points (gp)')
+            .replace(/\bsp\b/gi, 'Silver Points (sp)');
+    };
+
     return (
         <div className="space-y-4">
             <div className="flex justify-between">
@@ -80,7 +86,7 @@ export default function ItemsTab({ campaignId }: ItemsTabProps) {
                     {items.map(item => (
                         <div key={item.id} className="bg-gray-800 rounded-lg border border-gray-700 p-4">
                             <h3 className="text-white font-bold">{item.name}</h3>
-                            <p className="text-gray-400 text-sm">{item.description}</p>
+                            <p className="text-gray-400 text-sm">{explainCurrency(item.description || '')}</p>
                             <div className="text-gray-500 text-xs mt-2">
                                 {item.category} • {item.weight} lbs
                             </div>

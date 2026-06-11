@@ -94,6 +94,12 @@ export default function InventoryTab({ campaignPlayerId }: InventoryTabProps) {
         return colors[category as keyof typeof colors] || colors.misc;
     };
 
+    const explainCurrency = (text: string) => {
+        return text
+            .replace(/\bgp\b/gi, 'Gold Points (gp)')
+            .replace(/\bsp\b/gi, 'Silver Points (sp)');
+    };
+
     if (loading) {
         return <SkeletonList count={4} />;
     }
@@ -130,7 +136,7 @@ export default function InventoryTab({ campaignPlayerId }: InventoryTabProps) {
                                             {item.category}
                                         </span>
                                     </div>
-                                    <p className="text-gray-400 text-sm">{item.description}</p>
+                                    <p className="text-gray-400 text-sm">{explainCurrency(item.description || '')}</p>
                                 </div>
                                 <div className="text-right ml-4">
                                     <div className="text-white font-bold">×{item.quantity}</div>

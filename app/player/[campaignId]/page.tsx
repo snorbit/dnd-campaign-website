@@ -44,6 +44,8 @@ interface CampaignCharacter {
     player_id: string;
     character_name: string;
     character_class?: string;
+    class?: string;
+    race?: string;
     level?: number;
     character_created?: boolean;
 }
@@ -114,13 +116,16 @@ export default function PlayerCampaignPage() {
 
         if (!character) return <div className="text-gray-400">Character not found</div>;
 
+        const characterClass = character.character_class || character.class || 'Adventurer';
+
         switch (activeTab) {
             case 'character':
                 return <CharacterSheet
                     campaignPlayerId={character.id}
                     characterName={character.character_name}
-                    characterClass={character.character_class || 'Adventurer'}
+                    characterClass={characterClass}
                     level={character.level || 1}
+                    race={character.race}
                 />;
             case 'map':
                 return <MapTab campaignId={campaignId} />;
@@ -128,7 +133,7 @@ export default function PlayerCampaignPage() {
                 return <StatsTab
                     campaignPlayerId={character.id}
                     level={character.level || 1}
-                    characterClass={character.character_class || 'Adventurer'}
+                    characterClass={characterClass}
                 />;
             case 'inventory':
                 return <InventoryTab campaignPlayerId={character.id} />;

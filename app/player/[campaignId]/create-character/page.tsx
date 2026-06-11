@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { ChevronRight, ChevronLeft, Shield, Swords, Star, Check, Minus, Plus } from 'lucide-react';
+import { buildCharacterStatsDefaults } from '@/lib/characterDefaults';
 
 // ─── Standard 5e Data ────────────────────────────────────────────────────────
 const STANDARD_RACES = [
@@ -116,7 +117,7 @@ export default function CreateCharacterPage() {
 
             const { data: cp } = await supabase
                 .from('campaign_players')
-                .select('character_created, character_name')
+                .select('id, character_created, character_name')
                 .eq('campaign_id', campaignId)
                 .eq('player_id', user.id)
                 .single();
@@ -220,11 +221,21 @@ export default function CreateCharacterPage() {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
 
+            const { data: campaignPlayer, error: playerError } = await supabase
+                .from('campaign_players')
+                .select('id')
+                .eq('campaign_id', campaignId)
+                .eq('player_id', user.id)
+                .single();
+
+            if (playerError || !campaignPlayer) throw playerError || new Error('Character record was not found');
+
             const { error } = await supabase
                 .from('campaign_players')
                 .update({
                     character_created: true,
                     character_name: draft.characterName || 'Adventurer',
+                    character_class: draft.class,
                     race: draft.race,
                     class: draft.class,
                     subclass: draft.subclass,
@@ -241,6 +252,17 @@ export default function CreateCharacterPage() {
                 .eq('player_id', user.id);
 
             if (error) throw error;
+
+            const stats = buildCharacterStatsDefaults(draft.abilityScores, 1);
+            const { error: statsError } = await supabase
+                .from('character_stats')
+                .upsert({
+                    campaign_player_id: campaignPlayer.id,
+                    ...stats,
+                }, { onConflict: 'campaign_player_id' });
+
+            if (statsError) throw statsError;
+
             router.push(`/player/${campaignId}`);
         } catch (err) {
             console.error('Save error:', err);

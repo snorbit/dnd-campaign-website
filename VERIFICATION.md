@@ -19,8 +19,10 @@ Use this before inviting players into a beta session.
 - Supabase project `sessionforge` is `ACTIVE_HEALTHY`.
 - Supabase storage logs show ZIP-imported map images and atlas images returning public `200` responses.
 - Added migration `012_beta_audio_and_legacy_security.sql` for the missing live `campaign_state.audio` column and legacy table security.
-- Live Supabase migration list does not include the new beta migration yet.
-- Still required before beta: apply the new Supabase migration, then run the manual two-browser DM/player checklist.
+- Added migration `013_beta_character_journal_level_fixes.sql` for character stats, journal saving, DM level grants, spellbook compatibility, and player sheet loading.
+- Added migration `014_beta_signup_trigger_public_revoke.sql` to close direct API access to the signup helper.
+- Live Supabase migration list now includes all three beta migrations.
+- Still required before beta: deploy the current code to Vercel, then run the manual two-browser DM/player checklist.
 
 ## DM And Player Core Flow
 
@@ -72,8 +74,10 @@ Use this before inviting players into a beta session.
 - [x] ZIP map uploads create public image URLs in `campaign-maps`.
 - [ ] RLS prevents non-members from reading campaign data.
 - [ ] Join code lookup works only through the server route.
-- [ ] Apply `supabase/migrations/012_beta_audio_and_legacy_security.sql` to production.
-- [ ] Re-run Supabase security advisor after the migration.
+- [x] Apply `supabase/migrations/012_beta_audio_and_legacy_security.sql` to production.
+- [x] Apply `supabase/migrations/013_beta_character_journal_level_fixes.sql` to production.
+- [x] Apply `supabase/migrations/014_beta_signup_trigger_public_revoke.sql` to production.
+- [x] Re-run Supabase security advisor after the migration.
 
 ## Vercel Checks
 

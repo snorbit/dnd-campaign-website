@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { Skeleton } from '@/components/shared/ui/Skeleton';
 import { useRealtimeSubscription } from '@/components/shared/hooks/useRealtimeSubscription';
 import { useCampaign } from '@/context/CampaignContext';
+import { buildCharacterStatsDefaults, normalizeCharacterStats } from '@/lib/characterDefaults';
 import { Heart, Shield, Activity, Skull, Zap, Star, Mountain, EyeOff, EarOff, Ghost, Hand, Ban, Flame, Droplets, Link, Eye, Sparkles } from 'lucide-react';
 
 interface CharacterStats {
@@ -56,15 +57,28 @@ export default function StatsTab({ campaignPlayerId, level, characterClass }: St
     const loadStats = async () => {
         try {
             setLoading(true);
-            const { data } = await supabase
+            const { data, error } = await supabase
                 .from('character_stats')
                 .select('*')
                 .eq('campaign_player_id', campaignPlayerId)
-                .single();
+                .maybeSingle();
 
-            setStats(data);
+            if (error) throw error;
+
+            if (!data) {
+                const fallbackStats = buildCharacterStatsDefaults({}, level);
+                setStats(fallbackStats);
+
+                await supabase
+                    .from('character_stats')
+                    .insert({ campaign_player_id: campaignPlayerId, ...fallbackStats });
+                return;
+            }
+
+            setStats(normalizeCharacterStats(data, {}, level));
         } catch (error) {
             console.error('Error loading stats:', error);
+            setStats(buildCharacterStatsDefaults({}, level));
         } finally {
             setLoading(false);
         }

@@ -13,6 +13,7 @@ interface Player {
     player_id: string;
     character_name: string;
     character_class: string;
+    class?: string;
     level: number;
     username: string;
     stats?: {
@@ -94,6 +95,7 @@ export default function PlayersTab({ campaignId }: PlayersTabProps) {
           player_id,
           character_name,
           character_class,
+          class,
           level,
           profiles (
             username
@@ -116,7 +118,7 @@ export default function PlayersTab({ campaignId }: PlayersTabProps) {
                 id: p.id,
                 player_id: p.player_id,
                 character_name: p.character_name,
-                character_class: p.character_class || 'Adventurer',
+                character_class: p.character_class || p.class || 'Adventurer',
                 level: p.level || 1,
                 username: p.profiles?.username || 'Unknown',
                 stats: p.character_stats?.[0],
@@ -134,10 +136,12 @@ export default function PlayersTab({ campaignId }: PlayersTabProps) {
         const newLevel = currentLevel + 1;
 
         try {
-            await supabase
+            const { error } = await supabase
                 .from('campaign_players')
                 .update({ level: newLevel })
                 .eq('id', playerId);
+
+            if (error) throw error;
 
             loadPlayers();
             toast.success(`Level granted!`, {

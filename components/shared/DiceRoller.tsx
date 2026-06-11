@@ -18,10 +18,11 @@ import { useDiceRoller, DieType, RollType } from "./hooks/useDiceRoller";
 import { useCampaign } from "@/context/CampaignContext";
 import { toast } from "sonner";
 import styles from "./DiceRoller.module.css";
-import { Dice3D } from "./Dice3D";
 import { DiceBoxComponent } from "./DiceBox";
 
 const DIE_OPTIONS: DieType[] = [4, 6, 8, 10, 12, 20, 100];
+const MAX_DICE_QUANTITY = 100;
+const MAX_ANIMATED_DICE = 20;
 
 export const DiceRoller = () => {
     const [isOpen, setIsOpen] = useState(false);
@@ -77,6 +78,17 @@ export const DiceRoller = () => {
     const handleRoll = (sides: DieType) => {
         if (isRolling) return;
 
+        const animatedQuantity = rollType !== "normal" && sides === 20 ? 2 : quantity;
+
+        if (animatedQuantity > MAX_ANIMATED_DICE) {
+            setCurrentSides(sides);
+            roll(sides, quantity, modifier, rollType, isPublic);
+            toast.info(`Rolled ${quantity}d${sides} without 3D animation`, {
+                description: 'Large spell rolls skip animation so the dice roller does not freeze.',
+            });
+            return;
+        }
+
         setCurrentSides(sides);
         setIsRolling(true);
 
@@ -105,7 +117,7 @@ export const DiceRoller = () => {
         setIsRolling(false);
     };
 
-    const incrementQty = () => setQuantity(prev => Math.min(prev + 1, 20));
+    const incrementQty = () => setQuantity(prev => Math.min(prev + 1, MAX_DICE_QUANTITY));
     const decrementQty = () => setQuantity(prev => Math.max(prev - 1, 1));
 
     const isCritSuccess = lastRoll?.sides === 20 && lastRoll.rolls.includes(20);
@@ -168,7 +180,7 @@ export const DiceRoller = () => {
                                 <input
                                     type="number"
                                     value={quantity}
-                                    onChange={(e) => setQuantity(Math.min(Math.max(parseInt(e.target.value) || 1, 1), 20))}
+                                    onChange={(e) => setQuantity(Math.min(Math.max(parseInt(e.target.value) || 1, 1), MAX_DICE_QUANTITY))}
                                     className="w-full bg-transparent text-center font-mono font-bold text-fantasy-accent outline-none"
                                 />
                                 <button
@@ -263,7 +275,7 @@ export const DiceRoller = () => {
                     <div className="absolute inset-0 h-full min-h-[220px] w-full sm:min-h-[280px]">
                         {/* Use DiceBox for standard dice d4-d100 */}
                         <DiceBoxComponent
-                            rolling={isRolling}
+                            rolling={isRolling && ((rollType !== "normal" && currentSides === 20) ? 2 : quantity) <= MAX_ANIMATED_DICE}
                             sides={currentSides}
                             quantity={(rollType !== "normal" && currentSides === 20) ? 2 : quantity}
                             modifier={modifier}
@@ -343,11 +355,16 @@ export const DiceRoller = () => {
                                             </div>
                                         </div>
                                         <div className="flex gap-1 mt-1 pl-3">
-                                            {entry.rolls.map((r, i) => (
+                                            {entry.rolls.slice(0, 30).map((r, i) => (
                                                 <span key={i} className={`text-[9px] font-mono ${r === entry.sides ? 'text-green-500/50' : r === 1 ? 'text-fantasy-red/50' : 'text-white/30'}`}>
-                                                    {r}{i < entry.rolls.length - 1 ? ',' : ''}
+                                                    {r}{i < Math.min(entry.rolls.length, 30) - 1 ? ',' : ''}
                                                 </span>
                                             ))}
+                                            {entry.rolls.length > 30 && (
+                                                <span className="text-[9px] font-mono text-white/30">
+                                                    +{entry.rolls.length - 30} more
+                                                </span>
+                                            )}
                                         </div>
                                     </div>
                                     <div className="flex flex-col items-end">

@@ -12,11 +12,12 @@ interface SpellsTabProps {
 interface PlayerSpell {
     id: string;
     spell_name: string;
-    spell_level: string;
+    spell_level: string | number;
     slug: string;
     school: string;
     components: string;
-    prepared: boolean;
+    prepared?: boolean;
+    is_prepared?: boolean;
 }
 
 interface Open5eSpell {
@@ -129,7 +130,7 @@ export default function SpellsTab({ campaignPlayerId }: SpellsTabProps) {
                 .insert([{
                     campaign_player_id: campaignPlayerId,
                     spell_name: spell.name,
-                    spell_level: spell.level,
+                    spell_level: spell.level_int ?? 0,
                     slug: spell.slug,
                     school: spell.school,
                     components: spell.components,
@@ -142,7 +143,7 @@ export default function SpellsTab({ campaignPlayerId }: SpellsTabProps) {
 
             toast.success(`${spell.name} added to spellbook!`);
             setMySpells(prev => [...prev, data].sort((a, b) => {
-                if (a.spell_level !== b.spell_level) return a.spell_level.localeCompare(b.spell_level);
+                if (getSpellLevelNumber(a) !== getSpellLevelNumber(b)) return getSpellLevelNumber(a) - getSpellLevelNumber(b);
                 return a.spell_name.localeCompare(b.spell_name);
             }));
             setSelectedSpell(null); // Return to book
@@ -162,7 +163,7 @@ export default function SpellsTab({ campaignPlayerId }: SpellsTabProps) {
             if (error) throw error;
 
             setMySpells(prev => prev.map(s =>
-                s.id === spellId ? { ...s, prepared: !currentState } : s
+                s.id === spellId ? { ...s, prepared: !currentState, is_prepared: !currentState } : s
             ));
         } catch (error) {
             console.error('Error toggling prepared state:', error);
@@ -190,15 +191,29 @@ export default function SpellsTab({ campaignPlayerId }: SpellsTabProps) {
     };
 
     // Calculate unique spell levels for filtering
-    const spellLevels = ['All', ...Array.from(new Set(mySpells.map(s => s.spell_level)))].sort();
+    const getSpellLevelNumber = (spell: PlayerSpell) => {
+        if (typeof spell.spell_level === 'number') return spell.spell_level;
+        if (/cantrip/i.test(spell.spell_level)) return 0;
+        const match = String(spell.spell_level).match(/\d+/);
+        return match ? Number(match[0]) : 0;
+    };
+
+    const getSpellLevelLabel = (level: string | number) => {
+        if (typeof level === 'number') return level === 0 ? 'Cantrips' : `Level ${level}`;
+        return level;
+    };
+
+    const isPrepared = (spell: PlayerSpell) => spell.prepared ?? spell.is_prepared ?? false;
+
+    const spellLevels = ['All', ...Array.from(new Set(mySpells.map(s => getSpellLevelLabel(s.spell_level))))].sort();
 
     const filteredSpells = activeLevelFilter === 'All'
         ? mySpells
-        : mySpells.filter(s => s.spell_level === activeLevelFilter);
+        : mySpells.filter(s => getSpellLevelLabel(s.spell_level) === activeLevelFilter);
 
     // Grouping helper for display
     const groupedSpells = filteredSpells.reduce((acc, spell) => {
-        const lvl = spell.spell_level;
+        const lvl = getSpellLevelLabel(spell.spell_level);
         if (!acc[lvl]) acc[lvl] = [];
         acc[lvl].push(spell);
         return acc;
@@ -220,7 +235,7 @@ export default function SpellsTab({ campaignPlayerId }: SpellsTabProps) {
                     </h3>
                     <div className="bg-gray-900 px-3 py-1 rounded-full border border-gray-700">
                         <span className="text-xs font-bold text-gray-300">
-                            {mySpells.filter(s => s.prepared).length} Prepared
+                            {mySpells.filter(s => isPrepared(s)).length} Prepared
                         </span>
                     </div>
                 </div>
@@ -267,14 +282,14 @@ export default function SpellsTab({ campaignPlayerId }: SpellsTabProps) {
                                             </div>
                                             <div className="flex items-center gap-3">
                                                 <button
-                                                    onClick={() => handleTogglePrepared(spell.id, spell.prepared)}
-                                                    className={`px-2 py-1 flex items-center gap-1 rounded text-xs font-medium border transition-colors ${spell.prepared
+                                                    onClick={() => handleTogglePrepared(spell.id, isPrepared(spell))}
+                                                    className={`px-2 py-1 flex items-center gap-1 rounded text-xs font-medium border transition-colors ${isPrepared(spell)
                                                             ? 'bg-purple-900/40 border-purple-500/50 text-purple-300 hover:bg-purple-900/60'
                                                             : 'bg-gray-900 border-gray-600 text-gray-400 hover:text-white hover:border-gray-500'
                                                         }`}
                                                 >
-                                                    {spell.prepared ? <Check size={12} /> : null}
-                                                    {spell.prepared ? 'Prepared' : 'Prepare'}
+                                                    {isPrepared(spell) ? <Check size={12} /> : null}
+                                                    {isPrepared(spell) ? 'Prepared' : 'Prepare'}
                                                 </button>
                                                 <button
                                                     onClick={() => handleRemoveSpell(spell.id)}

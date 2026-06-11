@@ -103,9 +103,12 @@ This is the working backlog for the D&D campaign website. Keep completed work in
 
 ## Tests And Verification
 
-- [ ] Apply beta database migration before inviting players.
+- [x] Apply beta database migration before inviting players.
   - Run `supabase/migrations/012_beta_audio_and_legacy_security.sql` against the live Supabase project.
   - This adds the missing `campaign_state.audio` column if needed, locks down the old legacy `campaign` table, and hardens the signup profile trigger.
+  - Run `supabase/migrations/013_beta_character_journal_level_fixes.sql` against the live Supabase project.
+  - This repairs character stat creation, journal image/save support, DM level grants, spellbook compatibility, and player sheet loading.
+  - Done: migrations `012`, `013`, and `014` have been applied to the live Supabase project.
 
 - [ ] Complete a live two-browser beta rehearsal.
   - Use one browser as DM and one as player.
@@ -166,6 +169,8 @@ This is the working backlog for the D&D campaign website. Keep completed work in
 - [x] Beta readiness pass started: local type check, lint, and production build pass; Vercel production is ready; Supabase project is active healthy; ZIP map storage responses were verified from Supabase logs.
 - [x] Removed the legacy `/login` page behavior that touched the old single-row `campaign` table; `/login` now redirects to the real Supabase auth login.
 - [x] Added `012_beta_audio_and_legacy_security.sql` to align live Supabase with the app before beta.
+- [x] Added `013_beta_character_journal_level_fixes.sql` for the beta bugs reported on June 12: level up, journal saves, stat loading, character tab loading, spell dice limits, GP/SP wording, and audio enablement.
+- [x] Added and applied `014_beta_signup_trigger_public_revoke.sql` to close direct API access to the signup helper.
 
 ## Known Verification Blockers
 

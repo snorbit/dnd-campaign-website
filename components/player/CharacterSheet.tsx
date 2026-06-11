@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Skeleton } from '@/components/shared/ui/Skeleton';
 import { Heart, Shield, Zap, Footprints, Award, BookOpen } from 'lucide-react';
+import { buildCharacterStatsDefaults, normalizeCharacterStats } from '@/lib/characterDefaults';
 
 interface CharacterStats {
     hp_current: number;
@@ -37,14 +38,15 @@ interface CharacterStats {
 interface Spell {
     id: string;
     spell_name: string;
-    spell_level: number;
+    spell_level: number | string;
     school: string;
     casting_time: string;
     range: string;
     components: string;
     duration: string;
     description: string;
-    is_prepared: boolean;
+    is_prepared?: boolean;
+    prepared?: boolean;
 }
 
 interface Feat {
@@ -104,13 +106,24 @@ export default function CharacterSheet({
             setLoading(true);
 
             // Load stats
-            const { data: statsData } = await supabase
+            const { data: statsData, error: statsError } = await supabase
                 .from('character_stats')
                 .select('*')
                 .eq('campaign_player_id', campaignPlayerId)
-                .single();
+                .maybeSingle();
 
-            setStats(statsData);
+            if (statsError) throw statsError;
+
+            if (!statsData) {
+                const fallbackStats = buildCharacterStatsDefaults({}, level);
+                setStats(fallbackStats);
+
+                await supabase
+                    .from('character_stats')
+                    .insert({ campaign_player_id: campaignPlayerId, ...fallbackStats });
+            } else {
+                setStats(normalizeCharacterStats(statsData, {}, level));
+            }
 
             // Load spells
             const { data: spellsData } = await supabase
@@ -172,6 +185,15 @@ export default function CharacterSheet({
     const formatModifier = (mod: number) => {
         return mod >= 0 ? `+${mod}` : `${mod}`;
     };
+
+    const getSpellLevel = (spell: Spell) => {
+        if (typeof spell.spell_level === 'number') return spell.spell_level;
+        if (/cantrip/i.test(spell.spell_level)) return 0;
+        const match = String(spell.spell_level).match(/\d+/);
+        return match ? Number(match[0]) : 0;
+    };
+
+    const isSpellPrepared = (spell: Spell) => spell.is_prepared ?? spell.prepared ?? false;
 
     const calculateSkillBonus = (
         abilityKey: string,
@@ -371,7 +393,7 @@ export default function CharacterSheet({
                     </div>
                     <div className="space-y-4">
                         {[...Array(10)].map((_, level) => {
-                            const levelSpells = spells.filter(s => s.spell_level === level);
+                            const levelSpells = spells.filter(s => getSpellLevel(s) === level);
                             if (levelSpells.length === 0) return null;
 
                             return (
@@ -383,7 +405,7 @@ export default function CharacterSheet({
                                         {levelSpells.map((spell) => (
                                             <div
                                                 key={spell.id}
-                                                className={`p-3 rounded border ${spell.is_prepared
+                                                className={`p-3 rounded border ${isSpellPrepared(spell)
                                                         ? 'bg-blue-900/30 border-blue-500'
                                                         : 'bg-gray-900 border-gray-700'
                                                     }`}
@@ -393,7 +415,7 @@ export default function CharacterSheet({
                                                         <div className="text-white font-semibold">{spell.spell_name}</div>
                                                         <div className="text-xs text-gray-400">{spell.school}</div>
                                                     </div>
-                                                    {spell.is_prepared && (
+                                                    {isSpellPrepared(spell) && (
                                                         <span className="text-xs bg-blue-600 text-white px-2 py-1 rounded">
                                                             Prepared
                                                         </span>
