@@ -622,21 +622,33 @@ function extractLootCacheItems(text: string): ParsedItem[] {
     const items: ParsedItem[] = [];
     const lines = text.split(/\r?\n/);
     let inLootBlock = false;
+    let sawLootCacheMarker = false;
 
     for (const line of lines) {
         const lower = line.toLowerCase();
         if (/^#{2,4}\s+/.test(line)) {
-            inLootBlock = /\b(treasury|loot cache|reward cache|treasure)\b/.test(lower);
+            sawLootCacheMarker = false;
+            inLootBlock =
+                /\b(treasury|loot cache|reward cache|treasure|auditor's treasury)\b/.test(lower) &&
+                !/\b(shop|for sale|gear tiers?|blacksmith|store|trading)\b/.test(lower);
             continue;
         }
 
         if (!inLootBlock) continue;
+
+        if (/^\*\*DM\*\*:\s*(Loot Cache|Reward Cache|Treasure)\b/i.test(line)) {
+            sawLootCacheMarker = true;
+            continue;
+        }
 
         const fieldMatch = line.match(/^-\s*\*\*(.+?)\*\*\s*:\s*(.+)$/);
         if (!fieldMatch) continue;
 
         const label = fieldMatch[1].toLowerCase();
         const value = fieldMatch[2];
+        const isDirectTreasureHeading = /\b(treasury|treasure)\b/.test(lower);
+        if (!sawLootCacheMarker && !isDirectTreasureHeading) continue;
+
         if (label.includes('coin') || label.includes('gem')) {
             items.push(...splitTreasureItems(value));
             continue;
@@ -891,7 +903,11 @@ function dedupeEncounters(encounters: ParsedEncounter[]) {
 
 function addInferredItems(line: string, items: ParsedItem[]) {
     const lower = line.toLowerCase();
-    if (!/\b(item|loot|treasure|reward|rewards|contains|finds|found|receives|chest|cache)\b/.test(lower)) {
+    if (/\b(for sale|prices?|haggling|barter|stock|available|gear tiers?|bad gear|mid gear|decent gear|shop has|common goods|arms\/armor|weapons?:|armor:)\b/.test(lower)) {
+        return;
+    }
+
+    if (!/\b(loot cache|reward cache|treasure cache|contains|finds|found|receives|rewarded|chest|cache)\b/.test(lower)) {
         return;
     }
 

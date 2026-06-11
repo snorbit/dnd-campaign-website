@@ -122,7 +122,7 @@ export default function DMCampaignPage() {
     const [previewingImport, setPreviewingImport] = useState(false);
     const [importStep, setImportStep] = useState<'paste' | 'review'>('paste');
     const [importReview, setImportReview] = useState<SessionImportReview | null>(null);
-    const [importCounts, setImportCounts] = useState<{ maps: number; quests: number; items: number; npcs: number; encounters: number; monsters: number } | null>(null);
+    const [importCounts, setImportCounts] = useState<{ locations: number; maps?: number; quests: number; items: number; npcs: number; encounters: number; monsters: number } | null>(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [sessionRefreshKey, setSessionRefreshKey] = useState(0);
     const [loadError, setLoadError] = useState<string | null>(null);
@@ -560,7 +560,7 @@ export default function DMCampaignPage() {
                                 <>
                                     {importCounts && (
                                         <div className="mb-4 grid grid-cols-2 gap-2 text-xs sm:grid-cols-6">
-                                            <ReviewCount label="Maps" value={importCounts.maps} />
+                                            <ReviewCount label="Locations" value={importCounts.locations ?? importCounts.maps ?? 0} />
                                             <ReviewCount label="Quests" value={importCounts.quests} />
                                             <ReviewCount label="NPCs" value={importCounts.npcs} />
                                             <ReviewCount label="Items" value={importCounts.items} />
@@ -589,7 +589,7 @@ export default function DMCampaignPage() {
                                     </div>
 
                                     <div className="space-y-4">
-                                        <ReviewSection title="Locations / Maps" helper="Checked locations will be used for session map jobs.">
+                                        <ReviewSection title="Locations" helper="These are reference locations from the session. They will not generate maps.">
                                             {importReview.locations.map((location, index) => (
                                                 <ReviewRow key={`location-${index}`} checked={!!location.selected} onToggle={(checked) => updateReviewItem('locations', index, { selected: checked })}>
                                                     <input value={location.name} onChange={(e) => updateReviewItem('locations', index, { name: e.target.value })} className="w-full rounded border border-gray-600 bg-gray-700 px-3 py-2 text-sm font-semibold text-white focus:border-purple-500 focus:outline-none" />
@@ -683,7 +683,7 @@ export default function DMCampaignPage() {
                                         <div className="mt-4 p-4 bg-purple-900/20 border border-purple-700 rounded-lg">
                                             <p className="text-purple-300 text-sm font-semibold mb-2">Saving your approved session content...</p>
                                             <p className="text-gray-500 text-xs">
-                                                The checked locations and encounters may still create map jobs, so this can take a little while.
+                                                Locations are saved as review context only. Maps should come from your ZIP imports.
                                             </p>
                                         </div>
                                     )}

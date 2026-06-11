@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SupabaseClient, createClient } from '@supabase/supabase-js';
-import { generateBattleMap } from '@/lib/mapGenerationService';
 import {
     ParsedSession,
-    SessionMapJob,
     buildEncounterRecords,
     buildItemRecords,
     buildNPCRecords,
     buildQuestRecords,
-    buildSessionMapJobs,
     countEncounterMonsters,
     normalizeParsedSession,
     parseSessionWithSmartRegex,
@@ -48,12 +45,11 @@ export async function POST(request: NextRequest) {
             : await parseSessionText(campaignText);
 
         if (action === 'preview') {
-            const mapJobs = buildSessionMapJobs(parsed);
             return NextResponse.json({
                 success: true,
                 review: parsed,
                 generated: {
-                    maps: mapJobs.length,
+                    locations: parsed.locations.length,
                     quests: parsed.quests.length,
                     items: parsed.items.length,
                     npcs: parsed.npcs.length,
@@ -63,8 +59,7 @@ export async function POST(request: NextRequest) {
             });
         }
 
-        const mapJobs = buildSessionMapJobs(parsed);
-        const maps = await generateSessionMaps(mapJobs, campaignId);
+        const maps: unknown[] = [];
         const npcs = buildNPCRecords(parsed.npcs);
         const quests = buildQuestRecords(parsed.quests);
         const items = buildItemRecords(parsed.items);
@@ -73,7 +68,7 @@ export async function POST(request: NextRequest) {
 
         const sessionDescription = [
             parsed.description,
-            `Generated: ${maps.length} maps, ${quests.length} quests, ${items.length} items, ${npcs.length} NPCs, ${encounters.length} encounters, ${monsterCount} monsters.`,
+            `Imported: ${parsed.locations.length} locations, ${quests.length} quests, ${items.length} items, ${npcs.length} NPCs, ${encounters.length} encounters, ${monsterCount} monsters.`,
         ].filter(Boolean).join('\n\n');
 
         const { error: sessionError } = await supabase
@@ -83,7 +78,7 @@ export async function POST(request: NextRequest) {
                 title: parsed.title || 'Imported Session',
                 description: sessionDescription,
                 session_text: campaignText,
-                maps_generated: maps.length,
+                maps_generated: 0,
                 quests_created: quests.length,
                 items_added: items.length,
                 encounters_created: encounters.length,
@@ -101,7 +96,7 @@ export async function POST(request: NextRequest) {
 
         const summary = [
             'Session imported successfully.',
-            `${maps.length} maps generated for the full session.`,
+            `${parsed.locations.length} locations were reviewed for reference.`,
             `${npcs.length} NPCs created.`,
             `${encounters.length} encounters created with ${monsterCount} monster tokens/stat blocks.`,
             `${quests.length} quests created.`,
@@ -112,7 +107,8 @@ export async function POST(request: NextRequest) {
             success: true,
             summary,
             generated: {
-                maps: maps.length,
+                locations: parsed.locations.length,
+                maps: 0,
                 quests: quests.length,
                 items: items.length,
                 npcs: npcs.length,
@@ -198,38 +194,6 @@ Difficulty scale: 1 easy, 3 moderate, 5 hard, 8 boss. Extract every useful NPC, 
     return normalizeParsedSession(JSON.parse(jsonText), text);
 }
 
-async function generateSessionMaps(jobs: SessionMapJob[], campaignId: string) {
-    const maps = [];
-
-    for (const job of jobs) {
-        const generated = await generateBattleMap({
-            prompt: job.prompt,
-            title: job.title,
-            campaignId,
-            mapType: job.mapType,
-            width: 1024,
-            height: 1024,
-            gridSize: 32,
-            includeGrid: true,
-        });
-
-        maps.push({
-            id: crypto.randomUUID(),
-            title: job.title,
-            url: generated.imageUrl,
-            order: job.order,
-            description: job.description,
-            source: generated.source,
-            metadata: {
-                ...generated.metadata,
-                kind: job.kind,
-            },
-        });
-    }
-
-    return maps;
-}
-
 async function appendGeneratedContent(
     supabase: SupabaseClient,
     campaignId: string,
@@ -251,15 +215,16 @@ async function appendGeneratedContent(
 
     const currentMap = data?.map || {};
     const currentQueue = Array.isArray(currentMap.queue) ? currentMap.queue : [];
-    const firstMap = (content.maps[0] as { url?: string } | undefined)?.url || currentMap.url || '';
+    const nextQueue = content.maps.length > 0 ? [...currentQueue, ...content.maps] : currentQueue;
+    const firstMap = (content.maps[0] as { url?: string } | undefined)?.url;
 
     const update = {
         map: {
             ...currentMap,
-            url: firstMap,
+            ...(firstMap ? { url: firstMap } : {}),
             currentIndex: currentMap.currentIndex || 0,
-            autoProgress: true,
-            queue: [...currentQueue, ...content.maps],
+            autoProgress: content.maps.length > 0 ? true : currentMap.autoProgress,
+            queue: nextQueue,
         },
         quests: [...asArray(data?.quests), ...content.quests],
         items: [...asArray(data?.items), ...content.items],

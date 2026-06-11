@@ -212,4 +212,32 @@ describe('Oakhaven session script structure', () => {
             'set of studded leather',
         ]));
     });
+
+    it('does not import shop stock or gear lists as session loot', () => {
+        const parsed = parseSessionWithSmartRegex(`## THE SHOP: HAWTHORN & WICK
+
+**DM**: For sale (common goods)
+- **Rations (1 day)**: 5 sp
+- **Rope, hempen (50 ft)**: 1 gp
+- **Potion of healing**: 40 gp
+
+### QUICK GEAR TIERS
+- **Weapon**: Club or dagger or spear
+
+## THE AUDITOR'S TREASURY
+**DM**: Loot Cache
+- **Coin**: 120 gp
+- **Potions**: 2 potions of healing`);
+
+        expect(parsed.items.map(item => item.name)).toEqual(expect.arrayContaining([
+            'gp',
+            'potions of healing',
+        ]));
+        expect(parsed.items.map(item => item.name)).not.toEqual(expect.arrayContaining([
+            'Rations',
+            'Rope, hempen',
+            'Potion of healing',
+            'Club or dagger or spear',
+        ]));
+    });
 });

@@ -143,6 +143,8 @@ This is the working backlog for the D&D campaign website. Keep completed work in
 - [x] Fixed quest/item generation from loose prose by inferring quest goals and loot/reward items even when the script does not use formal `Quests:` or `Items:` sections.
 - [x] Tuned session import for the Session 1 script structure: Quest Card blocks, named interaction NPCs, shopkeeper Name blocks, Combat Notes, boss stat bullets, and loot cache sections are now picked up more reliably.
 - [x] Added a two-step session import review flow: pasted sessions are parsed into a draft first, then the DM can edit or uncheck locations, quests, NPCs, items, and encounters before saving them.
+- [x] Session import no longer generates maps from script text. It only shows detected locations for review; playable maps should come from ZIP map imports.
+- [x] Tightened item extraction so shop stock, price lists, and gear tier options are not imported as loot.
 
 ## Known Verification Blockers
 
