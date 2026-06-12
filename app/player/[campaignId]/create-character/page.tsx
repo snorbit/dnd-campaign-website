@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { ChevronRight, ChevronLeft, Shield, Swords, Star, Check, Minus, Plus } from 'lucide-react';
-import { buildCharacterStatsDefaults } from '@/lib/characterDefaults';
+import { DEFAULT_SKILLS, buildCharacterStatsDefaults } from '@/lib/characterDefaults';
 
 // ─── Standard 5e Data ────────────────────────────────────────────────────────
 const STANDARD_RACES = [
@@ -58,11 +58,128 @@ const CLASS_SPELLS: Record<string, { cantrips: string[]; spells: string[]; cantr
 };
 
 const STATS = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'] as const;
-const POINT_COST: Record<number, number> = { 8: 0, 9: 1, 10: 2, 11: 3, 12: 4, 13: 5, 14: 7, 15: 9 };
+const POINT_COST: Record<number, number> = {
+    8: 0,
+    9: 1,
+    10: 2,
+    11: 3,
+    12: 4,
+    13: 5,
+    14: 7,
+    15: 9,
+    16: 11,
+    17: 13,
+    18: 15,
+    19: 17,
+    20: 19,
+};
+
+const SKILL_OPTIONS = [
+    { key: 'acrobatics', label: 'Acrobatics', ability: 'DEX' },
+    { key: 'animal_handling', label: 'Animal Handling', ability: 'WIS' },
+    { key: 'arcana', label: 'Arcana', ability: 'INT' },
+    { key: 'athletics', label: 'Athletics', ability: 'STR' },
+    { key: 'deception', label: 'Deception', ability: 'CHA' },
+    { key: 'history', label: 'History', ability: 'INT' },
+    { key: 'insight', label: 'Insight', ability: 'WIS' },
+    { key: 'intimidation', label: 'Intimidation', ability: 'CHA' },
+    { key: 'investigation', label: 'Investigation', ability: 'INT' },
+    { key: 'medicine', label: 'Medicine', ability: 'WIS' },
+    { key: 'nature', label: 'Nature', ability: 'INT' },
+    { key: 'perception', label: 'Perception', ability: 'WIS' },
+    { key: 'performance', label: 'Performance', ability: 'CHA' },
+    { key: 'persuasion', label: 'Persuasion', ability: 'CHA' },
+    { key: 'religion', label: 'Religion', ability: 'INT' },
+    { key: 'sleight_of_hand', label: 'Sleight of Hand', ability: 'DEX' },
+    { key: 'stealth', label: 'Stealth', ability: 'DEX' },
+    { key: 'survival', label: 'Survival', ability: 'WIS' },
+] as const;
+
+const STARTING_EQUIPMENT: Record<string, string[]> = {
+    Barbarian: ['Greataxe', 'Two handaxes', 'Explorer pack', 'Four javelins'],
+    Bard: ['Rapier', 'Diplomat pack', 'Lute', 'Leather armor', 'Dagger'],
+    Cleric: ['Mace', 'Scale mail', 'Shield', 'Priest pack', 'Holy symbol'],
+    Druid: ['Wooden shield', 'Scimitar', 'Leather armor', 'Explorer pack', 'Druidic focus'],
+    Fighter: ['Chain mail', 'Martial weapon', 'Shield', 'Light crossbow', 'Dungeoneer pack'],
+    Monk: ['Shortsword', 'Dungeoneer pack', 'Ten darts'],
+    Paladin: ['Martial weapon', 'Shield', 'Five javelins', 'Priest pack', 'Chain mail', 'Holy symbol'],
+    Ranger: ['Scale mail', 'Two shortswords', 'Dungeoneer pack', 'Longbow', 'Quiver of arrows'],
+    Rogue: ['Rapier', 'Shortbow', 'Burglar pack', 'Leather armor', 'Two daggers', "Thieves' tools"],
+    Sorcerer: ['Light crossbow', 'Component pouch', 'Dungeoneer pack', 'Two daggers'],
+    Warlock: ['Light crossbow', 'Component pouch', 'Scholar pack', 'Leather armor', 'Simple weapon', 'Two daggers'],
+    Wizard: ['Quarterstaff', 'Component pouch', 'Scholar pack', 'Spellbook'],
+    Artificer: ['Light crossbow', 'Scale mail', "Thieves' tools", "Tinker's tools", 'Dungeoneer pack'],
+};
+
+const SAFE_STARTING_EQUIPMENT = [
+    'Adventurer clothes',
+    'Backpack',
+    'Bedroll',
+    'Burglar pack',
+    'Chain mail',
+    'Club',
+    'Component pouch',
+    'Diplomat pack',
+    'Druidic focus',
+    'Dungeoneer pack',
+    'Explorer pack',
+    'Five javelins',
+    'Four javelins',
+    'Greataxe',
+    'Handaxe',
+    'Holy symbol',
+    'Leather armor',
+    'Light crossbow',
+    'Longbow',
+    'Lute',
+    'Mace',
+    'Martial weapon',
+    'Priest pack',
+    'Quarterstaff',
+    'Quiver of arrows',
+    'Rapier',
+    'Scale mail',
+    'Scimitar',
+    'Scholar pack',
+    'Shield',
+    'Shortbow',
+    'Shortsword',
+    'Simple weapon',
+    'Spellbook',
+    "Thieves' tools",
+    "Tinker's tools",
+    'Two daggers',
+    'Two handaxes',
+    'Two shortswords',
+    'Wooden shield',
+].sort();
+
+const BLOCKED_STARTING_EQUIPMENT_TERMS = [
+    '+1',
+    '+2',
+    '+3',
+    'adamantine',
+    'artifact',
+    'enchanted',
+    'firearm',
+    'gun',
+    'half plate',
+    'legendary',
+    'magic',
+    'magical',
+    'mithral',
+    'mithril',
+    'plate armor',
+    'rare',
+    'rifle',
+    'splint',
+    'very rare',
+    'wand of',
+];
 
 const modStr = (val: number) => { const m = Math.floor((val - 10) / 2); return m >= 0 ? `+${m}` : `${m}`; };
 
-type Step = 'race' | 'class' | 'subclass' | 'guardian' | 'stats' | 'spells' | 'appearance' | 'confirm';
+type Step = 'race' | 'class' | 'subclass' | 'guardian' | 'stats' | 'spells' | 'equipment' | 'appearance' | 'confirm';
 
 interface AbilityScores { str: number; dex: number; con: number; int: number; wis: number; cha: number; }
 
@@ -76,6 +193,8 @@ interface CharacterDraft {
     characterName: string;
     backstory: string;
     abilityScores: AbilityScores;
+    skillProficiencies: string[];
+    selectedEquipment: string[];
     chosenCantrips: string[];
     chosenSpells: string[];
     appearance: {
@@ -98,6 +217,8 @@ export default function CreateCharacterPage() {
         guardianName: '', guardianDeity: '', guardianOath: '',
         characterName: '', backstory: '',
         abilityScores: { str: 8, dex: 8, con: 8, int: 8, wis: 8, cha: 8 },
+        skillProficiencies: [],
+        selectedEquipment: [],
         chosenCantrips: [],
         chosenSpells: [],
         appearance: { skinTone: '', hairColor: '', eyeColor: '', height: '', features: '' }
@@ -105,9 +226,11 @@ export default function CreateCharacterPage() {
     const [homebrewClasses, setHomebrewClasses] = useState<any[]>([]);
     const [homebrewRaces, setHomebrewRaces] = useState<any[]>([]);
     const [homebrewSubclasses, setHomebrewSubclasses] = useState<any[]>([]);
-    const [dmSettings, setDmSettings] = useState({ statMin: 8, statMax: 15, pointBuyPoints: 27 });
+    const [dmSettings, setDmSettings] = useState({ statMin: 8, statMax: 20, pointBuyPoints: 27 });
     const [saving, setSaving] = useState(false);
     const [animating, setAnimating] = useState(false);
+    const [customEquipment, setCustomEquipment] = useState('');
+    const [equipmentError, setEquipmentError] = useState('');
 
     useEffect(() => {
         // Check if character already created
@@ -140,7 +263,7 @@ export default function CreateCharacterPage() {
                 const s = stateData.settings;
                 setDmSettings({
                     statMin: s.statMin ?? 8,
-                    statMax: s.statMax ?? 15,
+                    statMax: Math.max(s.statMax ?? 20, 20),
                     pointBuyPoints: s.pointBuyPoints ?? 27,
                 });
                 // Reset ability scores to DM minimum
@@ -167,7 +290,7 @@ export default function CreateCharacterPage() {
     };
 
     const handleClassSelected = (className: string) => {
-        setDraft(prev => ({ ...prev, class: className, subclass: '', chosenCantrips: [], chosenSpells: [] }));
+        setDraft(prev => ({ ...prev, class: className, subclass: '', selectedEquipment: getStartingEquipment(className), chosenCantrips: [], chosenSpells: [] }));
         if (className === 'Paladin') {
             goTo('subclass');
         } else {
@@ -197,6 +320,19 @@ export default function CreateCharacterPage() {
         setDraft(prev => ({ ...prev, abilityScores: { ...prev.abilityScores, [stat]: next } }));
     };
 
+    const toggleSkillProficiency = (skill: string) => {
+        setDraft(prev => {
+            const hasSkill = prev.skillProficiencies.includes(skill);
+            if (!hasSkill && prev.skillProficiencies.length >= 3) return prev;
+            return {
+                ...prev,
+                skillProficiencies: hasSkill
+                    ? prev.skillProficiencies.filter(existing => existing !== skill)
+                    : [...prev.skillProficiencies, skill],
+            };
+        });
+    };
+
     const isCaster = CASTER_CLASSES.includes(draft.class) || homebrewClasses.some(c => c.name === draft.class && c.is_caster);
     const spellData = CLASS_SPELLS[draft.class];
 
@@ -213,6 +349,34 @@ export default function CreateCharacterPage() {
             if (!has && prev.chosenSpells.length >= (spellData?.spellCount ?? 0)) return prev;
             return { ...prev, chosenSpells: has ? prev.chosenSpells.filter(s => s !== name) : [...prev.chosenSpells, name] };
         });
+    };
+
+    const toggleEquipment = (item: string) => {
+        setEquipmentError('');
+        setDraft(prev => {
+            const hasItem = prev.selectedEquipment.includes(item);
+            return {
+                ...prev,
+                selectedEquipment: hasItem
+                    ? prev.selectedEquipment.filter(existing => existing !== item)
+                    : [...prev.selectedEquipment, item],
+            };
+        });
+    };
+
+    const addCustomEquipment = () => {
+        const result = validateStartingEquipmentItem(customEquipment);
+        if (!result.ok) {
+            setEquipmentError(result.reason);
+            return;
+        }
+
+        setDraft(prev => {
+            if (prev.selectedEquipment.includes(result.item)) return prev;
+            return { ...prev, selectedEquipment: [...prev.selectedEquipment, result.item] };
+        });
+        setCustomEquipment('');
+        setEquipmentError('');
     };
 
     const handleSave = async () => {
@@ -254,14 +418,49 @@ export default function CreateCharacterPage() {
             if (error) throw error;
 
             const stats = buildCharacterStatsDefaults(draft.abilityScores, 1);
+            const skills = {
+                ...DEFAULT_SKILLS,
+                ...Object.fromEntries(
+                    draft.skillProficiencies.map(skill => [skill, { proficient: true, expertise: false }])
+                ),
+            };
             const { error: statsError } = await supabase
                 .from('character_stats')
                 .upsert({
                     campaign_player_id: campaignPlayer.id,
                     ...stats,
+                    skills,
                 }, { onConflict: 'campaign_player_id' });
 
             if (statsError) throw statsError;
+
+            const starterItems = filterSafeStartingEquipment(draft.selectedEquipment);
+            if (starterItems.length > 0) {
+                const { data: existingItems } = await supabase
+                    .from('player_inventory')
+                    .select('name')
+                    .eq('campaign_player_id', campaignPlayer.id);
+
+                const existingNames = new Set((existingItems || []).map(item => String(item.name).toLowerCase()));
+                const missingItems = starterItems
+                    .filter(item => !existingNames.has(item.toLowerCase()))
+                    .map(item => ({
+                        campaign_player_id: campaignPlayer.id,
+                        name: item,
+                        description: `Starting equipment for a ${draft.class}.`,
+                        quantity: 1,
+                        weight: 0,
+                        category: guessItemCategory(item),
+                    }));
+
+                if (missingItems.length > 0) {
+                    const { error: inventoryError } = await supabase
+                        .from('player_inventory')
+                        .insert(missingItems);
+
+                    if (inventoryError) throw inventoryError;
+                }
+            }
 
             router.push(`/player/${campaignId}`);
         } catch (err) {
@@ -307,7 +506,7 @@ export default function CreateCharacterPage() {
             name: s.name, description: s.description, homebrew: true
         }));
 
-    const steps: Step[] = ['race', 'class', 'subclass', 'guardian', 'stats', 'spells', 'appearance', 'confirm'];
+    const steps: Step[] = ['race', 'class', 'subclass', 'guardian', 'stats', 'spells', 'equipment', 'appearance', 'confirm'];
     const visibleSteps = steps.filter(s => {
         if (s === 'subclass' && currentSubclasses.length === 0 && draft.class !== 'Paladin') return false;
         if (s === 'guardian' && draft.subclass !== 'Create Guardian') return false;
@@ -584,9 +783,41 @@ export default function CreateCharacterPage() {
                                 })}
                             </div>
 
+                            <div className="mt-6 border-t border-gray-700 pt-5">
+                                <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                                    <div>
+                                        <h3 className="text-sm font-bold uppercase tracking-wider text-gray-300">Skill Proficiencies</h3>
+                                        <p className="text-xs text-gray-500">Choose 2 or 3 skills your character is trained in.</p>
+                                    </div>
+                                    <span className={`text-xs font-bold ${draft.skillProficiencies.length >= 2 ? 'text-green-400' : 'text-amber-400'}`}>
+                                        {draft.skillProficiencies.length}/3 selected
+                                    </span>
+                                </div>
+                                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                    {SKILL_OPTIONS.map(skill => {
+                                        const selected = draft.skillProficiencies.includes(skill.key);
+                                        return (
+                                            <button
+                                                key={skill.key}
+                                                type="button"
+                                                onClick={() => toggleSkillProficiency(skill.key)}
+                                                className={`flex items-center justify-between rounded-lg border px-3 py-2 text-left text-sm transition-colors ${selected
+                                                    ? 'border-amber-500 bg-amber-900/30 text-white'
+                                                    : 'border-gray-700 bg-gray-800 text-gray-300 hover:border-gray-500'
+                                                    }`}
+                                            >
+                                                <span>{skill.label}</span>
+                                                <span className="text-xs text-gray-500">{skill.ability}</span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
                             <button
-                                onClick={() => goTo(isCaster && spellData ? 'spells' : 'appearance')}
-                                className="w-full mt-6 py-3 bg-amber-600 hover:bg-amber-500 text-black font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
+                                onClick={() => goTo(isCaster && spellData ? 'spells' : 'equipment')}
+                                disabled={draft.skillProficiencies.length < 2 || draft.skillProficiencies.length > 3}
+                                className="w-full mt-6 py-3 bg-amber-600 hover:bg-amber-500 disabled:bg-gray-700 disabled:text-gray-500 text-black font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
                             >
                                 Continue <ChevronRight size={18} />
                             </button>
@@ -655,7 +886,7 @@ export default function CreateCharacterPage() {
 
                         <div className="mt-6 flex flex-col items-center gap-3">
                             <button
-                                onClick={() => goTo('appearance')}
+                                onClick={() => goTo('equipment')}
                                 disabled={draft.chosenCantrips.length < spellData.cantripCount || draft.chosenSpells.length < spellData.spellCount}
                                 className="px-8 py-3 bg-amber-600 hover:bg-amber-500 disabled:bg-gray-700 disabled:text-gray-500 text-black font-bold rounded-lg transition-colors flex items-center gap-2"
                             >
@@ -669,6 +900,109 @@ export default function CreateCharacterPage() {
                 )}
 
                 {/* ── APPEARANCE STEP ───────────────────────────────────── */}
+                {step === 'equipment' && (
+                    <div className="flex flex-col flex-1 px-6 py-8 max-w-4xl mx-auto w-full">
+                        <div className="mb-8 text-center">
+                            <h1 className="text-4xl font-bold text-white mb-2" style={{ fontFamily: 'Georgia, serif' }}>Choose Starting Equipment</h1>
+                            <p className="text-amber-400/70">Pick normal beginner gear. Magic, rare, or expensive gear will be blocked.</p>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
+                            <div className="bg-gray-900/80 rounded-xl border border-gray-700 p-6">
+                                <div className="mb-4 flex items-center justify-between">
+                                    <h3 className="text-sm font-bold uppercase tracking-wider text-gray-300">Starter Gear List</h3>
+                                    <span className="text-xs font-bold text-amber-400">{draft.selectedEquipment.length} selected</span>
+                                </div>
+
+                                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                    {getEquipmentChoicesForClass(draft.class).map(item => {
+                                        const selected = draft.selectedEquipment.includes(item);
+                                        return (
+                                            <button
+                                                key={item}
+                                                type="button"
+                                                onClick={() => toggleEquipment(item)}
+                                                className={`flex items-center justify-between rounded-lg border px-3 py-2 text-left text-sm transition-colors ${selected
+                                                    ? 'border-amber-500 bg-amber-900/30 text-white'
+                                                    : 'border-gray-700 bg-gray-800 text-gray-300 hover:border-gray-500'
+                                                    }`}
+                                            >
+                                                <span>{item}</span>
+                                                {selected && <Check size={14} className="text-amber-400" />}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+
+                                <div className="mt-5 rounded-lg border border-gray-700 bg-gray-800 p-4">
+                                    <label className="block text-sm font-medium text-gray-300 mb-2">Request another starter item</label>
+                                    <div className="flex flex-col gap-2 sm:flex-row">
+                                        <input
+                                            type="text"
+                                            value={customEquipment}
+                                            onChange={(event) => {
+                                                setCustomEquipment(event.target.value);
+                                                setEquipmentError('');
+                                            }}
+                                            placeholder="Example: Backpack"
+                                            className="flex-1 rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-white placeholder-gray-500 focus:border-amber-500 focus:outline-none"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={addCustomEquipment}
+                                            className="rounded-lg bg-gray-700 px-4 py-2 font-bold text-white transition-colors hover:bg-gray-600"
+                                        >
+                                            Check Item
+                                        </button>
+                                    </div>
+                                    {equipmentError && (
+                                        <p className="mt-2 text-sm text-red-400">{equipmentError}</p>
+                                    )}
+                                    <p className="mt-2 text-xs text-gray-500">
+                                        Example: mithril gear is blocked because it is special magic-tier gear, not normal starting equipment.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="bg-gray-900/80 rounded-xl border border-gray-700 p-6">
+                                <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-gray-300">Your Starting Pack</h3>
+                                {draft.selectedEquipment.length > 0 ? (
+                                    <div className="space-y-2">
+                                        {draft.selectedEquipment.map(item => (
+                                            <div key={item} className="flex items-center justify-between gap-3 rounded-lg bg-gray-800 px-3 py-2 text-sm text-gray-200">
+                                                <span>{item}</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => toggleEquipment(item)}
+                                                    className="text-gray-500 hover:text-red-400"
+                                                    aria-label={`Remove ${item}`}
+                                                >
+                                                    <Minus size={14} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-gray-500">Choose at least one item before continuing.</p>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="mt-6 flex flex-col items-center gap-3">
+                            <button
+                                onClick={() => goTo('appearance')}
+                                disabled={draft.selectedEquipment.length === 0}
+                                className="px-8 py-3 bg-amber-600 hover:bg-amber-500 disabled:bg-gray-700 disabled:text-gray-500 text-black font-bold rounded-lg transition-colors flex items-center gap-2"
+                            >
+                                Continue <ChevronRight size={18} />
+                            </button>
+                            <button onClick={() => goTo(isCaster && spellData ? 'spells' : 'stats')} className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors">
+                                <ChevronLeft size={16} /> Back
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 {step === 'appearance' && (
                     <div className="flex flex-col flex-1 px-6 py-8 max-w-2xl mx-auto w-full">
                         <div className="mb-8 text-center">
@@ -730,7 +1064,7 @@ export default function CreateCharacterPage() {
                                 Review Character <ChevronRight size={18} />
                             </button>
                         </div>
-                        <button onClick={() => goTo(isCaster && spellData ? 'spells' : 'stats')} className="mt-6 mx-auto flex items-center gap-2 text-gray-400 hover:text-white transition-colors">
+                        <button onClick={() => goTo('equipment')} className="mt-6 mx-auto flex items-center gap-2 text-gray-400 hover:text-white transition-colors">
                             <ChevronLeft size={16} /> Back
                         </button>
                     </div>
@@ -783,6 +1117,20 @@ export default function CreateCharacterPage() {
                                     </div>
                                 )}
 
+                                <div>
+                                    <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-2">Skill Proficiencies</h3>
+                                    <p className="text-gray-300 text-sm">
+                                        {draft.skillProficiencies
+                                            .map(skill => SKILL_OPTIONS.find(option => option.key === skill)?.label || skill)
+                                            .join(', ')}
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-2">Starting Equipment</h3>
+                                    <p className="text-gray-300 text-sm">{draft.selectedEquipment.join(', ')}</p>
+                                </div>
+
                                 {/* Appearance */}
                                 <div>
                                     <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-2">Appearance</h3>
@@ -824,8 +1172,8 @@ export default function CreateCharacterPage() {
                                 >
                                     {saving ? 'Entering campaign...' : '⚔️ Begin Your Adventure'}
                                 </button>
-                                <button onClick={() => goTo('appearance')} className="w-full py-2 text-gray-400 hover:text-white transition-colors text-sm">
-                                    ← Edit Appearance
+                                <button onClick={() => goTo('equipment')} className="w-full py-2 text-gray-400 hover:text-white transition-colors text-sm">
+                                    Edit Equipment
                                 </button>
                             </div>
                         </div>
@@ -834,4 +1182,70 @@ export default function CreateCharacterPage() {
             </div>
         </div>
     );
+}
+
+function getStartingEquipment(characterClass: string) {
+    return STARTING_EQUIPMENT[characterClass] || ['Simple weapon', 'Explorer pack', 'Adventurer clothes'];
+}
+
+function getEquipmentChoicesForClass(characterClass: string) {
+    return Array.from(new Set([
+        ...getStartingEquipment(characterClass),
+        ...SAFE_STARTING_EQUIPMENT,
+    ])).sort();
+}
+
+function validateStartingEquipmentItem(rawItem: string): { ok: true; item: string } | { ok: false; reason: string } {
+    const cleanItem = rawItem.trim().replace(/\s+/g, ' ');
+    if (!cleanItem) {
+        return { ok: false, reason: 'Type an item name first.' };
+    }
+
+    const lower = cleanItem.toLowerCase();
+    const blockedTerm = BLOCKED_STARTING_EQUIPMENT_TERMS.find(term => lower.includes(term));
+    if (blockedTerm) {
+        return {
+            ok: false,
+            reason: `${cleanItem} is not allowed as starting equipment because it looks too strong or magical for level 1.`,
+        };
+    }
+
+    const allowedItem = SAFE_STARTING_EQUIPMENT.find(item => item.toLowerCase() === lower);
+    if (!allowedItem) {
+        return {
+            ok: false,
+            reason: `${cleanItem} is not on the safe starter list. Ask the DM to add it after character creation if it should be allowed.`,
+        };
+    }
+
+    return { ok: true, item: allowedItem };
+}
+
+function filterSafeStartingEquipment(items: string[]) {
+    return items
+        .map(item => validateStartingEquipmentItem(item))
+        .filter((result): result is { ok: true; item: string } => result.ok)
+        .map(result => result.item);
+}
+
+function guessItemCategory(itemName: string) {
+    const lower = itemName.toLowerCase();
+    if (lower.includes('armor') || lower.includes('mail') || lower.includes('shield')) return 'armor';
+    if (lower.includes('potion') || lower.includes('ration')) return 'consumable';
+    if (
+        lower.includes('axe') ||
+        lower.includes('bow') ||
+        lower.includes('crossbow') ||
+        lower.includes('dagger') ||
+        lower.includes('javelin') ||
+        lower.includes('mace') ||
+        lower.includes('rapier') ||
+        lower.includes('scimitar') ||
+        lower.includes('shortsword') ||
+        lower.includes('staff') ||
+        lower.includes('weapon')
+    ) {
+        return 'weapon';
+    }
+    return 'misc';
 }

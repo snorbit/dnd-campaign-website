@@ -136,13 +136,6 @@ export default function LevelUpModal({
                 if (error) throw error;
             }
 
-            const { error: levelError } = await supabase
-                .from('campaign_players')
-                .update({ level: currentLevel })
-                .eq('id', campaignPlayerId);
-
-            if (levelError) throw levelError;
-
             onComplete();
         } catch (error) {
             console.error('Error completing level up:', error);
@@ -217,7 +210,7 @@ export default function LevelUpModal({
                                 onClick={() => setChoice(null)}
                                 className="text-gray-400 hover:text-white text-sm"
                             >
-                                ← Back to choice
+                                Back to choice
                             </button>
 
                             <h3 className="text-xl font-bold text-white">Select a Feat</h3>
@@ -250,7 +243,7 @@ export default function LevelUpModal({
                                             <ul className="space-y-1">
                                                 {feat.benefits.map((benefit, idx) => (
                                                     <li key={idx} className="text-sm text-gray-400 flex gap-2">
-                                                        <span className="text-yellow-500">•</span>
+                                                        <span className="text-yellow-500">-</span>
                                                         <span>{benefit}</span>
                                                     </li>
                                                 ))}
@@ -267,7 +260,7 @@ export default function LevelUpModal({
                                 onClick={() => setChoice(null)}
                                 className="text-gray-400 hover:text-white text-sm"
                             >
-                                ← Back to choice
+                                Back to choice
                             </button>
 
                             <h3 className="text-xl font-bold text-white">Ability Score Improvement</h3>

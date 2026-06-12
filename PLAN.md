@@ -77,7 +77,20 @@ This plan orders the backlog by risk. The goal is to make the app reliable first
    - Split "not signed in", "not in campaign", "campaign missing", and "character missing".
    - Add clear navigation buttons for recovery.
 
-5. Verify mobile layouts. Done locally.
+5. Improve beta character and map flow. Partially done locally.
+   - Players can now choose 2 or 3 starting skill proficiencies during character creation.
+   - Starting stat cap is now 20.
+   - New characters receive class-based starting equipment.
+   - Players can add/remove their own token on the active map.
+   - DM and player maps are larger and scrollable.
+   - Level-up rewards are exposed on the player stats screen and recorded after use.
+
+6. Redesign combat mode for player-owned turns.
+   - Add a player combat view for current turn, available actions, and end-turn.
+   - Keep DM override controls for pacing and corrections.
+   - Reduce confusion with clear turn state, action state, and combat log feedback.
+
+7. Verify mobile layouts. Done locally.
    - Check DM sidebar, player sidebar, chat bubble, dice roller, map pings, and token controls.
    - Fix overlapping fixed UI elements.
    - Chat, dice, and audio fixed controls now avoid bottom-corner overlap on phone-sized screens; map controls and generator modals now stack and scroll.

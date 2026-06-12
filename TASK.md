@@ -54,6 +54,28 @@ This is the working backlog for the D&D campaign website. Keep completed work in
 
 ## UX And Reliability
 
+- [x] Apply friend-test beta character and map fixes.
+  - Players can choose 2 or 3 starting skill proficiencies during character creation.
+  - Starting ability scores can now be raised as high as 20.
+  - New characters can choose starting equipment from a safe starter list.
+  - Custom starting equipment requests are checked before saving, so magic or overpowered gear like mithril, adamantine, rare gear, or +1 items is blocked.
+  - Players can add/remove their own token on the active map.
+  - DM and player map views use larger scrollable maps instead of shrinking the map too much.
+  - Level-up rewards are now shown on the player stats tab and tracked after the player chooses a feat or stat increase.
+  - The old AI map generator UI was removed from the DM map tab so ZIP/imported maps stay the main workflow.
+
+- [ ] Redesign combat mode for player-owned turns.
+  - Players should see when it is their turn.
+  - Players should be able to mark actions, bonus actions, movement, reactions, attacks, spell use, and end their own turn.
+  - The DM should still be able to override, skip, damage, heal, add conditions, and reorder combat.
+  - Make the combat screen explain itself through clear labels, current-turn highlighting, and simple next-step buttons.
+
+- [ ] Re-test and repair audio in a live DM/player browser session.
+  - Confirm the DM audio state changes save.
+  - Confirm every player gets a clear Enable Audio button before sound starts.
+  - Confirm the chosen audio source actually plays in the browser.
+  - If browser autoplay rules are still blocking it, switch to a simpler player-controlled "join audio" flow.
+
 - [x] Fix encoding/mojibake in docs and UI text.
   - README and task docs had broken icon characters.
   - Several buttons and toast messages have the same issue.

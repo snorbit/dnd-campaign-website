@@ -7,6 +7,7 @@ import { useRealtimeSubscription } from '@/components/shared/hooks/useRealtimeSu
 import { useCampaign } from '@/context/CampaignContext';
 import { buildCharacterStatsDefaults, normalizeCharacterStats } from '@/lib/characterDefaults';
 import { Heart, Shield, Activity, Skull, Zap, Star, Mountain, EyeOff, EarOff, Ghost, Hand, Ban, Flame, Droplets, Link, Eye, Sparkles } from 'lucide-react';
+import LevelUpModal from './LevelUpModal';
 
 interface CharacterStats {
     hp_current: number;
@@ -19,18 +20,22 @@ interface CharacterStats {
     wis: number;
     cha: number;
     proficiency_bonus: number;
+    skills?: Record<string, { proficient?: boolean; expertise?: boolean }>;
 }
 
 interface StatsTabProps {
+    campaignId: string;
     campaignPlayerId: string;
     level: number;
     characterClass: string;
 }
 
-export default function StatsTab({ campaignPlayerId, level, characterClass }: StatsTabProps) {
+export default function StatsTab({ campaignId, campaignPlayerId, level, characterClass }: StatsTabProps) {
     const { state } = useCampaign();
     const [stats, setStats] = useState<CharacterStats | null>(null);
     const [loading, setLoading] = useState(true);
+    const [levelChoices, setLevelChoices] = useState<number[]>([]);
+    const [showLevelUp, setShowLevelUp] = useState(false);
 
     const handleStatsUpdate = useCallback((payload: any) => {
         // payload is the single row update because we subscribe with '*' and it's a single record query
@@ -76,6 +81,14 @@ export default function StatsTab({ campaignPlayerId, level, characterClass }: St
             }
 
             setStats(normalizeCharacterStats(data, {}, level));
+
+            const { data: playerData } = await supabase
+                .from('campaign_players')
+                .select('level_choices')
+                .eq('id', campaignPlayerId)
+                .maybeSingle();
+
+            setLevelChoices(Array.isArray(playerData?.level_choices) ? playerData.level_choices : []);
         } catch (error) {
             console.error('Error loading stats:', error);
             setStats(buildCharacterStatsDefaults({}, level));
@@ -90,6 +103,25 @@ export default function StatsTab({ campaignPlayerId, level, characterClass }: St
 
     const formatModifier = (mod: number) => {
         return mod >= 0 ? `+${mod}` : `${mod}`;
+    };
+
+    const pendingRewardLevel = Array.from({ length: Math.max(level, 1) }, (_, index) => index + 1)
+        .find(rewardLevel => rewardLevel > 1 && !levelChoices.includes(rewardLevel));
+
+    const handleLevelRewardComplete = async () => {
+        if (!pendingRewardLevel) return;
+        const updatedChoices = [...levelChoices, pendingRewardLevel].sort((a, b) => a - b);
+
+        const { error } = await supabase
+            .from('campaign_players')
+            .update({ level_choices: updatedChoices })
+            .eq('id', campaignPlayerId);
+
+        if (!error) {
+            setLevelChoices(updatedChoices);
+            setShowLevelUp(false);
+            await loadStats();
+        }
     };
 
     // Helper to get conditions for this player if there's an active encounter
@@ -196,6 +228,10 @@ export default function StatsTab({ campaignPlayerId, level, characterClass }: St
         { name: 'Charisma', key: 'cha' as keyof CharacterStats, value: stats.cha },
     ];
 
+    const proficientSkills = Object.entries(stats.skills || {})
+        .filter(([, value]) => value?.proficient)
+        .map(([key]) => formatSkillName(key));
+
     return (
         <div className="space-y-6">
             <div className="flex items-center gap-4 mb-6">
@@ -204,6 +240,25 @@ export default function StatsTab({ campaignPlayerId, level, characterClass }: St
                     <p className="text-gray-400">{characterClass}</p>
                 </div>
             </div>
+
+            {pendingRewardLevel && (
+                <div className="rounded-lg border border-yellow-600 bg-yellow-950/30 p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <h3 className="font-bold text-yellow-300">Level {pendingRewardLevel} Reward Available</h3>
+                            <p className="text-sm text-yellow-100/80">
+                                Pick either a feat or stat increase. Think of this like spending the reward your DM gave you for leveling up.
+                            </p>
+                        </div>
+                        <button
+                            onClick={() => setShowLevelUp(true)}
+                            className="rounded bg-yellow-600 px-4 py-2 font-bold text-black transition-colors hover:bg-yellow-500"
+                        >
+                            Choose Reward
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* HP and AC */}
             <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 rounded-xl border p-6 transition-all duration-500 ${getConditionStyles()}`}>
@@ -266,6 +321,46 @@ export default function StatsTab({ campaignPlayerId, level, characterClass }: St
                     </span>
                 </div>
             </div>
+
+            <div className="bg-gray-800 rounded-lg border border-gray-700 p-4">
+                <h3 className="mb-2 font-bold text-white">Skill Proficiencies</h3>
+                {proficientSkills.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                        {proficientSkills.map(skill => (
+                            <span key={skill} className="rounded bg-gray-900 px-3 py-1 text-sm text-gray-200">
+                                {skill}
+                            </span>
+                        ))}
+                    </div>
+                ) : (
+                    <p className="text-sm text-gray-500">No skill proficiencies selected yet.</p>
+                )}
+            </div>
+
+            {showLevelUp && pendingRewardLevel && (
+                <LevelUpModal
+                    campaignId={campaignId}
+                    campaignPlayerId={campaignPlayerId}
+                    currentLevel={pendingRewardLevel}
+                    currentStats={{
+                        str: stats.str,
+                        dex: stats.dex,
+                        con: stats.con,
+                        int: stats.int,
+                        wis: stats.wis,
+                        cha: stats.cha,
+                    }}
+                    onClose={() => setShowLevelUp(false)}
+                    onComplete={handleLevelRewardComplete}
+                />
+            )}
         </div>
     );
+}
+
+function formatSkillName(key: string) {
+    return key
+        .split('_')
+        .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(' ');
 }

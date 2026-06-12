@@ -9,6 +9,8 @@ import { RefreshCw, Map as MapIcon } from 'lucide-react';
 
 interface MapTabProps {
     campaignId: string;
+    campaignPlayerId: string;
+    characterName: string;
 }
 
 interface MapToken {
@@ -19,6 +21,8 @@ interface MapToken {
     color: string;
     size: number;
     imageUrl?: string;
+    ownerId?: string;
+    playerOwned?: boolean;
 }
 
 interface MapPing {
@@ -28,7 +32,7 @@ interface MapPing {
     color: string;
 }
 
-export default function MapTab({ campaignId }: MapTabProps) {
+export default function MapTab({ campaignId, campaignPlayerId, characterName }: MapTabProps) {
     const [mapUrl, setMapUrl] = useState<string>('');
     const [currentMapId, setCurrentMapId] = useState<string>('');
     const [loading, setLoading] = useState(true);
@@ -138,6 +142,8 @@ export default function MapTab({ campaignId }: MapTabProps) {
 
     const handlePointerDown = (e: React.PointerEvent, tokenId: string) => {
         e.stopPropagation(); // prevent map ping
+        const token = tokensRef.current.find(existing => existing.id === tokenId);
+        if (!token || token.ownerId !== campaignPlayerId) return;
         (e.target as HTMLElement).setPointerCapture(e.pointerId);
         setDraggingToken(tokenId);
     };
@@ -190,6 +196,34 @@ export default function MapTab({ campaignId }: MapTabProps) {
         }
     };
 
+    const handleAddPlayerToken = async () => {
+        const existingToken = tokens.find(token => token.ownerId === campaignPlayerId);
+        const nextTokens = existingToken
+            ? tokens
+            : [
+                ...tokens,
+                {
+                    id: crypto.randomUUID(),
+                    x: 50,
+                    y: 50,
+                    label: characterName || 'Player',
+                    color: '#2563eb',
+                    size: 1,
+                    ownerId: campaignPlayerId,
+                    playerOwned: true,
+                },
+            ];
+
+        setTokens(nextTokens);
+        await saveTokensToDb(nextTokens);
+    };
+
+    const handleRemovePlayerToken = async () => {
+        const nextTokens = tokens.filter(token => token.ownerId !== campaignPlayerId);
+        setTokens(nextTokens);
+        await saveTokensToDb(nextTokens);
+    };
+
     if (loading) {
         return (
             <div className="space-y-4">
@@ -236,6 +270,12 @@ export default function MapTab({ campaignId }: MapTabProps) {
                 </div>
                 <div className="flex items-center justify-between gap-3 sm:justify-end">
                     <button
+                        onClick={tokens.some(token => token.ownerId === campaignPlayerId) ? handleRemovePlayerToken : handleAddPlayerToken}
+                        className="rounded bg-blue-600 px-3 py-1.5 text-sm font-bold text-white transition-colors hover:bg-blue-700"
+                    >
+                        {tokens.some(token => token.ownerId === campaignPlayerId) ? 'Remove My Token' : 'Add My Token'}
+                    </button>
+                    <button
                         onClick={() => loadMap()}
                         className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-md transition-all"
                         title="Force Refresh"
@@ -246,7 +286,7 @@ export default function MapTab({ campaignId }: MapTabProps) {
                 </div>
             </div>
 
-            <div className="flex max-h-[82vh] justify-start overflow-auto rounded-lg border border-gray-700 bg-gray-900 p-3 sm:justify-center sm:p-4">
+            <div className="flex max-h-[88vh] justify-start overflow-auto rounded-lg border border-gray-700 bg-gray-900 p-3 sm:justify-center sm:p-4">
                 <div
                     className="relative inline-block select-none touch-none"
                     ref={mapContainerRef}
@@ -262,7 +302,7 @@ export default function MapTab({ campaignId }: MapTabProps) {
                             handleMapClick(e as any);
                         }}
                         className="max-w-none object-contain cursor-crosshair rounded shadow-lg pointer-events-auto"
-                        style={{ maxHeight: '80vh', maxWidth: 'none' }}
+                        style={{ maxHeight: 'none', maxWidth: 'none', minWidth: '900px' }}
                         draggable={false}
                     />
 
@@ -270,7 +310,7 @@ export default function MapTab({ campaignId }: MapTabProps) {
                         <div
                             key={token.id}
                             onPointerDown={(e) => handlePointerDown(e, token.id)}
-                            className={`absolute rounded-full border-2 border-white shadow-[0_0_10px_rgba(0,0,0,0.8)] flex items-center justify-center font-bold text-white text-xs cursor-move hover:scale-110 transition-transform ${draggingToken === token.id ? 'opacity-80 scale-110' : ''}`}
+                            className={`absolute rounded-full border-2 border-white shadow-[0_0_10px_rgba(0,0,0,0.8)] flex items-center justify-center font-bold text-white text-xs transition-transform ${token.ownerId === campaignPlayerId ? 'cursor-move hover:scale-110' : 'cursor-default'} ${draggingToken === token.id ? 'opacity-80 scale-110' : ''}`}
                             style={{
                                 left: `${token.x}%`,
                                 top: `${token.y}%`,

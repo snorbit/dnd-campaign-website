@@ -128,9 +128,10 @@ export default function PlayerCampaignPage() {
                     race={character.race}
                 />;
             case 'map':
-                return <MapTab campaignId={campaignId} />;
+                return <MapTab campaignId={campaignId} campaignPlayerId={character.id} characterName={character.character_name} />;
             case 'stats':
                 return <StatsTab
+                    campaignId={campaignId}
                     campaignPlayerId={character.id}
                     level={character.level || 1}
                     characterClass={characterClass}

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
-import { ChevronLeft, ChevronRight, FolderOpen, Image as ImageIcon, Layers, Loader2, Plus, Search, Trash2, Upload, Wand2, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FolderOpen, Image as ImageIcon, Layers, Loader2, Plus, Search, Trash2, Upload, X } from 'lucide-react';
 import { SkeletonList } from '@/components/shared/ui/SkeletonList';
 import { toast } from 'sonner';
 import { AtlasPlacement, buildAtlas, extractZipMaps, ZipMapEntry } from '@/lib/mapZipImport';
@@ -63,20 +63,6 @@ export default function MapsTab({ campaignId }: MapsTabProps) {
     const [mapTypeFilter, setMapTypeFilter] = useState('All');
     const [importingZip, setImportingZip] = useState(false);
     const [importProgress, setImportProgress] = useState('');
-    const [showAIModal, setShowAIModal] = useState(false);
-    const [aiPrompt, setAIPrompt] = useState('');
-    const [aiGenerating, setAIGenerating] = useState(false);
-    const [aiMapType, setAIMapType] = useState('auto');
-    const [aiSize, setAISize] = useState(1024);
-    const [aiGridSize, setAIGridSize] = useState(32);
-    const [aiIncludeGrid, setAIIncludeGrid] = useState(true);
-    const [generatedMap, setGeneratedMap] = useState<{
-        imageUrl: string;
-        title: string;
-        source: string;
-        metadata?: Record<string, unknown>;
-        warning?: string;
-    } | null>(null);
 
     // Map Pings & Tokens State
     const [pings, setPings] = useState<MapPing[]>([]);
@@ -245,97 +231,6 @@ export default function MapsTab({ campaignId }: MapsTabProps) {
         const updatedTokens = tokens.filter(t => t.id !== id);
         setTokens(updatedTokens);
         await saveTokensToDb(updatedTokens);
-    };
-
-    const generateAIMap = async () => {
-        if (!aiPrompt.trim()) return;
-        setAIGenerating(true);
-        try {
-            const res = await fetch('/api/generate-map-image', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    prompt: aiPrompt,
-                    campaignId,
-                    title: aiPrompt.substring(0, 40),
-                    mapType: aiMapType,
-                    width: aiSize,
-                    height: aiSize,
-                    gridSize: aiGridSize,
-                    includeGrid: aiIncludeGrid,
-                })
-            });
-            const data = await res.json();
-            if (!data.success || !data.imageUrl) {
-                toast.error('Map generation failed', { description: data.error || 'Please try again.' });
-                return;
-            }
-            setGeneratedMap({
-                imageUrl: data.imageUrl,
-                title: data.title || aiPrompt.substring(0, 40),
-                source: data.source || 'generated',
-                metadata: data.metadata,
-                warning: data.warning,
-            });
-            toast.success(data.source === 'procedural' ? 'Procedural map ready' : 'AI map ready', {
-                description: 'Preview it, then save it to your map library.',
-            });
-        } catch (err) {
-            console.error('Error generating AI map:', err);
-            toast.error('Failed to generate map');
-        } finally {
-            setAIGenerating(false);
-        }
-    };
-
-    const saveGeneratedMap = async (displayNow = false) => {
-        if (!generatedMap) return;
-
-        const newMap: Map = {
-            id: crypto.randomUUID(),
-            url: generatedMap.imageUrl,
-            title: generatedMap.title,
-            description: aiPrompt,
-            source: generatedMap.source,
-            group: 'Generated',
-            type: String(generatedMap.metadata?.type || aiMapType || 'Generated'),
-            metadata: {
-                ...generatedMap.metadata,
-                group: 'Generated',
-                type: String(generatedMap.metadata?.type || aiMapType || 'Generated'),
-            },
-        };
-
-        const updatedMaps = [...maps, newMap];
-        const nextCurrentUrl = displayNow ? newMap.url : currentMapUrl;
-        const nextCurrentId = displayNow ? newMap.id : currentMapId;
-
-        try {
-            const { data: currentState } = await supabase.from('campaign_state').select('map').eq('campaign_id', campaignId).single();
-            await supabase.from('campaign_state').update({
-                map: {
-                    ...currentState?.map,
-                    queue: updatedMaps,
-                    url: nextCurrentUrl,
-                    currentMapId: nextCurrentId,
-                    tokens: displayNow ? [] : tokensRef.current,
-                }
-            }).eq('campaign_id', campaignId);
-
-            setMaps(updatedMaps);
-            if (displayNow) {
-                setCurrentMapUrl(newMap.url);
-                setCurrentMapId(newMap.id);
-                setTokens([]);
-            }
-            setShowAIModal(false);
-            setAIPrompt('');
-            setGeneratedMap(null);
-            toast.success(displayNow ? 'Map saved and displayed' : 'Map saved', { description: 'Added to your map library.' });
-        } catch (error) {
-            console.error('Error saving generated map:', error);
-            toast.error('Failed to save generated map');
-        }
     };
 
     const addMap = async () => {
@@ -670,7 +565,7 @@ export default function MapsTab({ campaignId }: MapsTabProps) {
                                 </button>
                             </div>
                         </div>
-                        <div className="max-h-[70vh] w-full overflow-auto text-center">
+                        <div className="max-h-[88vh] w-full overflow-auto text-center">
                             <div
                                 className="relative inline-block select-none touch-none"
                                 ref={mapContainerRef}
@@ -686,7 +581,7 @@ export default function MapsTab({ campaignId }: MapsTabProps) {
                                     handleMapClick(e as any);
                                 }}
                                 className="max-w-none object-contain cursor-crosshair rounded shadow-lg pointer-events-auto"
-                                style={{ maxHeight: currentMap?.source === 'zip-atlas' ? 'none' : '60vh', maxWidth: currentMap?.source === 'zip-atlas' ? 'none' : '100%' }}
+                                style={{ maxHeight: 'none', maxWidth: 'none', minWidth: currentMap?.source === 'zip-atlas' ? '1100px' : '900px' }}
                                 draggable={false}
                             />
 
@@ -958,134 +853,6 @@ export default function MapsTab({ campaignId }: MapsTabProps) {
                 </div>
             )}
 
-            {/* AI Generate Modal */}
-            {showAIModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-3 sm:p-4">
-                    <div className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-lg border border-purple-700 bg-gray-800 p-4 sm:p-6">
-                        <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                                <Wand2 size={20} className="text-purple-400" />
-                                AI Map Generator
-                            </h3>
-                            <button onClick={() => setShowAIModal(false)} className="text-gray-400 hover:text-white">
-                                <X size={20} />
-                            </button>
-                        </div>
-                        <p className="text-gray-400 text-sm mb-4">
-                            Describe the location. Stable Diffusion is used when available; otherwise a procedural battle map is generated.
-                        </p>
-                        <textarea
-                            value={aiPrompt}
-                            onChange={(e) => { setAIPrompt(e.target.value); setGeneratedMap(null); }}
-                            placeholder="Stone dungeon with torches and a central pit trap..."
-                            rows={4}
-                            className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:border-purple-500 focus:outline-none resize-none mb-4"
-                        />
-                        <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                            <label className="text-xs text-gray-300">
-                                Map Type
-                                <select
-                                    value={aiMapType}
-                                    onChange={(e) => { setAIMapType(e.target.value); setGeneratedMap(null); }}
-                                    className="mt-1 w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white"
-                                >
-                                    <option value="auto">Auto Detect</option>
-                                    <option value="tavern">Tavern</option>
-                                    <option value="forest">Forest</option>
-                                    <option value="dungeon">Dungeon</option>
-                                    <option value="desert">Desert</option>
-                                    <option value="cave">Cave</option>
-                                    <option value="castle">Castle</option>
-                                    <option value="town">Town</option>
-                                    <option value="road">Road</option>
-                                    <option value="boss-arena">Boss Arena</option>
-                                </select>
-                            </label>
-                            <label className="text-xs text-gray-300">
-                                Size
-                                <select
-                                    value={aiSize}
-                                    onChange={(e) => { setAISize(Number(e.target.value)); setGeneratedMap(null); }}
-                                    className="mt-1 w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white"
-                                >
-                                    <option value={768}>Small 768</option>
-                                    <option value={1024}>Standard 1024</option>
-                                    <option value={1536}>Large 1536</option>
-                                </select>
-                            </label>
-                            <label className="text-xs text-gray-300">
-                                Grid Size
-                                <select
-                                    value={aiGridSize}
-                                    onChange={(e) => { setAIGridSize(Number(e.target.value)); setGeneratedMap(null); }}
-                                    className="mt-1 w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white"
-                                >
-                                    <option value={24}>24 px</option>
-                                    <option value={32}>32 px</option>
-                                    <option value={48}>48 px</option>
-                                    <option value={64}>64 px</option>
-                                </select>
-                            </label>
-                            <label className="flex items-end gap-2 text-xs text-gray-300 pb-2">
-                                <input
-                                    type="checkbox"
-                                    checked={aiIncludeGrid}
-                                    onChange={(e) => { setAIIncludeGrid(e.target.checked); setGeneratedMap(null); }}
-                                    className="h-4 w-4"
-                                />
-                                Show Grid
-                            </label>
-                        </div>
-                        {generatedMap && (
-                            <div className="mb-4 rounded-lg border border-gray-700 bg-gray-900 p-3">
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="text-sm font-bold text-white">{generatedMap.title}</span>
-                                    <span className="text-xs text-purple-300 uppercase">{generatedMap.source}</span>
-                                </div>
-                                <img src={generatedMap.imageUrl} alt="Generated map preview" className="w-full max-h-72 object-contain rounded border border-gray-700 bg-black" />
-                                {generatedMap.warning && (
-                                    <p className="mt-2 text-xs text-yellow-300">{generatedMap.warning}</p>
-                                )}
-                            </div>
-                        )}
-                        <div className="flex flex-col gap-3 sm:flex-row">
-                            <button
-                                onClick={generateAIMap}
-                                disabled={aiGenerating || !aiPrompt.trim()}
-                                className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:from-gray-600 disabled:to-gray-600 text-white font-bold py-2 px-4 rounded-lg transition-all flex items-center justify-center gap-2"
-                            >
-                                {aiGenerating ? (
-                                    <><Loader2 size={16} className="animate-spin" />Generating...</>
-                                ) : (
-                                    <><Wand2 size={16} />{generatedMap ? 'Regenerate' : 'Generate'}</>
-                                )}
-                            </button>
-                            {generatedMap && (
-                                <button
-                                    onClick={() => saveGeneratedMap(false)}
-                                    className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white py-2 px-4 rounded-lg transition-colors"
-                                >
-                                    Save
-                                </button>
-                            )}
-                            {generatedMap && (
-                                <button
-                                    onClick={() => saveGeneratedMap(true)}
-                                    className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg transition-colors"
-                                >
-                                    Display
-                                </button>
-                            )}
-                            <button
-                                onClick={() => { setShowAIModal(false); setAIPrompt(''); setGeneratedMap(null); }}
-                                className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded-lg transition-colors"
-                            >
-                                Cancel
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }
